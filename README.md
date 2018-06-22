@@ -1,0 +1,21 @@
+# Netis Packet Agent 0.3.0
+
+[![Stable release](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.0)
+[![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](LICENSE)
+
+Netis Packet Agent lets you easily captures packets on network interface card, encapsulates the packets with GRE, and then sends them to remote machine for monitoring and analyzing.
+
+## Release Information
+Here are the latest [Changes](CHANGES.md).
+
+## Documentation
+* Netis Pktminerg [Install](INSTALL.md) and [Usage](USAGE.md).
+* Netis Pktminerg [Build requirements and step](BUILD.md).
+
+## Support
+Please report issues and suggestions via
+[GitHub issues](https://github.com/Netis/packet-agent/issues).
+
+## Engineering team contacts
+* [E-mail us.](mailto:developer@netis.com.cn)
+<br>
