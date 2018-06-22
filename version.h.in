@@ -1,0 +1,42 @@
+#ifndef PKTMINERG_VERSION_H
+#define PKTMINERG_VERSION_H
+
+/**
+ * PKTMINERG_MAJOR_VERSION
+ *
+ * PKTMINERG major version component (e.g. 1 if %PKTMINERG_VERSION is 1.2.3)
+ */
+#define PKTMINERG_MAJOR_VERSION (@PKTMINERG_MAJOR_VERSION@)
+
+/**
+ * PKTMINERG_MINOR_VERSION
+ *
+ * PKTMINERG minor version component (e.g. 2 if %PKTMINERG_VERSION is 1.2.3)
+ */
+#define PKTMINERG_MINOR_VERSION (@PKTMINERG_MINOR_VERSION@)
+
+/**
+ * PKTMINERG_PATCH_VERSION
+ *
+ * PKTMINERG patch version component (e.g. 3 if %PKTMINERG_VERSION is 1.2.3)
+ */
+#define PKTMINERG_PATCH_VERSION (@PKTMINERG_PATCH_VERSION@)
+
+/**
+ * PKTMINERG_VERSION
+ *
+ * PKTMINERG version.
+ */
+#define PKTMINERG_VERSION "@PKTMINERG_VERSION_STRING@"
+
+/**
+ *  git branch
+ */
+#define PKTMINERG_GIT_BRANCH "@GIT_BRANCH@"
+#define PKTMINERG_GIT_COMMIT_HASH "@GIT_COMMIT_HASH@"
+
+/**
+ *  build time
+ */
+#define PKTMINERG_BUILD_TIME "@BUILD_TIME@"
+#endif

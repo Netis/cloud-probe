@@ -1,0 +1,6 @@
+.idea
+build
+installer
+bin/
+!.gitignore
+/cmake-build-debug/
