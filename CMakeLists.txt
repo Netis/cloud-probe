@@ -51,26 +51,31 @@ configure_file(
         ${PROJECT_BINARY_DIR}/version.h
 )
 
-find_library(LIBPCAP NAMES libpcap.so.1)
-if (NOT LIBPCAP)
-    message(FATAL_ERROR "lib pcap not found")
-endif ()
 
-message("LIBPCAP: " ${LIBPCAP})
+if(UNIX AND NOT APPLE)
+    find_library(LIBPCAP NAMES libpcap.so.1)
+    if (NOT LIBPCAP)
+        message(FATAL_ERROR "lib pcap not found")
+    endif ()
 
-find_library(LIBSTDCPP NAMES libstdc++.so.6)
-if (NOT LIBSTDCPP)
-    message(FATAL_ERROR "lib stdcpp not found")
-endif ()
+    message("LIBPCAP: " ${LIBPCAP})
 
-message("LIBSTDCPP: " ${LIBSTDCPP})
+    find_library(LIBSTDCPP NAMES libstdc++.so.6)
+    if (NOT LIBSTDCPP)
+        message(FATAL_ERROR "lib stdcpp not found")
+    endif ()
 
-find_library(LIBGCCS NAMES libgcc_s.so.1)
-if (NOT LIBGCCS)
-    message(FATAL_ERROR "lib gccs not found")
-endif ()
+    message("LIBSTDCPP: " ${LIBSTDCPP})
 
-message("LIBGCCS: " ${LIBGCCS})
+    find_library(LIBGCCS NAMES libgcc_s.so.1)
+    if (NOT LIBGCCS)
+        message(FATAL_ERROR "lib gccs not found")
+    endif ()
+
+    message("LIBGCCS: " ${LIBGCCS})
+else()
+    add_definitions(-DMAC)
+endif()
 
 INCLUDE(FindBoost)
 set(Boost_USE_STATIC_LIBS ON)
@@ -85,59 +90,61 @@ include_directories(
         ${Boost_INCLUDE_DIRS}
 )
 
-# link dir
+if(UNIX AND NOT APPLE)
+    # link dir
 link_directories(${Boost_LIBRARY_DIRS})
 
 # read the real file which libpcap.so links to
-execute_process(COMMAND readlink -f ${LIBPCAP}
-        OUTPUT_VARIABLE PCAP_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
-message("PCAP REAL FILE: " ${PCAP_REAL_FILE})
+    execute_process(COMMAND readlink -f ${LIBPCAP}
+            OUTPUT_VARIABLE PCAP_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message("PCAP REAL FILE: " ${PCAP_REAL_FILE})
 
-# read the real file which libstdc++.so links to
-execute_process(COMMAND readlink -f ${LIBSTDCPP}
-        OUTPUT_VARIABLE STDCPP_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
-message("STDCPP REAL FILE: " ${STDCPP_REAL_FILE})
+    # read the real file which libstdc++.so links to
+    execute_process(COMMAND readlink -f ${LIBSTDCPP}
+            OUTPUT_VARIABLE STDCPP_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message("STDCPP REAL FILE: " ${STDCPP_REAL_FILE})
 
-# read the real file which libgcc_s.so links to
-execute_process(COMMAND readlink -f ${LIBGCCS}
-        OUTPUT_VARIABLE GCCS_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
-message("GCCS REAL FILE: " ${GCCS_REAL_FILE})
+    # read the real file which libgcc_s.so links to
+    execute_process(COMMAND readlink -f ${LIBGCCS}
+            OUTPUT_VARIABLE GCCS_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message("GCCS REAL FILE: " ${GCCS_REAL_FILE})
 
-# read the real file which libboost_*.so links to
-execute_process(COMMAND readlink -f ${Boost_FILESYSTEM_LIBRARY}
-        OUTPUT_VARIABLE BOOST_FILESYSTEM_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND readlink -f ${Boost_PROGRAM_OPTIONS_LIBRARY}
-        OUTPUT_VARIABLE BOOST_PROGRAM_OPTIONS_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND readlink -f ${Boost_SYSTEM_LIBRARY}
-        OUTPUT_VARIABLE BOOST_SYSTEM_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    # read the real file which libboost_*.so links to
+    execute_process(COMMAND readlink -f ${Boost_FILESYSTEM_LIBRARY}
+            OUTPUT_VARIABLE BOOST_FILESYSTEM_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND readlink -f ${Boost_PROGRAM_OPTIONS_LIBRARY}
+            OUTPUT_VARIABLE BOOST_PROGRAM_OPTIONS_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND readlink -f ${Boost_SYSTEM_LIBRARY}
+            OUTPUT_VARIABLE BOOST_SYSTEM_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-# mkdir tmp dir to store third party lib
-file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/netis)
-file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
 
-file(COPY
-        ${BOOST_FILESYSTEM_REAL_FILE}
-        ${BOOST_PROGRAM_OPTIONS_REAL_FILE}
-        ${BOOST_SYSTEM_REAL_FILE}
-        ${PCAP_REAL_FILE}
-        ${STDCPP_REAL_FILE}
-        ${GCCS_REAL_FILE}
-        DESTINATION ${PROJECT_BINARY_DIR}/3rdlib
-        )
+    # mkdir tmp dir to store third party lib
+    file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/netis)
+    file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
 
-# make link file
-execute_process(COMMAND basename ${LIBPCAP} OUTPUT_VARIABLE BN_PCAP_LINK OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND basename ${PCAP_REAL_FILE} OUTPUT_VARIABLE BN_PCAP_REAL OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND ln -s ${BN_PCAP_REAL} ${BN_PCAP_LINK} WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
+    file(COPY
+            ${BOOST_FILESYSTEM_REAL_FILE}
+            ${BOOST_PROGRAM_OPTIONS_REAL_FILE}
+            ${BOOST_SYSTEM_REAL_FILE}
+            ${PCAP_REAL_FILE}
+            ${STDCPP_REAL_FILE}
+            ${GCCS_REAL_FILE}
+            DESTINATION ${PROJECT_BINARY_DIR}/3rdlib
+            )
 
-execute_process(COMMAND basename ${LIBSTDCPP} OUTPUT_VARIABLE BN_STDCPP_LINK OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND basename ${STDCPP_REAL_FILE} OUTPUT_VARIABLE BN_STDCPP_REAL OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND ln -s ${BN_STDCPP_REAL} ${BN_STDCPP_LINK} WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
+    # make link file
+    execute_process(COMMAND basename ${LIBPCAP} OUTPUT_VARIABLE BN_PCAP_LINK OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND basename ${PCAP_REAL_FILE} OUTPUT_VARIABLE BN_PCAP_REAL OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ln -s ${BN_PCAP_REAL} ${BN_PCAP_LINK} WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
 
-execute_process(COMMAND basename ${LIBGCCS} OUTPUT_VARIABLE BN_GCCS_LINK OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND basename ${GCCS_REAL_FILE} OUTPUT_VARIABLE BN_GCCS_REAL OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND ln -s ${BN_GCCS_REAL} ${BN_GCCS_LINK} WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
+    execute_process(COMMAND basename ${LIBSTDCPP} OUTPUT_VARIABLE BN_STDCPP_LINK OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND basename ${STDCPP_REAL_FILE} OUTPUT_VARIABLE BN_STDCPP_REAL OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ln -s ${BN_STDCPP_REAL} ${BN_STDCPP_LINK} WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
 
+    execute_process(COMMAND basename ${LIBGCCS} OUTPUT_VARIABLE BN_GCCS_LINK OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND basename ${GCCS_REAL_FILE} OUTPUT_VARIABLE BN_GCCS_REAL OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ln -s ${BN_GCCS_REAL} ${BN_GCCS_LINK} WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
+endif()
 # link dir
 link_directories(${PROJECT_SOURCE_DIR}/lib)
 
@@ -197,16 +204,17 @@ target_link_libraries(pcapcompare ${BOOST_LIB} pcap)
 add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
 target_link_libraries(pktminerg ${BOOST_LIB} pcap)
 
-# test
-set(TEST_DIR ${PROJECT_SOURCE_DIR}/test)
-set(GTEST_LIB gtest gtest_main)
+if(UNIX AND NOT APPLE)
+    # test
+    set(TEST_DIR ${PROJECT_SOURCE_DIR}/test)
+    set(GTEST_LIB gtest gtest_main)
 
-# unit test
-set(SOURCE_FILES_UNITTEST ${TEST_DIR}/unit_test.cpp)
-add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
-target_link_libraries(unittest ${GTEST_LIB} ${BOOST_LIB} pcap pthread)
-set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
-
+    # unit test
+    set(SOURCE_FILES_UNITTEST ${TEST_DIR}/unit_test.cpp)
+    add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
+    target_link_libraries(unittest ${GTEST_LIB} ${BOOST_LIB} pcap pthread)
+    set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
+endif()
 
 install(FILES
         DESTINATION lib COMPONENT pktminerg)

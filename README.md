@@ -9,8 +9,8 @@ Netis Packet Agent lets you easily captures packets on network interface card, e
 Here are the latest [Changes](CHANGES.md).
 
 ## Documentation
-* Netis Pktminerg [Install](INSTALL.md) and [Usage](USAGE.md).
-* Netis Pktminerg [Build requirements and step](BUILD.md).
+* Netis Packet Agent [Install](INSTALL.md) and [Usage](USAGE.md).
+* Netis Packet Agent [Build requirements and step](BUILD.md).
 
 ## Support
 Please report issues and suggestions via
