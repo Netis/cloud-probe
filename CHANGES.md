@@ -7,7 +7,7 @@ Netis Packet Agent.
 Initial release.
 
 ### Features
-* Lets you easily capture packets on network interface card, encapsulate the packets with GRE, and then sends them to remote machine for monitoring and analyzing.
+* Lets you easily capture packets from an NIC interface, encapsulate the packets with GRE, and then send them to a remote machine for monitoring and analysis.
 
 ### Documentation:
 * First Use Documents: [README](README.md), [INSTALL](INSTALL.md), [USAGE](USAGE.md), [BUILD](BUILD.md), [CHANGES](CHANGES.md), [LICENSE](LICENSE.md).
