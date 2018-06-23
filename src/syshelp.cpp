@@ -8,6 +8,9 @@
 
 // set self proc and all thread to very high priority, return 0 if success
 int set_high_setpriority() {
+#ifdef MAC
+    return 0;
+#else
     int rc;
     pid_t pgid;
 
@@ -22,10 +25,14 @@ int set_high_setpriority() {
     }
 
     return rc;
+#endif
 }
 
 // bind cpu to given core, return 0 if success
 int set_cpu_affinity(int cpu) {
+#ifdef MAC
+    return 0;
+#else
     cpu_set_t cpu_mask;
     CPU_ZERO(&cpu_mask);
     CPU_SET(cpu, &cpu_mask);
@@ -33,4 +40,5 @@ int set_cpu_affinity(int cpu) {
         return -1;
     }
     return 0;
+#endif
 }
