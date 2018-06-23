@@ -9,8 +9,8 @@ Netis Packet Agent lets you easily capture packets from an NIC interface, encaps
 Here are the latest [Changes](CHANGES.md).
 
 ## Documentation
-* Netis Pktminerg [Install](INSTALL.md) and [Usage](USAGE.md).
-* Netis Pktminerg [Build requirements and step](BUILD.md).
+* Netis Packet Agent [Install](INSTALL.md) and [Usage](USAGE.md).
+* Netis Packet Agent [Build requirements and step](BUILD.md).
 
 ## Support
 Please report issues and suggestions via
