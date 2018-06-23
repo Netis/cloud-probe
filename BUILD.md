@@ -2,7 +2,7 @@
 
 ## Required Operating Systems
 * CentOS 6.x or CentOS 7.x
-* Mac OS X
+* Mac OS X (experimental)
     
 ## Required compilers
 * GCC 4.8.5 or higher
