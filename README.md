@@ -17,5 +17,5 @@ Please report issues and suggestions via
 [GitHub issues](https://github.com/Netis/packet-agent/issues).
 
 ## Engineering team contacts
-* [E-mail us.](mailto:developer@netis.com.cn)
+* [E-mail us.](mailto:developer@netis.com)
 <br>
