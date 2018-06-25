@@ -51,8 +51,8 @@ ls /usr/local/lib/libpcap*
 ```
 2. And then, we recommend your to install [brew](https://brew.sh/) for easier package management.
 ```shell
-# install brootstrap
-brew install brootstrap
+# install boost
+brew install boost
 ```
 2. Clone or download the project.
 3. Build the project.
@@ -67,14 +67,14 @@ ls ../bin
 gredemo*     gredump*     pcapcompare* pktminerg*
 ``` 
 ## FAQ Troubles in building
-* Q: CMake Error 51
+### Q: CMake Error 51
 ```shell
 CMake Error at /usr/local/Cellar/cmake/3.9.4/share/cmake/Modules/CMakeTestCCompiler.cmake:51 (message):
   The C compiler "/usr/bin/cc" is not able to compile a simple test program.
 ```
-	* A: To solve this problem, first your should check that [Xcode](https://developer.apple.com/xcode/) has been installed on your machine. And then make sure the accept the  xcodebuild license.
-	```shell
-	sudo xcodebuild -license accept
-	```
+A: To solve this problem, first your should check that [Xcode](https://developer.apple.com/xcode/) has been installed on your machine. And then make sure the accept the  xcodebuild license.
+```shell
+sudo xcodebuild -license accept
+```
   
 
