@@ -32,7 +32,7 @@ int main(int argc, const char* argv[]) {
             ("count,c", boost::program_options::value<int>()->default_value(0)->value_name("COUNT"),
              "exit after receiving count packets; COUNT defaults; count<=0 means unlimited")
             ("priority,p", "set high priority mode")
-            ("cpu", boost::program_options::value<int>()->value_name("ID"), "set cpu affinity")
+            ("cpu", boost::program_options::value<int>()->value_name("ID"), "set cpu affinity ID")
             ("expression", boost::program_options::value<std::vector<std::string>>()->value_name("FILTER"),
              R"(filter packets with FILTER; FILTER as same as tcpdump BPF expression syntax)")
             ("dump", "specify dump file, mostly for integrated test")

@@ -118,7 +118,7 @@ void GreSendStatisLog::logSendStatis(uint64_t pkt_time, uint32_t caplen, uint64_
 
 void GreSendStatisLog::init(const char* name) {
     initStatisLogFmt(name, "# [now] first_time,pkt_time,ps_recv,ps_drop,ps_ifdrop,filter_drop,,"
-        "live_time,bps,pps,,send_num,send_drop");
+        "live_time,bps,pps,,send_num,total_send_drop:send_drop");
 }
 
 void GreSendStatisLog::logSendStatisGre(uint64_t pkt_time, uint32_t caplen, uint64_t count, uint64_t drop_count,
