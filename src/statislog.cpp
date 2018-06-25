@@ -2,6 +2,14 @@
 #include <cstring>
 #include <iostream>
 
+std::string StatisLogContext::getTimeString() {
+    char time_buffer[LOG_TIME_BUF_LEN];
+    const auto now = time(NULL);
+    const auto* ts = localtime(&now);
+    strftime(time_buffer, LOG_TIME_BUF_LEN, "%Y-%m-%d %H:%M:%S", ts);
+    return std::string("[") + time_buffer + std::string("] ");
+}
+
 StatisLogContext::StatisLogContext(bool bQuiet) :
     bQuiet_(bQuiet) {
     log_count_      = 0;
@@ -150,6 +158,6 @@ void GreSendStatisLog::logSendStatisGre(std::time_t current, uint64_t pkt_time, 
 
 void GreSendStatisLog::__process_send_gre_buffer(uint64_t num, uint64_t drop_count) {
     // send_num,send_pos,occupy
-    std::snprintf(gre_buffer_, sizeof(gre_buffer_), "%ld,%ld:%ld,", num, drop_count,
+    std::snprintf(gre_buffer_, sizeof(gre_buffer_), "%ld,%ld:%ld.", num, drop_count,
                   drop_count - last_drop_count_);
 }
