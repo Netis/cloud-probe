@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 2.8)
 project(pktminerg)
 
 option(PROJECT_WITH_PROF "Enable profiling and coverage report analysis" OFF)
@@ -15,7 +15,7 @@ endif ()
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
 set(PKTMINERG_MAJOR_VERSION "0")
 set(PKTMINERG_MINOR_VERSION "3")
-set(PKTMINERG_PATCH_VERSION "0")
+set(PKTMINERG_PATCH_VERSION "1")
 set(PKTMINERG_VERSION_STRING "${PKTMINERG_MAJOR_VERSION}.${PKTMINERG_MINOR_VERSION}.${PKTMINERG_PATCH_VERSION}")
 
 # Get the current working branch
