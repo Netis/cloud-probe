@@ -1,4 +1,6 @@
 # Usage
+
+## Usage for pktminerg
 ```
 Generic options:
   -v [ --version ]      show version.
@@ -28,9 +30,8 @@ Allowed options:
                                   the gre interface
 
 ```
-<br>
 
-## Paramters
+### Paramters
 
 * interface<br>
 Network interface to capture packets (eth0, eth1...). Required in live mode.
@@ -56,19 +57,25 @@ You can set the "--nofilter" paramter to close the filter function to improve pe
 expression: This parameter is used to match and filter the packets (syntax is same with tcpdump).
 This parameter will be invalid if "nofilter" parameter is set.
 
-
-## Example
-* Network interface example<br>
+### Examples
+* Network interface example
+```
 pktminerg -i eth0 -r 172.16.1.201
-
-* Pcap file example<br>
+```
+* Pcap file example
+```
 pktminerg -f sample.pcap -r 172.16.1.201
-
-* Filter example<br>
+```
+* Filter example
+```
 pktminerg -i eth0 -r 172.16.1.201 --expression '172.16.1.12'
-
-* CPU affinity and high priority example<br>
+```
+* CPU affinity and high priority example
+```
 pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
-
-* nofilter example, the packet capture network interface must different from the GRE output interface<br>
+```
+* nofilter example, the packet capture network interface must different from the GRE output interface
+```
 pktminerg -i eth0 -r 172.16.1.201 --nofilter
+```
+
