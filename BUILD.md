@@ -39,7 +39,7 @@ gredemo*     gredump*     pcapcompare* pktminerg*
 
 # Build on Mac OS X
 ## Build steps
-1. Perpair the environment. You should install [Xcode](https://developer.apple.com/xcode/) first. 
+1. Prepair the environment. You should install [Xcode](https://developer.apple.com/xcode/) first. 
 2. Download the latest release for libpcap form [tcpdump stie](http://www.tcpdump.org). Extract the zip.
 ```shell
 cd /path/to/libpcap
