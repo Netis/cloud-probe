@@ -40,16 +40,16 @@ gredemo*     gredump*     pcapcompare* pktminerg*
 # Build on Mac OS X
 ## Build steps
 1. Prepair the environment. You should install [Xcode](https://developer.apple.com/xcode/) first. 
-2. Download the latest release for libpcap form [tcpdump stie](http://www.tcpdump.org). Extract the zip.
+2. Download the latest release for libpcap form [tcpdump stie](http://www.tcpdump.org). Extract the zip. Then go to the folder and build the library.
 ```shell
 cd /path/to/libpcap
 ./configure 
 make
 make install
-# Check that libpcap.a and libpcap.dylib exists.
+# Check that libpcap.a and libpcap.dylib exist.
 ls /usr/local/lib/libpcap*
 ```
-2. And then, we recommend your to install [brew](https://brew.sh/) for easier package management.
+2. And then, we recommend you to install [brew](https://brew.sh/) for easier package management.
 ```shell
 # install boost
 brew install boost
@@ -72,7 +72,7 @@ gredemo*     gredump*     pcapcompare* pktminerg*
 CMake Error at /usr/local/Cellar/cmake/3.9.4/share/cmake/Modules/CMakeTestCCompiler.cmake:51 (message):
   The C compiler "/usr/bin/cc" is not able to compile a simple test program.
 ```
-A: To solve this problem, first your should check that [Xcode](https://developer.apple.com/xcode/) has been installed on your machine. And then make sure the accept the  xcodebuild license.
+A: To solve this problem, first your should check that [Xcode](https://developer.apple.com/xcode/) has been installed on your machine. And then make sure you've accepted the xcodebuild license.
 ```shell
 sudo xcodebuild -license accept
 ```
