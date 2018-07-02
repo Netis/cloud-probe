@@ -7,19 +7,24 @@ Netis Packet Agent is an open source project to deal with such situation: it cap
 - There is neither [TAP](https://en.wikipedia.org/wiki/Network_tap) nor [SPAN](http://docwiki.cisco.com/wiki/Internetworking_Terms:_Switched_Port_Analyzer_(SPAN)) device in a physical environment.
 - The Virtual Switch [Flow Table](https://wiki.openstack.org/wiki/Ovs-flow-logic) does not support SPAN function in a virtualization environment.
 
-Ando also, this project aims to develop a suite of low cost but high efficiency tools to survive the challenge above. The *pktminerg* is the very first one, which makes you easily to capture packets from an NIC interface, encapsulate the packets with GRE, and then send them to a remote machine for monitoring and analysis.
+Also, this project aims at developing a suite of low cost but high efficiency tools to survive the challenge above. *pktminerg* is the very first one, which makes you easily capture packets from an NIC interface, encapsulate them with GRE and send them to a remote machine for monitoring and analysis.
 
 ## Release Information
-Here are the latest [Changes](CHANGES.md).
+
+[Changes](CHANGES.md).
 
 ## Documentation
-* Netis Packet Agent [Install](INSTALL.md) and [Usage](USAGE.md).
-* Netis Packet Agent [Build requirements and step](BUILD.md).
+
+* [Installation](INSTALL.md) and [Usage](USAGE.md).
+* [Build requirements and steps](BUILD.md).
 
 ## Support
+
 Please report issues and suggestions via
 [GitHub issues](https://github.com/Netis/packet-agent/issues).
 
-## Engineering team contacts
-* [E-mail us.](mailto:developer@netis.com)
+## Contact us
+
+* [E-mail us](mailto:developer@netis.com)
+
 <br>
