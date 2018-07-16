@@ -35,15 +35,18 @@ Allowed options:
 
 * interface<br>
 Network interface to capture packets (eth0, eth1...). Required in live mode.
+<br>
 
 * remoteip, keybit<br>
 Parameters of GRE channel:
 remoteip：GRE channel remote IP addresss (required)
 keybit：GRE protocol keybit parameter to distinguish the channel to remote IP
+<br>
 
 * cpu, priority<br>
 cpu：set CPU affinity to improve performance, it's recommended to isolate target CPU core in grub before set affinity.
 priority: set high priority for the process to improve performance.
+<br>
 
 * nofilter<br>
 When pktminerg capture packets on one network interface and send GRE packet to remote IP via the same interface,
@@ -52,10 +55,12 @@ The filter is on by default with libpcap packet filter which will cause performa
 You can set the "--nofilter" paramter to close the filter function to improve performance with the following scenarios:
   1. The packet capture network interface is different from the GRE output interface.
   2. There is no IP set on the packet capture network interface. (In this scenario, the program can't work without --nofilter)
+<br>
 
 * expression<br>
 expression: This parameter is used to match and filter the packets (syntax is same with tcpdump).
 This parameter will be invalid if "nofilter" parameter is set.
+<br>
 
 ### Examples
 * Network interface example
@@ -77,5 +82,88 @@ pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
 * nofilter example, the packet capture network interface must different from the GRE output interface
 ```
 pktminerg -i eth0 -r 172.16.1.201 --nofilter
+```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+## Usage for pcapcompare
+```
+Generic options:
+  -v [ --version ]       show version.
+  -h [ --help ]          show help.
+
+Allowed options:
+  --lpcap arg            pcap file 1
+  --rpcap arg            pcap file 2
+```
+
+### Paramters
+* lpcap<br>
+Left pcap file to compare.
+<br>
+
+* rpcap<br>
+Right pcap file to compare.
+<br>
+
+### Examples
+```
+pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
+```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+## Usage for gredump
+```
+Generic options:
+  -v [ --version ]         show version.
+  -h [ --help ]            show help.
+
+Allowed options:
+  -i [ --interface ] arg   interface to snoop.
+  -f [ --pcapfile ] arg    specify pcap file for offline mode, mostly for test.
+  -s [ --sourceip ] arg    source ip filter.
+  -r [ --remoteip ] arg    gre remote ip filter.
+  -k [ --keybit ] arg      gre key bit filter.
+  -o [ --output ] arg      output pcap file
+  -c [ --count ] arg (=0)  Exit after receiving count packets. Default=0, No limit if count<=0.
+```
+
+### Paramters
+* interface<br>
+Network interface to capture gre packets (eth0, eth1...). Required in live mode.
+<br>
+
+* pcapfile<br>
+Input packets from the specified pcap file for offline mode. Mostly for test.
+<br>
+
+* sourceip, remoteip, keybit<br>
+sourceip：Drop captured GRE packet if its source ip doesn't match specified sourceip.<br>
+remoteip：Drop captured GRE packet if its remote ip doesn't match specified remoteip.<br>
+keybit：Drop captured GRE packet if its GRE channel keybit doesn't match specified keybit.
+<br>
+
+* output<br>
+Output pcap file
+<br>
+
+* count<br>
+Exit after receiving count packets. Default=0, No limit if count <= 0.
+<br>
+
+### Examples
+```
+gredump -i eth0 -o /path/to/gredump_output.pcap
 ```
 
