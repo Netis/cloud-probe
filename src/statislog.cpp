@@ -2,6 +2,9 @@
 #include <cstring>
 #include <iostream>
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
 std::string StatisLogContext::getTimeString() {
     char time_buffer[LOG_TIME_BUF_LEN];
     const auto now = time(NULL);
@@ -69,7 +72,7 @@ void StatisLogContext::__process_bps_pps_buffer(std::time_t timep) {
     if(last_log_time_ == 0 || delta_time == 0) {
         std::snprintf(bps_pps_buffer_, sizeof(bps_pps_buffer_) - 1, "%ld,0,0", timep-start_log_time_);
     } else {
-        std::snprintf(bps_pps_buffer_, sizeof(bps_pps_buffer_) - 1, "%ld,%ld,%ld", timep-start_log_time_,
+        std::snprintf(bps_pps_buffer_, sizeof(bps_pps_buffer_) - 1, "%ld,%" PRIu64 ",%" PRIu64, timep-start_log_time_,
                      total_cap_bytes_*8 / delta_time, total_packets_ / delta_time);
     }
 }
@@ -79,10 +82,10 @@ void StatisLogContext::__process_send_statis_buffer(uint64_t pkt_time, uint64_t 
     // ps_recv, ps_drop - start_drop, ps_ifdrop, filter_drop
     struct pcap_stat stat;
     if (handle != NULL && pcap_stats(handle, &stat) == 0) {
-        std::snprintf(statis_buffer_, sizeof(statis_buffer_), "%ld,%ld,%u,%u,%u,%ld", first_pkt_time_, pkt_time, stat.ps_recv,
+        std::snprintf(statis_buffer_, sizeof(statis_buffer_), "%" PRIu64 ",%" PRIu64 ",%u,%u,%u,%" PRIu64, first_pkt_time_, pkt_time, stat.ps_recv,
                      stat.ps_drop - start_drop_, stat.ps_ifdrop, filter_drop);
     } else {
-        std::snprintf(statis_buffer_, sizeof(statis_buffer_), "%ld,%ld,0,0,0,%ld", first_pkt_time_, pkt_time, filter_drop);
+        std::snprintf(statis_buffer_, sizeof(statis_buffer_), "%" PRIu64 ",%" PRIu64 ",0,0,0,%" PRIu64, first_pkt_time_, pkt_time, filter_drop);
     }
 }
 
@@ -158,6 +161,6 @@ void GreSendStatisLog::logSendStatisGre(std::time_t current, uint64_t pkt_time, 
 
 void GreSendStatisLog::__process_send_gre_buffer(uint64_t num, uint64_t drop_count) {
     // send_num,send_pos,occupy
-    std::snprintf(gre_buffer_, sizeof(gre_buffer_), "%ld,%ld:%ld.", num, drop_count,
+    std::snprintf(gre_buffer_, sizeof(gre_buffer_), "%" PRIu64 ",%" PRIu64 ":%" PRIu64 ",", num, drop_count,
                   drop_count - last_drop_count_);
 }
