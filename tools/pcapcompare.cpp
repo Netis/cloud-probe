@@ -14,8 +14,8 @@ int main(int argc, const char* argv[]) {
 
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
-        ("lpcap", boost::program_options::value<std::string>(), "pcap file 1")
-        ("rpcap", boost::program_options::value<std::string>(), "pcap file 2");
+        ("lpcap", boost::program_options::value<std::string>()->value_name("PCAP_PATH"), "pcap file 1")
+        ("rpcap", boost::program_options::value<std::string>()->value_name("PCAP_PATH"), "pcap file 2");
     boost::program_options::positional_options_description position;
     position.add("lpcap", 1);
     position.add("rpcap", 2);

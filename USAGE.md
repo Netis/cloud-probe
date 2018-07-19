@@ -98,8 +98,8 @@ Generic options:
   -h [ --help ]          show help.
 
 Allowed options:
-  --lpcap arg            pcap file 1
-  --rpcap arg            pcap file 2
+  --lpcap PCAP_PATH      pcap file 1
+  --rpcap PCAP_PATH      pcap file 2
 ```
 
 ### Paramters
@@ -126,17 +126,18 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 ## Usage for gredump
 ```
 Generic options:
-  -v [ --version ]         show version.
-  -h [ --help ]            show help.
+  -v [ --version ]             show version.
+  -h [ --help ]                show help.
 
 Allowed options:
-  -i [ --interface ] arg   interface to snoop.
-  -f [ --pcapfile ] arg    specify pcap file for offline mode, mostly for test.
-  -s [ --sourceip ] arg    source ip filter.
-  -r [ --remoteip ] arg    gre remote ip filter.
-  -k [ --keybit ] arg      gre key bit filter.
-  -o [ --output ] arg      output pcap file
-  -c [ --count ] arg (=0)  Exit after receiving count packets. Default=0, No limit if count<=0.
+  -i [ --interface ] NIC       interface to capture packets.
+  -f [ --pcapfile ] PATH       specify pcap file for offline mode, mostly for test.
+  -s [ --sourceip ] SRC_IP     source ip filter.
+  -r [ --remoteip ] DST_IP     gre remote ip filter.
+  -k [ --keybit ] BIT          gre key bit filter.
+  -o [ --output ] OUT_PCAP     output pcap file
+  -c [ --count ] MAX_NUM (=0)  Exit after receiving count packets. Default=0, 
+                               No limit if count<=0.
 ```
 
 ### Paramters
