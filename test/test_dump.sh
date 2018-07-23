@@ -5,6 +5,11 @@ if [ ! $1 ]; then
     NIC='eth0'
 fi
 
+COMPARE=compare
+if [ "$2" == "nocompare" ]; then
+    COMPARE=nocompare
+fi
+
 rm -rf gredump.pcap
 rm -rf pktminer_dump.pcap
 
@@ -19,6 +24,8 @@ killall tcpreplay
 killall pktminerg
 killall gredump
 
-../bin/pcapcompare pktminer_dump.pcap gredump.pcap
+if [ "$COMPARE" == "compare" ]; then
+    ../bin/pcapcompare pktminer_dump.pcap gredump.pcap
+fi
 
 
