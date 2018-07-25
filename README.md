@@ -1,6 +1,7 @@
 
 English  ∙  [简体中文](README-zh-Hans.md) 
 
+![title](./title.png)
 # Netis Packet Agent 0.3.0
 
 [![Stable release](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.0)
@@ -66,8 +67,7 @@ For build precondition and steps, please refer to this [document](./BUILD.md).
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.
 
 ## License
-Copyright (c) 2018 Netis.  
-<br/>
+Copyright (c) 2018 Netis.<br/>
 The content of this repository bound by the following licenses:
 - The computer software is licensed under the [BSD-3-Clause](./LICENSE.md).
 
