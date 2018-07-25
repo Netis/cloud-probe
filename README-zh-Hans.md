@@ -1,7 +1,7 @@
 
 [English](README.md)  ∙  简体中文
 
-![title](./title.PNG)
+![title](./title_02.PNG)
 # Netis Packet Agent 0.3.0
 
 [![Stable release](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.0)
@@ -35,7 +35,7 @@ yum install libpcap
 wget https://github.com/Netis/packet-agent/releases/download/v0.3.0/netis-packet-agent-0.3.0.el6.x86_64.rpm
 rpm -ivh netis-packet-agent-0.3.0.el6.x86_64.rpm
 ```
-** 如果安装过程中提示libboost库的版本号不正确，请下载安装boost_1_59_0或者之后的版本。如果问题依然无法解决，可以尝试从源代码直接编译安装。
+** 如果安装过程中提示libboost库的版本号不正确，请下载安装boost_1_59_0或者之后的版本。如果问题依然无法解决，可以尝试从源代码直接编译安装。<br/>
 ** 现在仅支持 CentOS 6/7版本
 
 
@@ -57,7 +57,7 @@ gredump -i eth0 -o /path/to/gredump_output.pcap
 完整的使用说明，请参阅[这篇文档](./USAGE.md).
 
 ### 从源代码安装
-您可以从Github上克隆本项目的源代码进行编译，之后到"/path/to/packet-agent/bin"下查看所有的binary.
+您可以从Github上克隆本项目的源代码进行编译，之后到"/path/to/packet-agent/bin"下查看所有的binary.<br/>
 完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md).
 
 ## 文档/ 链接
