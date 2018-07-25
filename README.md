@@ -1,7 +1,7 @@
 
 English  ∙  [简体中文](README-zh-Hans.md) 
 
-![title](https://github.com/radiolover/packet-agent/blob/master/title.PNG)
+![title](./title.PNG)
 # Netis Packet Agent 0.3.0
 
 [![Stable release](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.0)
