@@ -54,13 +54,13 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
 ```
 
-完整的使用说明，请参阅[这篇文档](./USAGE.md).
+完整的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文）.
 
 ### 从源代码安装
 您可以从Github上克隆本项目的源代码进行编译，之后到"/path/to/packet-agent/bin"下查看所有的binary.<br/>
-完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md).
+完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md)（仅英文）.
 
-## 文档/ 链接
+## 文档/ 链接（仅英文）
 * [安装](./INSTALL.md)和[使用](./USAGE.md)。
 * [构建条件及步骤](./BUILD.md)。
 * [发布日志 / 路线图](./CHANGES.md)。
