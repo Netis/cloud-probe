@@ -17,11 +17,12 @@ Netis Packet Agent是一个用于解决如下问题的开源项目：设备A上�
 因此，该项目提供一套低开销但是高性能的抓包工具，用于应对上述困难。
 - **pktminerg**是第一个发布的工具。该工具可以轻松地在网卡上抓数据包，用GRE头进行封装并发送到远端的设备，来进行数据包监控和分析。
 
+![chart](./img/pktminerg.png)
+
 此外，还有另外3个工具：
 - **pcapcompare**用于比较两个pcap文件
 - **gredump**根据特定的过滤规则抓取GRE数据包，并存储为pcap文件。
 - **gredemo**是一个demo应用程序，可以从pcap文件读取数据包，然后把它们发送到远端网卡。这个程序只能通过源代码编译生成。
-
 
 ## 开始
 ### 安装
@@ -77,17 +78,7 @@ Copyright (c) 2018 Netis.<br/>
 * 您可以给我们发邮件到[developer@netis.com](mailto:developer@netis.com)。
 * 您也可以在[GitHub issues](https://github.com/Netis/packet-agent/issues)直接报告问题和建议。
 
-```flow
-st=>start: Start
-e=>end: End
-op1=>operation: My Operation
-sub1=>subroutine: My Subroutine
-cond=>condition: Yes or No?
-io=>inputoutput: catch something...
-st->op1->cond
-cond(yes)->io->e
-cond(no)->sub1(right)->op1
-```
+
 
 
 <br/>
