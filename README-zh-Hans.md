@@ -77,5 +77,17 @@ Copyright (c) 2018 Netis.<br/>
 * 您可以给我们发邮件到[developer@netis.com](mailto:developer@netis.com)。
 * 您也可以在[GitHub issues](https://github.com/Netis/packet-agent/issues)直接报告问题和建议。
 
+```flow
+st=>start: Start
+e=>end: End
+op1=>operation: My Operation
+sub1=>subroutine: My Subroutine
+cond=>condition: Yes or No?
+io=>inputoutput: catch something...
+st->op1->cond
+cond(yes)->io->e
+cond(no)->sub1(right)->op1
+```
+
 
 <br/>
