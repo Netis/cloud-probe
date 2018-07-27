@@ -11,7 +11,7 @@
 
 ## 什么是Netis Packet Agent?
 Netis Packet Agent是一个用于解决如下问题的开源项目：设备A上抓取的数据包，之后在设备B上使用分析。在很多时候，当你希望监控网络的流量，但是并没有可用的设备，例如：
-- 物理环境中不存在[TAP](https://en.wikipedia.org/wiki/Network_tap)和[SPAN](http://docwiki.cisco.com/wiki/Internetworking_Terms:_Switched_Port_Analyzer_(SPAN)设备。
+- 物理环境中不存在[TAP](https://en.wikipedia.org/wiki/Network_tap)和[SPAN](http://docwiki.cisco.com/wiki/Internetworking_Terms:_Switched_Port_Analyzer_(SPAN))设备。
 - 虚拟环境中，Virtual Switch [Flow Table](https://wiki.openstack.org/wiki/Ovs-flow-logic)不支持SPAN功能。
 
 因此，该项目提供一套低开销但是高性能的抓包工具，用于应对上述困难。
@@ -54,16 +54,16 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
 ```
 
-完整的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文）.
+完整的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文版）.
 
 ### 从源代码安装
 您可以从Github上克隆本项目的源代码进行编译，之后到"/path/to/packet-agent/bin"下查看所有的binary.<br/>
-完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md)（仅英文）.
+完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md)（仅英文版）.
 
-## 文档/ 链接（仅英文）
-* [安装](./INSTALL.md)和[使用](./USAGE.md)。
-* [构建条件及步骤](./BUILD.md)。
-* [发布日志 / 路线图](./CHANGES.md)。
+## 文档/ 链接
+* [安装](./INSTALL.md)和[使用](./USAGE.md)（仅英文版）。
+* [构建条件及步骤](./BUILD.md)（仅英文版）。
+* [发布日志 / 路线图](./CHANGES.md)（仅英文版）。
 
 ## 贡献
 您可以fork本项目并提交Pull Request。我们欢迎所有开源社区的同学提交自己的贡献。
