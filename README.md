@@ -15,7 +15,9 @@ Netis Packet Agent is an open source project to deal with such situation: it cap
 Also, this project aims at developing a suite of low cost but high efficiency tools to survive the challenge above.
 - **pktminerg** is the very first one, which makes you easily capture packets from an NIC interface, encapsulate them with GRE and send them to a remote machine for monitoring and analysis.
 
-With 3 tools:
+![chart](./img/pktminerg.png)
+
+With 3 utilities:
 - **pcapcompare** is a utility for comparing 2 different pcap files.
 - **gredump** is used for capturing GRE packet with filter, and save them to pcap file.
 - **gredemo** is a demo app which is used to read packet from a pcap file and send them all to remote NIC. This can be only used when built from source code.
@@ -51,6 +53,8 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 # Capture packet from NIC "eth0" and save them to gredump_output.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
 ```
+![pktminer_use_case](./img/use_case.png)
+
 For more information on using these tools, please refer to this [document](./USAGE.md).
 
 ### Build from source.

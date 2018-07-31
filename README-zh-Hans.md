@@ -54,6 +54,7 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 # Capture packet from NIC "eth0" and save them to gredump_output.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
 ```
+![pktminer_use_case](./img/use_case.png)
 
 完整的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文版）.
 
