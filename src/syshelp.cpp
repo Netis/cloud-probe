@@ -4,6 +4,34 @@
 #include <sched.h>
 #include "prio.h"
 
+#ifdef __FreeBSD__
+	#include <sys/param.h>
+	#include <sys/cpuset.h>
+	#define cpu_set_t cpuset_t
+	#define SET_AFFINITY(pid, size, mask) \
+		   cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, size, mask)
+	#define GET_AFFINITY(pid, size, mask) \
+		   cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, size, mask)
+#elif defined(__APPLE__)
+	#include <mach/mach_init.h>
+	#include <mach/thread_policy.h>
+	#include <mach/thread_act.h>
+
+	#define cpu_set_t thread_affinity_policy_data_t
+	#define CPU_SET(cpu_id, new_mask) \
+		((*(new_mask)).affinity_tag = (cpu_id + 1))
+	#define CPU_ZERO(new_mask)                 \
+		((*(new_mask)).affinity_tag = THREAD_AFFINITY_TAG_NULL)
+	#define GET_AFFINITY(pid, size, mask) \
+		 ((*(mask)).affinity_tag = THREAD_AFFINITY_TAG_NULL)
+	#define SET_AFFINITY(pid, size, mask)       \
+		thread_policy_set(mach_thread_self(), THREAD_AFFINITY_POLICY, \
+				  (int *)mask, THREAD_AFFINITY_POLICY_COUNT)
+#else
+	#define SET_AFFINITY(pid, size, mask) sched_setaffinity(0, size, mask)
+	#define GET_AFFINITY(pid, size, mask) sched_getaffinity(0, size, mask)
+#endif
+
 #define DEFAULT_PRIORITY -18
 
 // set self proc and all thread to very high priority, return 0 if success
@@ -30,15 +58,11 @@ int set_high_setpriority() {
 
 // bind cpu to given core, return 0 if success
 int set_cpu_affinity(int cpu) {
-#ifdef MAC
-    return 0;
-#else
     cpu_set_t cpu_mask;
     CPU_ZERO(&cpu_mask);
     CPU_SET(cpu, &cpu_mask);
-    if (sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask) == -1) {
+    if (SET_AFFINITY(0, sizeof(cpu_set_t), &cpu_mask) == -1) {
         return -1;
     }
     return 0;
-#endif
 }

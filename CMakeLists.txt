@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 2.8)
 project(pktminerg)
 
 option(PROJECT_WITH_PROF "Enable profiling and coverage report analysis" OFF)
@@ -15,7 +15,7 @@ endif ()
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
 set(PKTMINERG_MAJOR_VERSION "0")
 set(PKTMINERG_MINOR_VERSION "3")
-set(PKTMINERG_PATCH_VERSION "0")
+set(PKTMINERG_PATCH_VERSION "1")
 set(PKTMINERG_VERSION_STRING "${PKTMINERG_MAJOR_VERSION}.${PKTMINERG_MINOR_VERSION}.${PKTMINERG_PATCH_VERSION}")
 
 # Get the current working branch
@@ -51,31 +51,35 @@ configure_file(
         ${PROJECT_BINARY_DIR}/version.h
 )
 
-
-if(UNIX AND NOT APPLE)
-    find_library(LIBPCAP NAMES libpcap.so.1)
-    if (NOT LIBPCAP)
-        message(FATAL_ERROR "lib pcap not found")
-    endif ()
-
-    message("LIBPCAP: " ${LIBPCAP})
-
-    find_library(LIBSTDCPP NAMES libstdc++.so.6)
-    if (NOT LIBSTDCPP)
-        message(FATAL_ERROR "lib stdcpp not found")
-    endif ()
-
-    message("LIBSTDCPP: " ${LIBSTDCPP})
-
-    find_library(LIBGCCS NAMES libgcc_s.so.1)
-    if (NOT LIBGCCS)
-        message(FATAL_ERROR "lib gccs not found")
-    endif ()
-
-    message("LIBGCCS: " ${LIBGCCS})
-else()
+if(APPLE)
+    find_library(LIBPCAP NAMES libpcap.dylib)
+    find_library(LIBSTDCPP NAMES libstdc++.6.dylib)
+    find_library(LIBGCCS NAMES libgcc_s.1.dylib)
     add_definitions(-DMAC)
+elseif(UNIX)
+    find_library(LIBPCAP NAMES libpcap.so.1)
+    find_library(LIBSTDCPP NAMES libstdc++.so.6)
+    find_library(LIBGCCS NAMES libgcc_s.so.1)
 endif()
+
+
+if (NOT LIBPCAP)
+    message(FATAL_ERROR "lib pcap not found")
+endif()
+message("LIBPCAP: " ${LIBPCAP})
+
+
+if (NOT LIBSTDCPP)
+    message(FATAL_ERROR "lib stdcpp not found")
+endif()
+message("LIBSTDCPP: " ${LIBSTDCPP})
+
+
+if (NOT LIBGCCS)
+    message(FATAL_ERROR "lib gccs not found")
+endif()
+message("LIBGCCS: " ${LIBGCCS})
+
 
 INCLUDE(FindBoost)
 set(Boost_USE_STATIC_LIBS ON)
@@ -186,7 +190,7 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 set(CMAKE_INSTALL_RPATH "/opt/netis/lib")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
-set(BOOST_LIB boost_program_options boost_system boost_filesystem)
+set(BOOST_LIB boost_program_options.a boost_system.a boost_filesystem.a)
 
 # bin -- gredemo
 add_executable(gredemo ${SOURCE_FILES_GREDEMO})
@@ -225,7 +229,7 @@ install(TARGETS pktminerg gredump pcapcompare DESTINATION bin COMPONENT pktminer
 set(CPACK_RPM_COMPONENT_INSTALL ON)
 set(CPACK_PACKAGE_NAME "netis-packet-agent")
 set(CPACK_PACKAGE_VENDOR "netis")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Nteis packet agent tools")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Netis packet agent tools")
 set(CPACK_PACKAGE_VERSION ${PKTMINERG_VERSION_STRING})
 set(CPACK_GENERATOR "RPM")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr/local")
