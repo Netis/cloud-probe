@@ -2,9 +2,9 @@
 English  ∙  [简体中文](README-zh-Hans.md) 
 
 ![title](./img/title_02.PNG)
-# Netis Packet Agent 0.3.0
+# Netis Packet Agent 0.3.1
 
-[![Stable release](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.0)
+[![Stable release](https://img.shields.io/badge/version-0.3.1-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.1)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 ## What is Netis Packet Agent?
@@ -32,8 +32,8 @@ yum install libpcap
 
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.0/netis-packet-agent-0.3.0.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.0.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.1/netis-packet-agent-0.3.1.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.1.el6.x86_64.rpm
 ```
 Remarks: If it encounter a library dependency error when install from rpm, you should install boost_1_59_0 or later. If this also can't work, you can build and run from source.
 
