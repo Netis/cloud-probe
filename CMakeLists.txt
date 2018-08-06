@@ -190,7 +190,7 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 set(CMAKE_INSTALL_RPATH "/opt/netis/lib")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
-set(BOOST_LIB boost_program_options boost_system boost_filesystem)
+set(BOOST_LIB boost_program_options.a boost_system.a boost_filesystem.a)
 
 # bin -- gredemo
 add_executable(gredemo ${SOURCE_FILES_GREDEMO})
