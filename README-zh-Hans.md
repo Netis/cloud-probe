@@ -1,7 +1,7 @@
 
 [English](README.md)  ∙  简体中文
 
-![title](./img/title_02.PNG)
+![title](./img/title.jpg)
 # Netis Packet Agent 0.3.1
 
 [![Stable release](https://img.shields.io/badge/version-0.3.1-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.1)
