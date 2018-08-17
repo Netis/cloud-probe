@@ -2,6 +2,12 @@
 
 The list of the most significant changes made in Netis Packet Agent over time.
 
+## Netis Packet Agent 0.3.1
+
+### Bug Fixes
+* Remove rpm install boost library dependencies.
+
+
 ## Netis Packet Agent 0.3.0
 
 Initial release.

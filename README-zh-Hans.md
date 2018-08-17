@@ -2,9 +2,9 @@
 [English](README.md)  ∙  简体中文
 
 ![title](./img/title.jpg)
-# Netis Packet Agent 0.3.0
+# Netis Packet Agent 0.3.1
 
-[![Stable release](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.0)
+[![Stable release](https://img.shields.io/badge/version-0.3.1-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.1)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 
@@ -33,8 +33,8 @@ yum install libpcap
 
 2. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.0/netis-packet-agent-0.3.0.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.0.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.1/netis-packet-agent-0.3.1.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.1.el6.x86_64.rpm
 ```
 ** 如果安装过程中提示libboost库的版本号不正确，请下载安装boost_1_59_0或者之后的版本。如果问题依然无法解决，可以尝试从源代码直接编译安装。<br/>
 ** 现在仅支持 CentOS 6/7版本
