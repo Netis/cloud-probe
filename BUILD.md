@@ -19,7 +19,7 @@
 
 # Build steps
 
-## CentOS
+## CentOS and RedHat
 
 1. Prepair the environment.
 
