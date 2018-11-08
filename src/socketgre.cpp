@@ -65,8 +65,8 @@ int PcapExportGre::exportPacket(const struct pcap_pkthdr* header, const uint8_t*
     }
     if (nSend == -1) {
         std::cerr << StatisLogContext::getTimeString() << "Send to socket failed, error code is " << errno
-                  << ", error is" << strerror(errno) << "."
-                  << std::endl;
+                  << ", error is " << strerror(errno) << "."
+                  << length << std::endl;
         return -1;
     }
     if (nSend < (ssize_t) (length + sizeof(grehdr_t))) {
