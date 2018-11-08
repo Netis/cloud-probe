@@ -25,9 +25,9 @@ With 3 utilities:
 
 ## Getting Started
 ### Installation
-1. Install libpcap
+1. Install libpcap and wget
 ```bash
-yum install libpcap
+yum install libpcap wget
 ```
 
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
@@ -37,7 +37,7 @@ rpm -ivh netis-packet-agent-0.3.1.el6.x86_64.rpm
 ```
 Remarks: If it encounter a library dependency error when install from rpm, you should install boost_1_59_0 or later. If this also can't work, you can build and run from source.
 
-Remarks: Now only support CentOS 6/7.
+Remarks: Now only support CentOS 6/7 and RedHat 7.
 
 ### Usage
 ```bash
