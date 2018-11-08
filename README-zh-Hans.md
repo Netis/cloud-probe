@@ -26,9 +26,9 @@ Netis Packet Agent是一个用于解决如下问题的开源项目：设备A上�
 
 ## 开始
 ### 安装
-1. 安装libpcap
+1. 安装libpcap和wget
 ```bash
-yum install libpcap
+yum install libpcap wget
 ```
 
 2. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
@@ -37,7 +37,7 @@ wget https://github.com/Netis/packet-agent/releases/download/v0.3.1/netis-packet
 rpm -ivh netis-packet-agent-0.3.1.el6.x86_64.rpm
 ```
 ** 如果安装过程中提示libboost库的版本号不正确，请下载安装boost_1_59_0或者之后的版本。如果问题依然无法解决，可以尝试从源代码直接编译安装。<br/>
-** 现在仅支持 CentOS 6/7版本
+** 现在仅支持 CentOS 6/7版本和RedHat 7版本
 
 
 ### 使用 
