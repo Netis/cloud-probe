@@ -35,6 +35,8 @@ namespace {
         PcapExportGre greExport("127.0.1.1", 2);
         EXPECT_EQ(0, greExport.initExport());
         pcap_pkthdr header;
+        header.caplen = 32;
+        header.len = 32;
         std::vector<uint8_t> pkt_data(32);
         EXPECT_EQ(0, greExport.exportPacket(&header, pkt_data.data()));
         EXPECT_EQ(0, greExport.closeExport());
