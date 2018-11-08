@@ -2,7 +2,7 @@
 
 ## CentOS 6/7 and RedHat 7
 
-1. Install libpcap ang wget
+1. Install libpcap and wget
 
 ```shell
 yum install libpcap wget
