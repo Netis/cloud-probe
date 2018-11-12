@@ -69,7 +69,7 @@ apt-get -y install libpcap-dev libboost-all-dev
 ```shell
 cd /path/to/packet-agent
 mkdir build && cd build
-cmake .. && make
+cmake .. -DPLATFORM_DEBIAN=ON && make
 ```
 
 4. Check output binaries. There should be four files in the *bin* folder.
