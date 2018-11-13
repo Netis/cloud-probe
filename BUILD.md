@@ -3,6 +3,7 @@
 ## Required operating systems
 
 * CentOS 6.x or CentOS 7.x
+* Debian 9.5
 * Mac OS X (experimental)
     
 ## Required compilers
@@ -47,6 +48,38 @@ cmake .. && make
 ls ../bin
 gredemo*     gredump*     pcapcompare* pktminerg*
 ```
+
+
+## Debian
+
+1. Prepair the environment.
+
+```shell
+# install gcc
+apt-get -y install build-essential
+# install cmake
+apt-get -y install cmake
+# install more required libraries
+apt-get -y install libpcap-dev libboost-all-dev
+```
+
+2. Clone or download the project.
+3. Go to the project folder and build it.
+
+```shell
+cd /path/to/packet-agent
+mkdir build && cd build
+cmake .. -DPLATFORM_DEBIAN=ON && make
+```
+
+4. Check output binaries. There should be four files in the *bin* folder.
+
+```shell
+ls ../bin
+gredemo*     gredump*     pcapcompare* pktminerg*
+```
+
+
 
 ## Mac OS X
 
