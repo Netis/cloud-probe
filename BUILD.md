@@ -4,6 +4,7 @@
 
 * CentOS 6.x or CentOS 7.x
 * Debian 9.5
+* Ubuntu 16.04
 * Mac OS X (experimental)
     
 ## Required compilers
@@ -50,7 +51,7 @@ gredemo*     gredump*     pcapcompare* pktminerg*
 ```
 
 
-## Debian
+## Debian and Ubuntu
 
 1. Prepair the environment.
 
@@ -78,7 +79,6 @@ cmake .. -DPLATFORM_DEBIAN=ON && make
 ls ../bin
 gredemo*     gredump*     pcapcompare* pktminerg*
 ```
-
 
 
 ## Mac OS X
