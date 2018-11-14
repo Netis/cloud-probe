@@ -5,6 +5,7 @@
 * CentOS 6.x or CentOS 7.x
 * Debian 9.5
 * SUSE 12.2
+* Ubuntu 16.04
 * Mac OS X (experimental)
     
 ## Required compilers
@@ -51,7 +52,7 @@ gredemo*     gredump*     pcapcompare* pktminerg*
 ```
 
 
-## Debian
+## Debian and Ubuntu
 
 1. Prepair the environment.
 
@@ -114,7 +115,6 @@ cmake ..  && make
 ls ../bin
 gredemo*     gredump*     pcapcompare* pktminerg*
 ```
-
 ## Mac OS X
 
 1. Install [Xcode](https://developer.apple.com/xcode/).
