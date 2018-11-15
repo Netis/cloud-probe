@@ -4,6 +4,7 @@
 
 * CentOS 6.x or CentOS 7.x
 * Debian 9.5
+* SUSE 12.2
 * Ubuntu 16.04
 * Mac OS X (experimental)
     
@@ -80,7 +81,40 @@ ls ../bin
 gredemo*     gredump*     pcapcompare* pktminerg*
 ```
 
+## SUSE
 
+1. Prepair the environment.
+
+```shell
+# install git
+zypper -n install git-core
+# install cmake
+zypper -n install cmake
+# install more required libraries
+zypper -n install libpcap-devel boost-devel
+zypper -n si boost
+cd /usr/src/packages/SOURCES/
+tar --bzip2 -xf boost_1_54_0.tar.bz2
+cd  boost_1_54_0/
+./bootstrap.sh
+./b2 install stage 
+```
+
+2. Clone or download the project.
+3. Go to the project folder and build it.
+
+```shell
+cd /path/to/packet-agent
+mkdir build && cd build
+cmake ..  && make
+```
+
+4. Check output binaries. There should be four files in the *bin* folder.
+
+```shell
+ls ../bin
+gredemo*     gredump*     pcapcompare* pktminerg*
+```
 ## Mac OS X
 
 1. Install [Xcode](https://developer.apple.com/xcode/).
