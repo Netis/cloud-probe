@@ -1,4 +1,8 @@
-#include <arpa/inet.h>
+#ifdef WIN32
+	#include <WinSock2.h>
+#else
+	#include <arpa/inet.h>
+#endif
 #include <iostream>
 #include <csignal>
 #include <ctime>
@@ -273,7 +277,7 @@ int main(int argc, const char* argv[]) {
     if (vm.count("sourceip")) {
         in_addr addr;
         std::string sourceip = vm["sourceip"].as<std::string>();
-        if(inet_aton(sourceip.c_str(), &addr)==0) {
+        if(inet_pton(AF_INET, sourceip.c_str(), &addr)==0) {
             std::cerr << "sourceip option is valid! sourceip: " << sourceip << std::endl;
             grehandlebuff.srcip=0xffffffff;
         } else {
@@ -286,7 +290,7 @@ int main(int argc, const char* argv[]) {
     if (vm.count("remoteip")) {
         in_addr addr;
         std::string remoteip = vm["remoteip"].as<std::string>();
-        if(inet_aton(remoteip.c_str(), &addr)==0) {
+        if(inet_pton(AF_INET,remoteip.c_str(), &addr)==0) {
             std::cerr << "remoteip option is valid! remoteip: " << remoteip << std::endl;
             grehandlebuff.dstip=0xffffffff;
         } else {
