@@ -189,7 +189,7 @@ if(WIN32)
 		${PROJECT_SOURCE_DIR}/src/syshelp_win32.cpp
         )
 else()
-	set(SOURCE_FILES_PKTMINERG_BASE
+	set(SOURCE_FILES_SYSHELP
         ${PROJECT_SOURCE_DIR}/src/syshelp.cpp
         )
 endif()
