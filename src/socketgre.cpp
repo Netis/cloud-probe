@@ -2,9 +2,17 @@
 
 #include <iostream>
 #include <cstring>
-
+#ifdef WIN32
+	#include <WinSock2.h>
+	#include <BaseTsd.h>
+	#include <windows.h>
+	typedef SSIZE_T ssize_t;
+	#define usleep Sleep
+	#define IPPROTO_GRE 47
+#else
 #include <arpa/inet.h>
 #include <unistd.h>
+#endif
 #include <pcap/pcap.h>
 #include "statislog.h"
 

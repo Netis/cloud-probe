@@ -1,7 +1,9 @@
 #ifndef SRC_SOCKETGRE_H_
 #define SRC_SOCKETGRE_H_
 
-#include <netinet/in.h>
+#ifndef WIN32
+	#include <netinet/in.h>
+#endif
 #include <string>
 #include "pcapexport.h"
 #include "gredef.h"

@@ -18,6 +18,10 @@ set(PKTMINERG_MINOR_VERSION "3")
 set(PKTMINERG_PATCH_VERSION "1")
 set(PKTMINERG_VERSION_STRING "${PKTMINERG_MAJOR_VERSION}.${PKTMINERG_MINOR_VERSION}.${PKTMINERG_PATCH_VERSION}")
 
+if(WIN32)
+Add_Definitions(-D_XKEYCHECK_H) 
+endif()
+
 # Get the current working branch
 execute_process(
         COMMAND git rev-parse --abbrev-ref HEAD
@@ -62,37 +66,52 @@ elseif(UNIX)
     find_library(LIBGCCS NAMES libgcc_s.so.1)
 endif()
 
+if(UNIX)
+	if (NOT LIBPCAP)
+		message(FATAL_ERROR "lib pcap not found")
+	endif()
+	message("LIBPCAP: " ${LIBPCAP})
 
-if (NOT LIBPCAP)
-    message(FATAL_ERROR "lib pcap not found")
+
+	if (NOT LIBSTDCPP)
+		message(FATAL_ERROR "lib stdcpp not found")
+	endif()
+	message("LIBSTDCPP: " ${LIBSTDCPP})
+
+
+	if (NOT LIBGCCS)
+		message(FATAL_ERROR "lib gccs not found")
+	endif()
+	message("LIBGCCS: " ${LIBGCCS})
+
+
+	INCLUDE(FindBoost)
+	set(Boost_USE_STATIC_LIBS ON)
+	find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
+
+	message("Boost_INCLUDE_DIRS: " ${Boost_INCLUDE_DIRS})
+	message("Boost_LIBRARY_DIRS: " ${Boost_LIBRARY_DIRS})
+	# include dir
+	include_directories(
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}
+			${Boost_INCLUDE_DIRS}
+	)
 endif()
-message("LIBPCAP: " ${LIBPCAP})
 
-
-if (NOT LIBSTDCPP)
-    message(FATAL_ERROR "lib stdcpp not found")
+if(WIN32)
+	set(Boost_USE_STATIC_LIBS ON)
+	find_package(Boost REQUIRED COMPONENTS program_options system filesystem)
+	include_directories(
+			${PROJECT_SOURCE_DIR}/include
+			${PROJECT_BINARY_DIR}
+			${BOOST_ROOT}
+			${PCAP_ROOT}/Include
+	)
+	link_directories(
+		${BOOST_ROOT}/stage/lib
+		${PCAP_ROOT}/lib/x64)
 endif()
-message("LIBSTDCPP: " ${LIBSTDCPP})
-
-
-if (NOT LIBGCCS)
-    message(FATAL_ERROR "lib gccs not found")
-endif()
-message("LIBGCCS: " ${LIBGCCS})
-
-
-INCLUDE(FindBoost)
-set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
-
-message("Boost_INCLUDE_DIRS: " ${Boost_INCLUDE_DIRS})
-message("Boost_LIBRARY_DIRS: " ${Boost_LIBRARY_DIRS})
-# include dir
-include_directories(
-        ${PROJECT_SOURCE_DIR}/include
-        ${PROJECT_BINARY_DIR}
-        ${Boost_INCLUDE_DIRS}
-)
 
 if(UNIX AND NOT APPLE)
     # link dir
@@ -165,12 +184,29 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 # source
+if(WIN32)
+	set(SOURCE_FILES_SYSHELP
+		${PROJECT_SOURCE_DIR}/src/syshelp_win32.cpp
+        )
+else()
+	set(SOURCE_FILES_PKTMINERG_BASE
+        ${PROJECT_SOURCE_DIR}/src/syshelp.cpp
+        )
+endif()
+
+if(WIN32)
+	set(SOURCE_FILES_PCAP
+		${PROJECT_SOURCE_DIR}/src/pcap_win32.cpp
+        )
+endif()
+
 set(SOURCE_FILES_GREDEMO
         ${PROJECT_SOURCE_DIR}/tools/gredemo.cpp
         )
 
 set(SOURCE_FILES_GREDUMP
         ${PROJECT_SOURCE_DIR}/tools/gredump.cpp
+		${SOURCE_FILES_PCAP}
         )
 
 set(SOURCE_FILES_PCAPCOMPARE
@@ -178,7 +214,8 @@ set(SOURCE_FILES_PCAPCOMPARE
         )
 
 set(SOURCE_FILES_PKTMINERG_BASE
-        ${PROJECT_SOURCE_DIR}/src/syshelp.cpp
+        ${SOURCE_FILES_SYSHELP}
+		${SOURCE_FILES_PCAP}
         ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
         ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
         ${PROJECT_SOURCE_DIR}/src/statislog.cpp
@@ -197,23 +234,38 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 set(CMAKE_INSTALL_RPATH "/opt/netis/lib")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
-set(BOOST_LIB boost_program_options.a boost_system.a boost_filesystem.a)
+if(UNIX)
+	set(PCAP_LIB pcap)
+	set(BOOST_LIB boost_program_options.a boost_system.a boost_filesystem.a)
+else()
+	set(PCAP_LIB wpcap Packet)	
+	set(SOCKET_LIB ws2_32)
+endif()
 
 # bin -- gredemo
 add_executable(gredemo ${SOURCE_FILES_GREDEMO})
-target_link_libraries(gredemo ${BOOST_LIB})
+if(WIN32)
+	set_target_properties(gredemo PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+endif()
+target_link_libraries(gredemo ${BOOST_LIB} ${SOCKET_LIB})
 
 # bin -- gredump
 add_executable(gredump ${SOURCE_FILES_GREDUMP})
-target_link_libraries(gredump ${BOOST_LIB} pcap)
+if(WIN32)
+	set_target_properties(gredump PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+endif()
+target_link_libraries(gredump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
 
 # bin -- pcapcompare
 add_executable(pcapcompare ${SOURCE_FILES_PCAPCOMPARE})
-target_link_libraries(pcapcompare ${BOOST_LIB} pcap)
+target_link_libraries(pcapcompare ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
 
 # bin -- pktminerg
 add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
-target_link_libraries(pktminerg ${BOOST_LIB} pcap)
+if(WIN32)
+	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+endif()
+target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
 
 if(UNIX AND NOT APPLE)
     # test

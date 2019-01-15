@@ -1,4 +1,9 @@
-#include <arpa/inet.h>
+#ifdef WIN32
+	#include <WinSock2.h>
+	#define IPPROTO_GRE 47
+#else
+	#include <arpa/inet.h>
+#endif
 #include <iostream>
 #include <fstream>
 #include <boost/program_options.hpp>

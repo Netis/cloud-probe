@@ -1,0 +1,31 @@
+﻿{
+  "configurations": [
+    {
+      "name": "x64-Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "inheritEnvironments": [
+        "msvc_x64_x64"
+      ],
+      "buildRoot": "${env.USERPROFILE}\\CMakeBuilds\\${workspaceHash}\\build\\${name}",
+      "installRoot": "${env.USERPROFILE}\\CMakeBuilds\\${workspaceHash}\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "-v",
+      "ctestCommandArgs": "",
+      "variables": [
+        {
+          "name": "BOOST_COMPILER",
+          "value": "-vc141"
+        },
+        {
+          "name": "BOOST_ROOT",
+          "value": "D:/boost_1_69_0"
+        },
+        {
+          "name": "PCAP_ROOT",
+          "value": "D:/WpdPack"
+        }
+      ]
+    }
+  ]
+}
