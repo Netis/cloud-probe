@@ -59,9 +59,14 @@ rpm -ivh netis-packet-agent-0.3.1.el6.x86_64.rpm
     "Connection Name","Network Adapter","Physical Address","Transport Name" 
     "Ethernet","Intel(R) Ethernet Connection (4) I219-V","8C-16-45-6B-53-B5","\Device\Tcpip_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2}" 
 ```
-将Transport Name字段里的"Tcpip_"替换为"NPF_",例如：
+将Transport Name字段里的"Tcpip_"替换为"NPF_"，作为-i参数：
 ```
     \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
+```
+使用示例：
+```
+    C:\> pktminerg -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -r 172.24.103.201 
+    C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
 ```
 
 
