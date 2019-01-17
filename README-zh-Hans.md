@@ -53,6 +53,17 @@ rpm -ivh netis-packet-agent-0.3.1.el6.x86_64.rpm
 2. 下载并安装[Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe)
 3. 从zip文件解压pktminerg和其他utilities，并在命令行界面运行（需管理员模式）.
 
+备注：在Windows平台运行时，命令的interface选项参数需要使用网卡的NT Device Name，形如"\Device\UPF_{UUID}"。可使用如下命令获取
+```
+    C:\> getmac /fo csv /v 
+    "Connection Name","Network Adapter","Physical Address","Transport Name" 
+    "Ethernet","Intel(R) Ethernet Connection (4) I219-V","8C-16-45-6B-53-B5","\Device\Tcpip_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2}" 
+```
+将Transport Name字段里的"Tcpip_"替换为"NPF_",例如：
+```
+    \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
+```
+
 
 ### 使用 
 ```bash
