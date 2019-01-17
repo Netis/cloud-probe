@@ -64,6 +64,13 @@ Take last field(Transport Name) and replace "Tcpip_" with "NPF_" as follow, then
 ```
     \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
 ``` 
+Use example:
+```
+    C:\> pktminerg -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -r 172.24.103.201 
+    C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
+```
+
+
 <br>
 
 ### Usage
