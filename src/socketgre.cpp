@@ -53,7 +53,11 @@ int PcapExportGre::initExport() {
 
 int PcapExportGre::closeExport() {
     if (_socketfd != INVALIDE_SOCKET_FD) {
+#ifdef WIN32
+        shutdown(_socketfd, SD_BOTH);
+#else
         close(_socketfd);
+#endif // WIN32
         _socketfd = INVALIDE_SOCKET_FD;
     }
     return 0;
