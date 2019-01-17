@@ -48,9 +48,12 @@ Remarks: If it encounter a library dependency error when install from rpm, you s
 
 Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12.
 
+
 #### Windows 7/8/10 x64
 1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
-2. Download and Install [Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe)
+2. Download and Install [Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe).
+3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode.
+
 
 ### Usage
 ```bash
