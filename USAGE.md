@@ -34,8 +34,7 @@ Allowed options:
 ### Paramters
 
 * interface<br>
-Network interface to capture packets (eth0, eth1...). Required in live mode.
-<br>
+Network interface to capture packets (eth0, eth1...). Required in live mode.<br>
 On Windows platform, you must use NIC's NT Device Name with format "\Device\NPF_{UUID}", you can get it with following command: 
 ```
     C:\> getmac /fo csv /v 
