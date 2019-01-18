@@ -20,8 +20,8 @@ Allowed options:
                                   units MB
   -c [ --count ] COUNT (=0)       exit after receiving count packets; COUNT 
                                   defaults; count<=0 means unlimited
-  -p [ --priority ]               set high priority mode
-  --cpu ID                        set cpu affinity ID
+  -p [ --priority ]               set high priority mode (Not supported on Windows platform)
+  --cpu ID                        set cpu affinity ID (Not supported on Windows platform)
   --expression FILTER             filter packets with FILTER; FILTER as same as
                                   tcpdump BPF expression syntax
   --dump                          specify dump file, mostly for integrated test
@@ -75,7 +75,7 @@ pktminerg -f sample.pcap -r 172.16.1.201
 ```
 pktminerg -i eth0 -r 172.16.1.201 --expression '172.16.1.12'
 ```
-* CPU affinity and high priority example
+* CPU affinity and high priority example (Not supported on Windows Platform)
 ```
 pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
 ```

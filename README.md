@@ -48,6 +48,31 @@ Remarks: If it encounter a library dependency error when install from rpm, you s
 
 Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12.
 
+
+#### Windows 7/8/10 x64
+1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
+2. Download and Install [Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe).
+3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode.
+
+Note: On Windows platform, you must use NIC's NT Device Name with format "\Device\NPF_{UUID}" as interface param. You can get it with following command: 
+```
+    C:\> getmac /fo csv /v 
+    "Connection Name","Network Adapter","Physical Address","Transport Name" 
+    "Ethernet","Intel(R) Ethernet Connection (4) I219-V","8C-16-45-6B-53-B5","\Device\Tcpip_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2}" 
+``` 
+Take last field(Transport Name) and replace "Tcpip_" with "NPF_" as follow, then you can get interface param of Windows. 
+```
+    \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
+``` 
+Use example:
+```
+    C:\> pktminerg -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -r 172.24.103.201 
+    C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
+```
+
+
+<br>
+
 ### Usage
 ```bash
 # Capture packet from NIC "eth0", encapsulate with GRE header and send to 172.16.1.201
