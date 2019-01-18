@@ -19,7 +19,7 @@ del pktminer_dump.pcap
 start ..\bin\gredump.exe -i %NIC% -o gredump.pcap
 ..\bin\pktminerg.exe -i %NIC% -r 172.16.14.249 -c 10 --dump
 
-ping -n 1 127.0.0.1 > nul
+ping -n 3 127.0.0.1 > nul
 
 rem taskkill /IM pktminerg.exe
 taskkill /IM gredump.exe
