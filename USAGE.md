@@ -36,17 +36,6 @@ Allowed options:
 * interface<br>
 Network interface to capture packets (eth0, eth1...). Required in live mode.
 <br>
-On Windows platform, you must use NIC's NT Device Name with format "\Device\NPF_{UUID}", you can get it with following command: 
-```
-    C:\> getmac /fo csv /v 
-    "Connection Name","Network Adapter","Physical Address","Transport Name" 
-    "Ethernet","Intel(R) Ethernet Connection (4) I219-V","8C-16-45-6B-53-B5","\Device\Tcpip_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2}" 
-``` 
-Take last field(Transport Name) and replace "Tcpip_" with "NPF_" as follow, then you can get interface param of Windows. 
-```
-    \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
-``` 
-<br>
 
 * remoteip, keybit<br>
 Parameters of GRE channel:
