@@ -279,20 +279,37 @@ if(UNIX AND NOT APPLE)
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
 endif()
 
-install(FILES
-        DESTINATION lib COMPONENT pktminerg)
-
-install(TARGETS pktminerg gredump pcapcompare DESTINATION bin COMPONENT pktminerg)
-
 # cpack
-set(CPACK_RPM_COMPONENT_INSTALL ON)
-set(CPACK_PACKAGE_NAME "netis-packet-agent")
-set(CPACK_PACKAGE_VENDOR "netis")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Netis packet agent tools")
-set(CPACK_PACKAGE_VERSION ${PKTMINERG_VERSION_STRING})
-set(CPACK_GENERATOR "RPM")
-set(CPACK_PACKAGING_INSTALL_PREFIX "/usr/local")
-set(CPACK_OUTPUT_FILE_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/installer)
-set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}.el6.${CMAKE_SYSTEM_PROCESSOR})
-#set(CPACK_COMPONENTS_ALL pktminerg)
+if(WIN32)
+    install(FILES 
+        "${PROJECT_SOURCE_DIR}/README.md" "${PROJECT_SOURCE_DIR}/README-zh-Hans.md" 
+        "${PROJECT_SOURCE_DIR}/USAGE.md" "${PROJECT_SOURCE_DIR}/BUILD.md" 
+        "${PROJECT_SOURCE_DIR}/CHANGES.md" "${PROJECT_SOURCE_DIR}/INSTALL.md"   
+        "${PROJECT_SOURCE_DIR}/LICENSE.md"
+        DESTINATION doc COMPONENT pktminerg)
+    install(TARGETS pktminerg gredump pcapcompare gredemo DESTINATION bin COMPONENT pktminerg)
+    set(CPACK_PACKAGE_NAME "netis-packet-agent")
+    set(CPACK_PACKAGE_VENDOR "netis")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Netis packet agent tools")
+    set(CPACK_PACKAGE_VERSION ${PKTMINERG_VERSION_STRING})
+    set(CPACK_GENERATOR "ZIP")
+    set(CPACK_OUTPUT_FILE_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+    set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}.Windows.${CMAKE_SYSTEM_PROCESSOR})
+else()
+    install(FILES
+            DESTINATION lib COMPONENT pktminerg)
+
+    install(TARGETS pktminerg gredump pcapcompare DESTINATION bin COMPONENT pktminerg)
+
+    set(CPACK_RPM_COMPONENT_INSTALL ON)
+    set(CPACK_PACKAGE_NAME "netis-packet-agent")
+    set(CPACK_PACKAGE_VENDOR "netis")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Netis packet agent tools")
+    set(CPACK_PACKAGE_VERSION ${PKTMINERG_VERSION_STRING})
+    set(CPACK_GENERATOR "RPM")
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr/local")
+    set(CPACK_OUTPUT_FILE_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/installer)
+    set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}.el6.${CMAKE_SYSTEM_PROCESSOR})
+    #set(CPACK_COMPONENTS_ALL pktminerg)
+endif()
 include(CPack)
