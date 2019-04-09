@@ -74,6 +74,7 @@ Use example:
 <br>
 
 ### Usage
+Remarks: Make sure the firewall allows GRE packets to be sent to the target.
 ```bash
 # Capture packet from NIC "eth0", encapsulate with GRE header and send to 172.16.1.201
 pktminerg -i eth0 -r 172.16.1.201
