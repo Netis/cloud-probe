@@ -72,6 +72,7 @@ rpm -ivh netis-packet-agent-0.3.2.el6.x86_64.rpm
 
 ### 使用 
 备注：请确保防火墙允许向目标发送GRE数据包.
+https://lartc.org/howto/lartc.tunnel.gre.html提供验证是否允许向目标发送GRE数据包的方法.
 ```bash
 # Capture packet from NIC "eth0", encapsulate with GRE header and send to 172.16.1.201
 pktminerg -i eth0 -r 172.16.1.201
