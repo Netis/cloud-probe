@@ -18,7 +18,7 @@ centos-packet-agent                                                          v1 
 
 2. Run docker container. The container with packet-agent should share network card with first one(running the application which packet-agent monitor.)
 ```shell
-[deploy@localhost ~]# docker run -itd --privileged=true centos:6 /bin/bash
+[deploy@localhost ~]# docker run -itd centos:6 /bin/bash
 <CONTAINER HASH ID>
 
 [deploy@localhost ~]# docker ps
