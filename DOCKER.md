@@ -1,6 +1,6 @@
 # About
 
-We support docker for packet-agent. In this mode, you can attach packet-agent container to another with shared network card, then capture packets as a "sidecar" microservice in K8S pod,  without intrude into another docker. 
+We support docker for packet-agent. In this mode, you can attach packet-agent container to another with shared network card, without intrude into another docker to install packet-agent.
 
 You can build docker image from docker/Dockerfile.
 
