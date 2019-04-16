@@ -90,6 +90,8 @@ gredump -i eth0 -o /path/to/gredump_output.pcap
 
 完整的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文版）.
 
+在Docker中使用packet-agent，请参阅[这篇文档](./DOCKER.md)（仅英文版）.
+
 ### 从源代码安装
 您可以从Github上克隆本项目的源代码进行编译，之后到"/path/to/packet-agent/bin"下查看所有的binary.<br/>
 完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md)（仅英文版）.

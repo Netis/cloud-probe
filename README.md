@@ -93,6 +93,8 @@ gredump -i eth0 -o /path/to/gredump_output.pcap
 
 For more information on using these tools, please refer to this [document](./USAGE.md).
 
+For docker usage, please refer to this [document](./DOCKER.md).
+
 ### Build from source.
 You can also clone source from Github and build Netis Packet Agent in local, then check"/path/to/packet-agent/bin" to find all binary.
 <br/>
