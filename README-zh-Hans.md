@@ -1,7 +1,7 @@
 
 [English](README.md)  ∙  简体中文
 
-![title](./img/title.jpg)
+![packet agent's title](./img/title.jpg)
 # Netis Packet Agent 0.3.2
 
 [![Stable release](https://img.shields.io/badge/version-0.3.2-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.2)
@@ -17,7 +17,7 @@ Netis Packet Agent是一个用于解决如下问题的开源项目：设备A上�
 因此，该项目提供一套低开销但是高性能的抓包工具，用于应对上述困难。
 - **pktminerg**是第一个发布的工具。该工具可以轻松地在网卡上抓数据包，用GRE头进行封装并发送到远端的设备，来进行数据包监控和分析。
 
-![chart](./img/pktminerg.png)
+![packet agent's pktminerg capture traffic flow via GRE/Cloud](./img/pktminerg.png)
 
 此外，还有另外3个工具：
 - **pcapcompare**用于比较两个pcap文件
@@ -86,7 +86,7 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 # Capture packet from NIC "eth0" and save them to gredump_output.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
 ```
-![pktminer_use_case](./img/use_case.png)
+![packet agent's pktminerg : network capture use case](./img/use_case.png)
 
 完整的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文版）.
 
