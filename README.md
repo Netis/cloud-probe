@@ -45,10 +45,30 @@ rpm -ivh netis-packet-agent-0.3.2.el6.x86_64.rpm
 wget https://github.com/Netis/packet-agent/releases/download/v0.3.2/netis-packet-agent-0.3.2.el6.x86_64.rpm
 rpm -ivh netis-packet-agent-0.3.2.el6.x86_64.rpm
 ```
+
+
+#### Ubuntu 18.04LTS
+1. Install libpcap and wget
+```bash
+sudo apt-get install libpcap-dev wget
+```
+
+2. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
+```bash
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.2/netis-packet-agent-0.3.2_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.2_amd64.deb
+```
+
+3. If libpcap.so.1 not found when running pktminerg, create softlink for libpcap.so.1 in suitable directory.
+```bash
+whereis libpcap.so
+cd /path/to/libpcap.so
+ln -s libpcap.so.x.y.z libpcap.so.1
+```
+
 Remarks: If it encounter a library dependency error when install from rpm, you should install boost_1_59_0 or later. If this also can't work, you can build and run from source.
 
 Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12.
-
 
 #### Windows 7/8/10 x64
 1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
