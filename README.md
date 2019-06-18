@@ -68,7 +68,7 @@ ln -s libpcap.so.x.y.z libpcap.so.1
 
 Remarks: If it encounter a library dependency error when install from rpm, you should install boost_1_59_0 or later. If this also can't work, you can build and run from source.
 
-Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12.
+Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12, Ubuntu 18.04 LTS.
 
 #### Windows 7/8/10 x64
 1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
