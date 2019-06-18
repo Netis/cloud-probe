@@ -45,6 +45,25 @@ wget https://github.com/Netis/packet-agent/releases/download/v0.3.2/netis-packet
 rpm -ivh netis-packet-agent-0.3.2.el6.x86_64.rpm
 ```
 
+#### Ubuntu 18.04LTS
+1. 安装libpcap和wget
+```bash
+sudo apt-get install libpcap-dev wget
+```
+
+2. 下载并安装DEB包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
+```bash
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.2/netis-packet-agent-0.3.2_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.2_amd64.deb
+```
+
+3. 如果提示libpcap.so找不到，到libpcap.so所在目录下创建libpcap.so.1软链接。
+```bash
+whereis libpcap.so
+cd /path/to/libpcap.so
+ln -s libpcap.so.x.y.z libpcap.so.1
+```
+
 ** 如果安装过程中提示libboost库的版本号不正确，请下载安装boost_1_59_0或者之后的版本。如果问题依然无法解决，可以尝试从源代码直接编译安装。<br/>
 ** 现在仅支持 CentOS 6/7版本和RedHat 7版本
 
