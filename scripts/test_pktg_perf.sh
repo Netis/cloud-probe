@@ -111,14 +111,14 @@ main_test() {
 
 if [ "$#" -ne 5 ]; then
     echo "Usage:"
-    echo "    sh test_agent.sh replay_pcap_file replay_loopx replay_nic gre_recv_ip pktg_cpu_id"
-    echo "        replay_pcap_file: input pcap for tcpreplay to send packets to NIC."
-    echo "        replay_loopx: use this coefficient to control tcpreplay duration."
+    echo "    sh test_pktg_perf.sh pcap_file loopx replay_nic gre_recv_ip pktg_cpu_id"
+    echo "        pcap_file: input pcap for tcpreplay to send packets to NIC."
+    echo "        loopx: use this coefficient to control tcpreplay duration."
     echo "        replay_nic: tcpreplay target network interface(eth0, eth1...)."
     echo "        gre_recv_ip: remote ip to receive gre packet."
     echo "        pktg_cpu_id: limit pktminerg to run on this cpu processor id."
     echo "Example:"
-    echo "    sh test_agent.sh input.pcap 5 eth0 192.168.0.3 1"
+    echo "    sh test_pktg_perf.sh input.pcap 5 eth0 192.168.0.3 1"
 else
     main_test $1 $2 $3 $4 $5
 fi
