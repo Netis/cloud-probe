@@ -1,9 +1,5 @@
 #!/bin/sh
 
-REPLAY_ETH=eth1
-GRE_RECV_IP=192.168.1.11
-PKTG_CPU_ID=1
-
 SHELL_FOLDER=`pwd`
 MAJOR_VERSION=0
 if [ -e /etc/centos-release ]; then
@@ -26,6 +22,7 @@ cgroup_tcpreplay() {
 }
 
 cgroup_pktg() {
+    CPU_IDS=$1
     if [ $MAJOR_VERSION = "6" ]; then
         cd /cgroup/cpuset
     else
@@ -34,7 +31,7 @@ cgroup_pktg() {
 	mkdir -p pktg
 	cd pktg
 	 
-	echo $PKTG_CPU_ID > cpuset.cpus
+	echo $CPU_IDS > cpuset.cpus
 	echo 0 > cpuset.mems
 	 
 	for pid in `ps -ef | grep pktminerg | grep -v grep | awk '{print $2}'` ; do echo $pid > cgroup.procs; done
@@ -47,9 +44,10 @@ replay() {
 	PPS=$1
     PCAP_FILE=$2
     LOOP=$3
+    REPLAY_NIC=$4
 	echo "$PPS"  >> stats.txt
 	echo "$LOOP" >> stats.txt
-	tcpreplay -i $REPLAY_ETH -p $PPS -l $LOOP $PCAP_FILE >> stats.txt &
+	tcpreplay -i $REPLAY_NIC -p $PPS -l $LOOP $PCAP_FILE >> stats.txt &
 }
 
 run_pktg() {
@@ -57,8 +55,10 @@ run_pktg() {
 	echo "====================================" >> stats.txt
 	echo "`date`" >> stats.txt
 	NIC=$1
+    GRE_IP=$2
+    CPU_ID=$3
 	echo "$NIC"  >> stats.txt
-	pktminerg -i $NIC -r $GRE_RECV_IP -k 1 -p --cpu $PKTG_CPU_ID >> pktg.txt &
+	pktminerg -i $NIC -r $GRE_IP -k 1 -p --cpu $CPU_ID >> pktg.txt &
 }
 
 stats() {
@@ -83,14 +83,17 @@ pktg_test_case() {
 	K=$1
     PCAPF=$2
     LOOPX=$3
+    REPLAY_ETH=$4
+    GRE_RECV_IP=$5
+    PKTG_CPU_ID=$6
 
 	PPSA=$[ 10000 * $K ]
     LOOPN=$[ $LOOPX * $K ]
 	echo "pps: $PPSA"
 	echo "LOOPN: $LOOPN"
 	
-	run_pktg $REPLAY_ETH
-	replay $PPSA $PCAPF $LOOPN
+	run_pktg $REPLAY_ETH $GRE_RECV_IP $PKTG_CPU_ID
+	replay $PPSA $PCAPF $LOOPN $REPLAY_ETH
 	stats
 
 	killall pktminerg
@@ -102,19 +105,21 @@ main_test() {
 
     for (( k=1; k<=50; k++ ))
     do
-        pktg_test_case $k $REPLAY_PCAP_FILE $REPLAY_LOOPX
+        pktg_test_case $k $REPLAY_PCAP_FILE $REPLAY_LOOPX $3 $4 $5
     done
 }
 
-if [ "$1" == "" ]
-then
+if [ "$#" -ne 5 ]; then
     echo "Usage:"
-    echo "    sh test_agent.sh REPLAY_PCAP_FILE REPLAY_LOOPX"
-    echo "        REPLAY_PCAP_FILE: input pcap for tcpreplay to send packets to NIC."
-    echo "        REPLAY_LOOPX: use this coefficient to control tcpreplay duration."
+    echo "    sh test_agent.sh replay_pcap_file replay_loopx replay_nic gre_recv_ip pktg_cpu_id"
+    echo "        replay_pcap_file: input pcap for tcpreplay to send packets to NIC."
+    echo "        replay_loopx: use this coefficient to control tcpreplay duration."
+    echo "        replay_nic: tcpreplay target network interface(eth0, eth1...)."
+    echo "        gre_recv_ip: remote ip to receive gre packet."
+    echo "        pktg_cpu_id: limit pktminerg to run on this cpu processor id."
     echo "Example:"
-    echo "    sh test_agent.sh input.pcap 5"
+    echo "    sh test_agent.sh input.pcap 5 eth0 192.168.0.3 1"
 else
-    main_test $1 $2
+    main_test $1 $2 $3 $4 $5
 fi
 
