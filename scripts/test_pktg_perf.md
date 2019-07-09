@@ -1,7 +1,7 @@
 # 性能测试流程
 1. 准备两台机器，一台抓包，另一台接收 GRE 数据包。在抓包机器上配置两张网卡，如 eth1, eth2。
 2. 在抓包机器上安装 libpcap, tcpreplay，并按照手册安装 packet-agent 程序：https://github.com/Netis/packet-agent/blob/master/INSTALL.md
-3. 运行本项目 scripts 目录下的 test_pktg_perf.sh，使用说明见该脚本 Usage 说明（发送封装后GRE数据包的网卡，最好不要与抓包的网卡不是同一个）：
+3. 运行本项目 scripts 目录下的 test_pktg_perf.sh，使用说明见该脚本 Usage 说明（发送封装后GRE数据包的网卡，最好不要与抓包的网卡相同）：
 ```
 Usage:
     sh test_pktg_perf.sh pcap_file loopx replay_nic gre_recv_ip pktg_cpu_id
