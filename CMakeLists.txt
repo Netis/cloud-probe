@@ -168,14 +168,6 @@ link_directories(${Boost_LIBRARY_DIRS})
     execute_process(COMMAND basename ${GCCS_REAL_FILE} OUTPUT_VARIABLE BN_GCCS_REAL OUTPUT_STRIP_TRAILING_WHITESPACE)
     execute_process(COMMAND ln -s ${BN_GCCS_REAL} ${BN_GCCS_LINK} WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
 endif()
-# link dir
-option(PLATFORM_DEBIAN "Build on Linux Platform Debian" OFF)
-if (${PLATFORM_DEBIAN})
-    message("\${PLATFORM_DEBIAN}: ${PLATFORM_DEBIAN}")
-    link_directories(${PROJECT_SOURCE_DIR}/debian_lib)
-else ()
-    link_directories(${PROJECT_SOURCE_DIR}/lib)
-endif ()
 
 
 # output dir
@@ -269,13 +261,21 @@ target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
 
 if(UNIX AND NOT APPLE)
     # test
+	include_directories(${PROJECT_SOURCE_DIR}/test)
     set(TEST_DIR ${PROJECT_SOURCE_DIR}/test)
-    set(GTEST_LIB gtest gtest_main)
 
     # unit test
-    set(SOURCE_FILES_UNITTEST ${TEST_DIR}/unit_test.cpp)
+    set(SOURCE_FILES_UNITTEST ${TEST_DIR}/unit_test.cpp
+                              ${TEST_DIR}/src/gtest.cc
+                              ${TEST_DIR}/src/gtest-death-test.cc
+                              ${TEST_DIR}/src/gtest-filepath.cc
+                              ${TEST_DIR}/src/gtest_main.cc
+                              ${TEST_DIR}/src/gtest-port.cc
+                              ${TEST_DIR}/src/gtest-printers.cc
+                              ${TEST_DIR}/src/gtest-test-part.cc
+                              ${TEST_DIR}/src/gtest-typed-test.cc)
     add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
-    target_link_libraries(unittest ${GTEST_LIB} ${BOOST_LIB} pcap pthread)
+    target_link_libraries(unittest ${BOOST_LIB} pcap pthread)
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
 endif()
 
