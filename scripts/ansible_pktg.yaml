@@ -1,0 +1,47 @@
+---
+- name: install packet-agent and its depends
+  hosts: servers_to_install_pktg
+  vars:
+    rpm_file: netis-packet-agent-0.3.2.el6.x86_64.rpm
+    deb_file: netis-packet-agent-0.3.2_amd64.deb
+  remote_user: root
+  gather_facts: True
+
+  pre_tasks:
+    - name: Copy rpm file to remote
+      copy: src={{rpm_file}} dest=/tmp/
+      when: ansible_os_family=="RedHat" or ansible_os_family=="Suse"
+    - name: Copy deb file to remote
+      copy: src={{deb_file}} dest=/tmp/
+      when: ansible_os_family=="Debian"
+
+  tasks:
+    - name: Install libpcap on RedHat/CentOS
+      yum: name=libpcap state=present
+      when: ansible_os_family=="RedHat"
+    - name: Install packet-agent on RedHat/CentOS
+      yum: name=/tmp/{{rpm_file}} state=present
+      when: ansible_os_family=="RedHat"
+
+    - name: Install libpcap on Suse
+      zypper: name=libpcap state=present
+      when: ansible_os_family=="Suse"
+    - name: Install packet-agent on Suse
+      zypper: name=/tmp/{{rpm_file}} state=present
+      when: ansible_os_family=="Suse"
+
+    - name: Install libpcap on Debian/Ubuntu
+      apt: name=libpcap-dev state=present
+      when: ansible_os_family=="Debian"
+    - name: Install packet-agent on Debian/Ubuntu
+      apt: deb=/tmp/{{deb_file}} state=present
+      when: ansible_os_family=="Debian"
+
+  post_tasks:
+    - name: cleanup rpm
+      file: state=absent path=/tmp/{{rpm_file}}
+      when: ansible_os_family=="RedHat" or ansible_os_family=="Suse"
+    - name: cleanup deb
+      file: state=absent path=/tmp/{{deb_file}}
+      when: ansible_os_family=="Debian"
+
