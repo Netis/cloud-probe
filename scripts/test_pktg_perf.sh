@@ -103,7 +103,7 @@ main_test() {
     REPLAY_PCAP_FILE=$1
     REPLAY_LOOPX=$2
 
-    for (( k=1; k<=50; k++ ))
+    for (( k=1; k<=100; k++ ))
     do
         pktg_test_case $k $REPLAY_PCAP_FILE $REPLAY_LOOPX $3 $4 $5
     done
