@@ -299,6 +299,11 @@ else()
     install(FILES
             DESTINATION lib COMPONENT pktminerg)
 
+    if (IS_DIRECTORY /usr/lib/systemd/system)
+        install(FILES "${PROJECT_SOURCE_DIR}/scripts/packet-agent.service" DESTINATION /usr/lib/systemd/system COMPONENT pktminerg)
+    endif()
+    install(FILES "${PROJECT_SOURCE_DIR}/scripts/pktgd.sh" DESTINATION etc COMPONENT pktminerg)
+
     install(TARGETS pktminerg gredump pcapcompare DESTINATION bin COMPONENT pktminerg)
 
     set(CPACK_PACKAGE_CONTACT "netis")
