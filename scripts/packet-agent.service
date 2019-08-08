@@ -8,8 +8,8 @@ KillMode=control-group
 Restart=always
 RestartSec=3
 ExecStart=/bin/bash /usr/local/etc/pktgd.sh
-ExecStartPre=/usr/bin/mkdir -p /var/run/packet-agent
-ExecStartPre=/usr/bin/chmod 0777 /var/run/packet-agent
+ExecStartPre=/bin/mkdir -p /var/run/packet-agent
+ExecStartPre=/bin/chmod 0777 /var/run/packet-agent
 PIDFile=/var/run/packet-agent/pktminerg.pid
 PrivateTmp=true
 
