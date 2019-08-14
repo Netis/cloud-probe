@@ -18,6 +18,8 @@ int main(int argc, const char* argv[]) {
     desc.add_options()
             ("interface,i", boost::program_options::value<std::string>()->value_name("NIC"),
              "interface to capture packets")
+            ("bind_device,B", boost::program_options::value<std::string>()->value_name("BIND"),
+             "send GRE packets from this binded device")
             ("pcapfile,f", boost::program_options::value<std::string>()->value_name("PATH"),
              "specify pcap file for offline mode, mostly for test")
             ("remoteip,r", boost::program_options::value<std::string>()->value_name("IP"), "set gre remote ip")
@@ -74,6 +76,11 @@ int main(int argc, const char* argv[]) {
         std::cerr << StatisLogContext::getTimeString()
                   << "Please choice only one snoop mode, from interface use -i or from pcap file use -f." << std::endl;
         return 1;
+    }
+
+    std::string bind_device = "";
+    if (vm.count("bind_device")) {
+        bind_device = vm["bind_device"].as<std::string>();
     }
 
     if (!vm.count("remoteip")) {
@@ -179,8 +186,13 @@ int main(int argc, const char* argv[]) {
     });
 
     // export gre
-    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteip, keybit);
-    greExport->initExport();
+    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteip, keybit, bind_device);
+    int err = greExport->initExport();
+    if (err != 0) {
+        std::cerr << StatisLogContext::getTimeString()
+                  << "greExport initExport failed." << std::endl;
+        return err;
+    }
     handler->addExport(greExport);
 
     // begin pcap snoop
