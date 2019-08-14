@@ -32,7 +32,7 @@ namespace {
     }
 
     TEST(PcapExportGre, test) {
-        PcapExportGre greExport("127.0.1.1", 2);
+        PcapExportGre greExport("127.0.1.1", 2, "");
         EXPECT_EQ(0, greExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;

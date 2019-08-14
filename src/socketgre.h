@@ -12,11 +12,12 @@ class PcapExportGre : public PcapExportBase {
 protected:
     std::string _remoteip;
     uint32_t _keybit;
+    std::string _bind_device;
     int _socketfd;
     struct sockaddr_in _remote_addr;
     char _grebuffer[65535 + sizeof(grehdr_t)];
 public:
-    PcapExportGre(const std::string &remoteip, uint32_t keybit);
+    PcapExportGre(const std::string &remoteip, uint32_t keybit, const std::string& bind_device);
     ~PcapExportGre();
     int initExport();
     int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data);

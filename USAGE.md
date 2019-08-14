@@ -8,6 +8,7 @@ Generic options:
 
 Allowed options:
   -i [ --interface ] NIC          interface to capture packets
+  -B [ --bind_device ] BIND       send GRE packets from this binded device
   -f [ --pcapfile ] PATH          specify pcap file for offline mode, mostly 
                                   for test
   -r [ --remoteip ] IP            set gre remote ip
@@ -35,6 +36,10 @@ Allowed options:
 
 * interface<br>
 Network interface to capture packets (eth0, eth1...). Required in live mode.
+<br>
+
+* bind_device<br>
+Send GRE packets from this binded device. Sending will be failed when this device is down.
 <br>
 
 * remoteip, keybit<br>
