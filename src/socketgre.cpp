@@ -18,9 +18,10 @@
 
 const int INVALIDE_SOCKET_FD = -1;
 
-PcapExportGre::PcapExportGre(const std::string& remoteip, uint32_t keybit) :
+PcapExportGre::PcapExportGre(const std::string& remoteip, uint32_t keybit, const std::string& bind_device) :
         _remoteip(remoteip),
         _keybit(keybit),
+        _bind_device(bind_device),
         _socketfd(INVALIDE_SOCKET_FD) {
     _type = exporttype::gre;
     std::memset(_grebuffer, 0, sizeof(_grebuffer));
@@ -43,9 +44,22 @@ int PcapExportGre::initExport() {
 
         if ((_socketfd = socket(AF_INET, SOCK_RAW, IPPROTO_GRE)) == INVALIDE_SOCKET_FD) {
             std::cerr << StatisLogContext::getTimeString() << "Create socket failed, error code is " << errno
-                      << ", error is" << strerror(errno) << "."
+                      << ", error is " << strerror(errno) << "."
                       << std::endl;
             return -1;
+        }
+
+        if (_bind_device.length() > 0) {
+#ifdef WIN32
+            //TODO: bind device on WIN32
+#else
+            if (setsockopt(_socketfd, SOL_SOCKET, SO_BINDTODEVICE, _bind_device.c_str(), _bind_device.length()) < 0) {
+                std::cerr << StatisLogContext::getTimeString() << "SO_BINDTODEVICE failed, error code is " << errno
+                          << ", error is " << strerror(errno) << "."
+                          << std::endl;
+                return -1;
+            }
+#endif // WIN32
         }
     }
     return 0;
