@@ -2,7 +2,7 @@
 
 The list of the most significant changes made in Netis Packet Agent over time.
 
-## Netis Packet Agent 0.3.2
+## Netis Packet Agent 0.3.3
 
 ### Features
 * Add Windows support

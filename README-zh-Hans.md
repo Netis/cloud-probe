@@ -2,9 +2,9 @@
 [English](README.md)  ∙  简体中文
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.3.2
+# Netis Packet Agent 0.3.3
 
-[![Stable release](https://img.shields.io/badge/version-0.3.2-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.2)
+[![Stable release](https://img.shields.io/badge/version-0.3.3-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.3)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 
@@ -35,14 +35,14 @@ yum install libpcap wget
 
 2. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.2/netis-packet-agent-0.3.2.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.2.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.3.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.3.el6.x86_64.rpm
 ```
 #### SUSE12
 1. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.2/netis-packet-agent-0.3.2.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.2.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.3.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.3.el6.x86_64.rpm
 ```
 
 #### Ubuntu 18.04LTS
@@ -53,8 +53,8 @@ sudo apt-get install libpcap-dev wget
 
 2. 下载并安装DEB包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.2/netis-packet-agent-0.3.2_amd64.deb
-sudo dpkg -i netis-packet-agent-0.3.2_amd64.deb
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.3_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.3_amd64.deb
 ```
 
 3. 如果提示libpcap.so找不到，到libpcap.so所在目录下创建libpcap.so.1软链接。
