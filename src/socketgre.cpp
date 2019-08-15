@@ -88,7 +88,7 @@ int PcapExportGre::closeExport() {
     for (size_t i = 0; i < _remoteips.size(); ++i) {
         if (_socketfds[i] != INVALIDE_SOCKET_FD) {
 #ifdef WIN32
-            shutdown(_socketfd, SD_BOTH);
+            shutdown(_socketfds[i], SD_BOTH);
 #else
             close(_socketfds[i]);
 #endif // WIN32
