@@ -1,6 +1,7 @@
 #include <iostream>
 #include <csignal>
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
 #include "pcaphandler.h"
 #include "socketgre.h"
 #include "versioninfo.h"
@@ -19,10 +20,11 @@ int main(int argc, const char* argv[]) {
             ("interface,i", boost::program_options::value<std::string>()->value_name("NIC"),
              "interface to capture packets")
             ("bind_device,B", boost::program_options::value<std::string>()->value_name("BIND"),
-             "send GRE packets from this binded device")
+             "send GRE packets from this binded device.(Not available on Windows)")
             ("pcapfile,f", boost::program_options::value<std::string>()->value_name("PATH"),
              "specify pcap file for offline mode, mostly for test")
-            ("remoteip,r", boost::program_options::value<std::string>()->value_name("IP"), "set gre remote ip")
+            ("remoteip,r", boost::program_options::value<std::string>()->value_name("IPs"),
+                 "set gre remote IPs, seperate by ',' Example: -r 8.8.4.4,8.8.8.8")
             ("keybit,k", boost::program_options::value<int>()->default_value(1)->value_name("BIT"),
              "set gre key bit; BIT defaults 1")
             ("snaplen,s", boost::program_options::value<int>()->default_value(2048)->value_name("LENGTH"),
@@ -90,6 +92,9 @@ int main(int argc, const char* argv[]) {
     }
 
     std::string remoteip = vm["remoteip"].as<std::string>();
+    std::vector<std::string> remoteips;
+    boost::algorithm::split(remoteips, remoteip, boost::algorithm::is_any_of(","));
+
     int keybit = vm["keybit"].as<int>();
 
     std::string filter = "";
@@ -105,14 +110,16 @@ int main(int argc, const char* argv[]) {
         nofilter = true;
     }
 
-    if (!nofilter) {
-        if (filter.length() > 0) {
-            filter = filter + "and not host " + remoteip;
-        } else {
-            filter = "not host " + remoteip;
-        }
-    } else {
+    if (nofilter) {
         filter = "";
+    } else {
+        for (size_t i = 0; i < remoteips.size(); ++i) {
+            if (filter.length() > 0) {
+                filter = filter + " and not host " + remoteips[i];
+            } else {
+                filter = "not host " + remoteips[i];
+            }
+        }
     }
 
     // dump option
@@ -186,7 +193,7 @@ int main(int argc, const char* argv[]) {
     });
 
     // export gre
-    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteip, keybit, bind_device);
+    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device);
     int err = greExport->initExport();
     if (err != 0) {
         std::cerr << StatisLogContext::getTimeString()

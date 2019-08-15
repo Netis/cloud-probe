@@ -8,10 +8,12 @@ Generic options:
 
 Allowed options:
   -i [ --interface ] NIC          interface to capture packets
-  -B [ --bind_device ] BIND       send GRE packets from this binded device
-  -f [ --pcapfile ] PATH          specify pcap file for offline mode, mostly 
+  -B [ --bind_device ] BIND       send GRE packets from this binded
+                                  device.(Not available on Windows)
+  -f [ --pcapfile ] PATH          specify pcap file for offline mode, mostly
                                   for test
-  -r [ --remoteip ] IP            set gre remote ip
+  -r [ --remoteip ] IPs           set gre remote IPs, seperate by ',' Example:
+                                  -r 8.8.4.4,8.8.8.8
   -k [ --keybit ] BIT (=1)        set gre key bit; BIT defaults 1
   -s [ --snaplen ] LENGTH (=2048) set snoop packet snaplen; LENGTH defaults 
                                   2048 and units byte
