@@ -4,7 +4,7 @@ case $facts['os']['family'] {
                   $lib_pcap = 'libpcap';
                   $cur_dir = '/tmp/';
                   $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.3.el6.x86_64.rpm';
-                  $package_provider = 'zypper'; 
+                  $package_provider = 'rpm'; 
                   $install_file = '/tmp/netis-packet-agent-0.3.3.el6.x86_64.rpm'
               }
   'RedHat':   { 
