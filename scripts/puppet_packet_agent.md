@@ -61,14 +61,17 @@ $ cat puppet.conf
 autosign = true
 
 
-# CA证书命令（如果autosign = false，需要手动管理）
-$ puppetserver ca list --all  # 查看当前已经给agent签发的证书，包括证书请求
-$ puppetserver ca sign --all  # <or> puppetserver ca sign --certname example.ubuntu.server   给某个agent请求手动签发证书
+# Extra : CA证书手动管理命令（如果autosign = false，或者未配置）
+# agent上运行'puppet agent -t'即会向master发送证书请求
+$ puppetserver ca list --all  # 查看当前已经给agent颁发的证书，包括证书请求
+$ puppetserver ca sign --all  # <or> puppetserver ca sign --certname example.ubuntu.server，给某个agent请求手动颁发证书
+$ puppetserver ca clean --certname example.ubuntu.server  # 删除某个已颁发的证书
 
+# 如需重置证书，master/agent 均需删除 $confdir/ssl/下的所有文件，之后在 master 上运行 'puppetserver ca setup'
 
 ```
 
-5. 在 agnet 上，配置好 master 的主机名。一般在 $confdir/puppet.conf 文件增加 [main] 配置段，配置 server 属性。 </br>
+5. 在 agent 上，配置好 master 的主机名。一般在 $confdir/puppet.conf 文件增加 [main] 配置段，配置 server 属性。 </br>
 ```
 # $confdir : 
 # *nix root users: /etc/puppetlabs/puppet
