@@ -21,10 +21,12 @@ int main(int argc, const char* argv[]) {
              "interface to capture packets")
             ("bind_device,B", boost::program_options::value<std::string>()->value_name("BIND"),
              "send GRE packets from this binded device.(Not available on Windows)")
+            ("pmtudisc_option,M", boost::program_options::value<std::string>()->value_name("MTU"),
+             " Select Path MTU Discovery strategy.  pmtudisc_option may be either do (prohibit fragmentation, even local one), want (do PMTU discovery, fragment locally when packet size is large), or dont (do not set DF flag)")
             ("pcapfile,f", boost::program_options::value<std::string>()->value_name("PATH"),
              "specify pcap file for offline mode, mostly for test")
             ("remoteip,r", boost::program_options::value<std::string>()->value_name("IPs"),
-                 "set gre remote IPs, seperate by ',' Example: -r 8.8.4.4,8.8.8.8")
+             "set gre remote IPs, seperate by ',' Example: -r 8.8.4.4,8.8.8.8")
             ("keybit,k", boost::program_options::value<int>()->default_value(1)->value_name("BIT"),
              "set gre key bit; BIT defaults 1")
             ("snaplen,s", boost::program_options::value<int>()->default_value(2048)->value_name("LENGTH"),
@@ -83,6 +85,22 @@ int main(int argc, const char* argv[]) {
     std::string bind_device = "";
     if (vm.count("bind_device")) {
         bind_device = vm["bind_device"].as<std::string>();
+    }
+
+    int pmtudisc = -1;
+    if (vm.count("pmtudisc_option")) {
+        const auto pmtudisc_option = vm["pmtudisc_option"].as<std::string>();
+        if (pmtudisc_option == "do") {
+            pmtudisc = IP_PMTUDISC_DO;
+        } else if (pmtudisc_option == "dont") {
+            pmtudisc = IP_PMTUDISC_DONT;
+        } else if (pmtudisc_option == "want") {
+            pmtudisc = IP_PMTUDISC_WANT;
+        } else {
+            std::cerr << StatisLogContext::getTimeString()
+                      << "Prong value for -M: do, dont, want are valid ones." << std::endl;
+            return 1;
+        }
     }
 
     if (!vm.count("remoteip")) {
@@ -193,7 +211,7 @@ int main(int argc, const char* argv[]) {
     });
 
     // export gre
-    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device);
+    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
     int err = greExport->initExport();
     if (err != 0) {
         std::cerr << StatisLogContext::getTimeString()

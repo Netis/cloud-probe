@@ -18,10 +18,12 @@
 
 const int INVALIDE_SOCKET_FD = -1;
 
-PcapExportGre::PcapExportGre(const std::vector<std::string>& remoteips, uint32_t keybit, const std::string& bind_device) :
+PcapExportGre::PcapExportGre(const std::vector<std::string>& remoteips, uint32_t keybit, const std::string& bind_device,
+                             const int pmtudisc) :
         _remoteips(remoteips),
         _keybit(keybit),
         _bind_device(bind_device),
+        _pmtudisc(pmtudisc),
         _socketfds(remoteips.size()),
         _remote_addrs(remoteips.size()),
         _grebuffers(remoteips.size()) {
@@ -36,7 +38,7 @@ PcapExportGre::~PcapExportGre() {
     closeExport();
 }
 
-int PcapExportGre::initSockets(size_t index, uint32_t keybit, const std::string& bind_device) {
+int PcapExportGre::initSockets(size_t index, uint32_t keybit) {
     auto& socketfd = _socketfds[index];
     auto& grebuffer = _grebuffers[index];
 
@@ -69,13 +71,22 @@ int PcapExportGre::initSockets(size_t index, uint32_t keybit, const std::string&
             }
 #endif // WIN32
         }
+
+        if (_pmtudisc >= 0) {
+            if (setsockopt(socketfd, SOL_IP, IP_MTU_DISCOVER, &_pmtudisc, sizeof(_pmtudisc)) == -1) {
+                std::cerr << StatisLogContext::getTimeString() << "IP_MTU_DISCOVER failed, error code is " << errno
+                          << ", error is " << strerror(errno) << "."
+                          << std::endl;
+                return -1;
+            }
+        }
     }
     return 0;
 }
 
 int PcapExportGre::initExport() {
     for (size_t i = 0; i < _remoteips.size(); ++i) {
-        int ret = initSockets(i, _keybit, _bind_device);
+        int ret = initSockets(i, _keybit);
         if (ret != 0) {
             std::cerr << "Failed with index: " << i << std::endl;
             return ret;
