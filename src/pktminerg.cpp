@@ -98,7 +98,7 @@ int main(int argc, const char* argv[]) {
             pmtudisc = IP_PMTUDISC_WANT;
         } else {
             std::cerr << StatisLogContext::getTimeString()
-                      << "Prong value for -M: do, dont, want are valid ones." << std::endl;
+                      << "Wrong value for -M: do, dont, want are valid ones." << std::endl;
             return 1;
         }
     }
