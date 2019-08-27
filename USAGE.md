@@ -10,6 +10,11 @@ Allowed options:
   -i [ --interface ] NIC          interface to capture packets
   -B [ --bind_device ] BIND       send GRE packets from this binded
                                   device.(Not available on Windows)
+  -M [ --pmtudisc_option ] MTU    Select Path MTU Discovery strategy.  
+                                  pmtudisc_option may be either do (prohibit 
+                                  fragmentation, even local one), want (do 
+                                  PMTU discovery, fragment locally when packet
+                                  size is large), or dont (do not set DF flag)
   -f [ --pcapfile ] PATH          specify pcap file for offline mode, mostly
                                   for test
   -r [ --remoteip ] IPs           set gre remote IPs, seperate by ',' Example:
@@ -38,6 +43,11 @@ Allowed options:
 
 * interface<br>
 Network interface to capture packets (eth0, eth1...). Required in live mode.
+<br>
+
+* pmtudisc_option<br>
+Select Path MTU Discovery strategy.pmtudisc_option may be either do (prohibit fragmentation, even local one), 
+want (do PMTU discovery, fragment locally when packet size is large), or dont (do not set DF flag).
 <br>
 
 * bind_device<br>

@@ -34,7 +34,7 @@ namespace {
     TEST(PcapExportGre, test) {
         std::vector<std::string> remoteips;
         remoteips.push_back("127.0.1.1");
-        PcapExportGre greExport(remoteips, 2, "", -1);
+        PcapExportGre greExport(remoteips, 2, "", IP_PMTUDISC_DONT);
         EXPECT_EQ(0, greExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;
