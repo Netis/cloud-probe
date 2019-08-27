@@ -2,9 +2,9 @@
 English  ∙  [简体中文](README-zh-Hans.md) 
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.3.3
+# Netis Packet Agent 0.3.4
 
-[![Stable release](https://img.shields.io/badge/version-0.3.3-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.3)
+[![Stable release](https://img.shields.io/badge/version-0.3.4-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.4)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 ## What is Netis Packet Agent?
@@ -35,15 +35,15 @@ yum install libpcap wget
 
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.3.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.3.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.4.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.4.el6.x86_64.rpm
 ```
 
 #### SUSE 12
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.3.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.3.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.4.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.4.el6.x86_64.rpm
 ```
 
 
@@ -109,6 +109,9 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 
 # Capture packet from NIC "eth0" and save them to gredump_output.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
+
+# Capture packet from NIC "eth0", do not set DF flag
+pktminerg -i eth0 -r 172.16.1.201 -M dont
 ```
 ![packet agent's pktminerg : network capture use case](./img/use_case.png)
 
