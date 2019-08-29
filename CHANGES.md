@@ -3,6 +3,13 @@
 The list of the most significant changes made in Netis Packet Agent over time.
 
 ## Netis Packet Agent 0.3.4
+
+### Features
+* Support MTU discovery strategy.
+
+## Netis Packet Agent 0.3.3
+
+### Features
 * Support send GRE packets to multi-remoteip
 * Support send GRE packets from binded device (network interface).
 * Support systemd
