@@ -88,6 +88,9 @@ int main(int argc, const char* argv[]) {
     }
 
     int pmtudisc = -1;
+#ifdef WIN32
+    //TODO: support pmtudisc_option on WIN32
+#else
     if (vm.count("pmtudisc_option")) {
         const auto pmtudisc_option = vm["pmtudisc_option"].as<std::string>();
         if (pmtudisc_option == "do") {
@@ -102,7 +105,7 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
     }
-
+#endif // WIN32
     if (!vm.count("remoteip")) {
         std::cerr << StatisLogContext::getTimeString() << "Please set gre remote ip with --remoteip or -r."
                   << std::endl;
