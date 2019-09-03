@@ -7,6 +7,7 @@
 ```shell
 yum install libpcap wget
 ```
+Note: The default libpcap with TPACKET_V3 enabled has some performance issue. If performance is critical, you can remove libpcap and reinstall libpcap-1.8.1-6.fc27.x86_64.rpm or newer version which drops the TPACKET_V3 patch: http://rpm.pbone.net/index.php3/stat/22/idpl/50238989/com/changelog.html
 
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 
