@@ -52,7 +52,7 @@ kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"cont
 	--secret sidecar-injector-webhook-certs \
 	--namespace default
 	```
-		* webhook-create-signed-cert.sh
+	* webhook-create-signed-cert.sh
 		```bash
 		#!/bin/bash
 		set -e
@@ -184,7 +184,7 @@ kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"cont
 	    webhook-patch-ca-bundle.sh > \
 	    mutatingwebhook-ca-bundle.yaml
 	```
-		* webhook-patch-ca-bundle.sh
+	* webhook-patch-ca-bundle.sh
 		```bash
 		#!/bin/bash
 		ROOT=$(cd $(dirname $0)/../../; pwd)
@@ -199,7 +199,7 @@ kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"cont
 		    sed -e "s|\${CA_BUNDLE}|${CA_BUNDLE}|g"
 		fi
 		```
-		* mutatingwebhook.yaml
+	* mutatingwebhook.yaml
 		```yaml
 		apiVersion: admissionregistration.k8s.io/v1beta1
 		kind: MutatingWebhookConfiguration
@@ -231,7 +231,7 @@ kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"cont
 	kubectl create -f service.yaml
 	kubectl create -f mutatingwebhook-ca-bundle.yaml
 	```
-		* configmap.yaml
+	* configmap.yaml
 		```yaml
 		apiVersion: v1
 		kind: ConfigMap
@@ -246,7 +246,7 @@ kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"cont
 		        tty: true
 		```
 		
-		* deployment.yaml
+	* deployment.yaml
 		```yaml
 		apiVersion: extensions/v1beta1
 		kind: Deployment
@@ -286,7 +286,7 @@ kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"cont
 		          configMap:
 		            name: sidecar-injector-webhook-configmap
 		```
-		* service.yaml
+	* service.yaml
 		```yaml
 		apiVersion: v1
 		kind: Service
