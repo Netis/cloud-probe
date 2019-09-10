@@ -52,7 +52,6 @@ kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"cont
 	--secret sidecar-injector-webhook-certs \
 	--namespace default
 	```
-
 		* webhook-create-signed-cert.sh
 		```bash
 		#!/bin/bash
@@ -178,18 +177,16 @@ kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"spec":{"cont
 		        --from-file=cert.pem=${tmpdir}/server-cert.pem \
 		        --dry-run -o yaml |
 		    kubectl -n ${namespace} apply -f -
-	```
-
+		```
 	2. 部署密钥
 	```console
-cat mutatingwebhook.yaml | \
-    webhook-patch-ca-bundle.sh > \
-    mutatingwebhook-ca-bundle.yaml
+	cat mutatingwebhook.yaml | \
+	    webhook-patch-ca-bundle.sh > \
+	    mutatingwebhook-ca-bundle.yaml
 	```
-
 		* webhook-patch-ca-bundle.sh
 		```bash
-#!/bin/bash
+		#!/bin/bash
 		ROOT=$(cd $(dirname $0)/../../; pwd)
 		set -o errexit
 		set -o nounset
@@ -201,8 +198,7 @@ cat mutatingwebhook.yaml | \
 		else
 		    sed -e "s|\${CA_BUNDLE}|${CA_BUNDLE}|g"
 		fi
-	```
-
+		```
 		* mutatingwebhook.yaml
 		```yaml
 		apiVersion: admissionregistration.k8s.io/v1beta1
@@ -227,16 +223,14 @@ cat mutatingwebhook.yaml | \
 		    namespaceSelector:
 		      matchLabels:
 		        sidecar-injector: enabled
-	```
-
+		```
 	3. 部署流量监控镜像
 	```bash
-kubectl create -f configmap.yaml
-kubectl create -f deployment.yaml
-kubectl create -f service.yaml
-kubectl create -f mutatingwebhook-ca-bundle.yaml
+	kubectl create -f configmap.yaml
+	kubectl create -f deployment.yaml
+	kubectl create -f service.yaml
+	kubectl create -f mutatingwebhook-ca-bundle.yaml
 	```
-
 		* configmap.yaml
 		```yaml
 		apiVersion: v1
@@ -251,7 +245,7 @@ kubectl create -f mutatingwebhook-ca-bundle.yaml
 		        stdin: true
 		        tty: true
 		```
-
+		
 		* deployment.yaml
 		```yaml
 		apiVersion: extensions/v1beta1
@@ -291,8 +285,7 @@ kubectl create -f mutatingwebhook-ca-bundle.yaml
 		        - name: webhook-config
 		          configMap:
 		            name: sidecar-injector-webhook-configmap
-```
-
+		```
 		* service.yaml
 		```yaml
 		apiVersion: v1
@@ -308,7 +301,6 @@ kubectl create -f mutatingwebhook-ca-bundle.yaml
 		  selector:
 		    app: sidecar-injector
 		```
-
 	4. 给需要监控的应用打上标签
 	```console
 	kubectl patch deployment nginx-deployment -p '{"spec":{"template":{"metadata":{"annotations":{"sidecar-injector-webhook.morven.me/inject": "true"}}}}}'
@@ -320,3 +312,4 @@ kubectl create -f mutatingwebhook-ca-bundle.yaml
 # 参考
 1. [Istio Sidecar 注入过程解密](https://istio.io/zh/blog/2019/data-plane-setup/)
 2. [Diving into Kubernetes MutatingAdmissionWebhook](https://github.com/morvencao/kube-mutating-webhook-tutorial/blob/master/medium-article.md)
+
