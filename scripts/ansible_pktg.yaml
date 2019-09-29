@@ -3,7 +3,7 @@
   hosts: servers_to_install_pktg
   vars:
     rpm_file: netis-packet-agent-0.3.4.el6.x86_64.rpm
-    deb_file: netis-packet-agent-0.3.3_amd64.deb
+    deb_file: netis-packet-agent-0.3.4_amd64.deb
   remote_user: root
   gather_facts: True
 

@@ -35,13 +35,13 @@ yum install libpcap wget
 
 2. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.4.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.4/netis-packet-agent-0.3.4.el6.x86_64.rpm
 rpm -ivh netis-packet-agent-0.3.4.el6.x86_64.rpm
 ```
 #### SUSE12
 1. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.4.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.4/netis-packet-agent-0.3.4.el6.x86_64.rpm
 rpm -ivh netis-packet-agent-0.3.4.el6.x86_64.rpm
 ```
 
@@ -53,8 +53,8 @@ sudo apt-get install libpcap-dev wget
 
 2. 下载并安装DEB包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.3/netis-packet-agent-0.3.3_amd64.deb
-sudo dpkg -i netis-packet-agent-0.3.3_amd64.deb
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.4/netis-packet-agent-0.3.4_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.4_amd64.deb
 ```
 
 3. 如果提示libpcap.so找不到，到libpcap.so所在目录下创建libpcap.so.1软链接。
