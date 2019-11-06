@@ -2,6 +2,11 @@
 
 The list of the most significant changes made in Netis Packet Agent over time.
 
+## Netis Packet Agent 0.3.5
+
+### Features
+* Support option check for --nofilter option invalid usage.
+
 ## Netis Packet Agent 0.3.4
 
 ### Features

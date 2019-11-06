@@ -2,9 +2,9 @@
 English  ∙  [简体中文](README-zh-Hans.md) 
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.3.4
+# Netis Packet Agent 0.3.5
 
-[![Stable release](https://img.shields.io/badge/version-0.3.4-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.4)
+[![Stable release](https://img.shields.io/badge/version-0.3.5-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.5)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 ## What is Netis Packet Agent?
@@ -35,15 +35,15 @@ yum install libpcap wget
 
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.4/netis-packet-agent-0.3.4.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.4.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.5.el6.x86_64.rpm
 ```
 
 #### SUSE 12
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.4/netis-packet-agent-0.3.4.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.4.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.5.el6.x86_64.rpm
 ```
 
 
@@ -55,8 +55,8 @@ sudo apt-get install libpcap-dev wget
 
 2. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.4/netis-packet-agent-0.3.4_amd64.deb
-sudo dpkg -i netis-packet-agent-0.3.4_amd64.deb
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.5_amd64.deb
 ```
 
 3. If libpcap.so.1 not found when running pktminerg, create softlink for libpcap.so.1 in suitable directory.

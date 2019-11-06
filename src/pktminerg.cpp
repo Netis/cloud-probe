@@ -43,7 +43,9 @@ int main(int argc, const char* argv[]) {
              R"(filter packets with FILTER; FILTER as same as tcpdump BPF expression syntax)")
             ("dump", "specify dump file, mostly for integrated test")
             ("nofilter",
-             "force no filter; only use when you confirm that the snoop interface is different from the gre interface");
+             "force no filter; In online mode, only use when GRE interface "
+                 "is set via CLI, AND you confirm that the snoop interface is "
+                 "different from the gre interface.");
 
     boost::program_options::positional_options_description position;
     position.add("expression", -1);
@@ -129,6 +131,21 @@ int main(int argc, const char* argv[]) {
     bool nofilter = false;
     if (vm.count("nofilter")) {
         nofilter = true;
+        if (vm.count("interface")) {
+            if (bind_device == "") {
+                std::cerr << StatisLogContext::getTimeString() << "Can't enable --nofilter option "
+                << "because GRE bind devices(-B) is not set, GRE packet might be sent via packet captured interface(-i)"
+                << std::endl;
+                return 1;
+            } else if (bind_device == vm["interface"].as<std::string>()) {
+                std::cerr << StatisLogContext::getTimeString() << "Can't enable --nofilter option "
+                << "because packet captured interface(-i) is equal to GRE bind devices(-B)"
+                << std::endl;
+                return 1;
+            } else {
+                // valid
+            }
+        }
     }
 
     if (nofilter) {

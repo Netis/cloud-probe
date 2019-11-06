@@ -33,9 +33,9 @@ Allowed options:
   --expression FILTER             filter packets with FILTER; FILTER as same as
                                   tcpdump BPF expression syntax
   --dump                          specify dump file, mostly for integrated test
-  --nofilter                      force no filter; only use when you confirm 
-                                  that the snoop interface is different from 
-                                  the gre interface
+  --nofilter                      force no filter; In online mode, only use when GRE interface
+                                  is set via CLI, AND you confirm that the snoop interface is
+                                  different from the gre interface.
 
 ```
 
