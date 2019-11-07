@@ -5,7 +5,9 @@ The list of the most significant changes made in Netis Packet Agent over time.
 ## Netis Packet Agent 0.3.5
 
 ### Features
-* Support option check for --nofilter option invalid usage.
+* Support option check for '--nofilter' option invalid usage. Above the version 0.3.5, pktminerg will exit directly in the following cases:
+    - if you enable '--nofilter' option without specifying gre bind device(-B) in online mode.
+    - if you enable '--nofilter' option and gre bind device(-B) is same as packet captured interface(-i) in online mode. 
 
 ## Netis Packet Agent 0.3.4
 
