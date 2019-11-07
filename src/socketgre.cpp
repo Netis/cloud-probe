@@ -65,21 +65,26 @@ int PcapExportGre::initSockets(size_t index, uint32_t keybit) {
 #else
             if (setsockopt(socketfd, SOL_SOCKET, SO_BINDTODEVICE, _bind_device.c_str(), _bind_device.length()) < 0) {
                 std::cerr << StatisLogContext::getTimeString() << "SO_BINDTODEVICE failed, error code is " << errno
+                << ", error is " << strerror(errno) << "."
+                << std::endl;
+                return -1;
+            }
+#endif // WIN32
+        }
+
+#ifdef WIN32
+        //TODO: bind device on WIN32
+#else
+        if (_pmtudisc >= 0) {
+            if (setsockopt(socketfd, SOL_IP, IP_MTU_DISCOVER, &_pmtudisc, sizeof(_pmtudisc)) == -1) {
+                std::cerr << StatisLogContext::getTimeString() << "IP_MTU_DISCOVER failed, error code is " << errno
                           << ", error is " << strerror(errno) << "."
                           << std::endl;
                 return -1;
             }
-
-            if (_pmtudisc >= 0) {
-                if (setsockopt(socketfd, SOL_IP, IP_MTU_DISCOVER, &_pmtudisc, sizeof(_pmtudisc)) == -1) {
-                    std::cerr << StatisLogContext::getTimeString() << "IP_MTU_DISCOVER failed, error code is " << errno
-                              << ", error is " << strerror(errno) << "."
-                              << std::endl;
-                    return -1;
-                }
-            }
-#endif // WIN32
         }
+#endif // WIN32
+
 
 
     }
