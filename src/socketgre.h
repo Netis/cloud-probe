@@ -21,6 +21,12 @@ public:
 
 	struct sockaddr_in6* getAddressV6() { return &svrAddr6_; }
 
+    int getDomainAF_NET();
+
+	struct sockaddr* getSockAddr();
+
+	size_t getSockLen();
+
     bool isIpV6() { return sinFamily_ == AF_INET6; }
 private:
     union {

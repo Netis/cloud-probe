@@ -57,7 +57,7 @@ int PcapExportGre::initSockets(size_t index, uint32_t keybit) {
             return err;
         }
 
-        int domain = _remote_addrs[index].isIpV6() ? AF_INET6 : AF_INET;
+        int domain = _remote_addrs[index].getDomainAF_NET();
         if ((socketfd = socket(domain, SOCK_RAW, IPPROTO_GRE)) == INVALIDE_SOCKET_FD) {
             std::cerr << StatisLogContext::getTimeString() << "Create socket failed, error code is " << errno
                       << ", error is " << strerror(errno) << "."
@@ -129,11 +129,8 @@ int PcapExportGre::exportPacket(size_t index, const struct pcap_pkthdr* header, 
     auto& grebuffer = _grebuffers[index];
     int socketfd = _socketfds[index];
     auto& addrV4V6 = _remote_addrs[index];
-    struct sockaddr* remote_addr = addrV4V6.isIpV6() ? (struct sockaddr*)(addrV4V6.getAddressV6())
-                                                     : (struct sockaddr*)(addrV4V6.getAddressV4());
-    size_t socklen = addrV4V6.isIpV6() ? sizeof(struct sockaddr_in6)
-                                       : sizeof(struct sockaddr_in);
-
+    struct sockaddr* remote_addr = addrV4V6.getSockAddr();
+    size_t socklen = addrV4V6.getSockLen();
 
     size_t length = (size_t) (header->caplen <= 65535 ? header->caplen : 65535);
     std::memcpy(reinterpret_cast<void*>(&(grebuffer[sizeof(grehdr_t)])),
@@ -165,7 +162,6 @@ int PcapExportGre::exportPacket(size_t index, const struct pcap_pkthdr* header, 
 AddressV4V6::AddressV4V6() {
     sinFamily_ = AF_UNSPEC;
 }
-
 
 int AddressV4V6::buildAddr(const char* addr) {
     char ip[128];
@@ -205,3 +201,16 @@ int AddressV4V6::buildAddr(const char* addr) {
     freeaddrinfo(result);
     return ret;
 }
+
+int AddressV4V6::getDomainAF_NET() {
+    return isIpV6() ? AF_INET6 : AF_INET;
+}
+
+struct sockaddr* AddressV4V6::getSockAddr() {
+    return isIpV6() ? (struct sockaddr*)(getAddressV6()) : (struct sockaddr*)(getAddressV4());
+}
+
+size_t AddressV4V6::getSockLen() {
+    return isIpV6() ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+}
+
