@@ -10,6 +10,27 @@
 #include "gredef.h"
 
 
+
+class AddressV4V6 {
+public:
+    AddressV4V6();
+
+	int buildAddr(const char* addr);
+
+	struct sockaddr_in* getAddressV4() { return &svrAddr4_; }
+
+	struct sockaddr_in6* getAddressV6() { return &svrAddr6_; }
+
+    bool isIpV6() { return sinFamily_ == AF_INET6; }
+private:
+    union {
+		struct sockaddr_in svrAddr4_;
+		struct sockaddr_in6 svrAddr6_;
+	};
+    uint16_t sinFamily_;
+};
+
+
 class PcapExportGre : public PcapExportBase {
 protected:
     std::vector<std::string> _remoteips;
@@ -17,7 +38,7 @@ protected:
     std::string _bind_device;
     int _pmtudisc;
     std::vector<int> _socketfds;
-    std::vector<struct sockaddr_in> _remote_addrs;
+    std::vector<AddressV4V6> _remote_addrs;
 	std::vector<std::vector<char>> _grebuffers;
 
 private:
