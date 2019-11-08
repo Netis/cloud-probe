@@ -17,8 +17,8 @@ Allowed options:
                                   size is large), or dont (do not set DF flag)
   -f [ --pcapfile ] PATH          specify pcap file for offline mode, mostly
                                   for test
-  -r [ --remoteip ] IPs           set gre remote IPs, seperate by ',' Example:
-                                  -r 8.8.4.4,8.8.8.8
+  -r [ --remoteip ] IPs           set gre remote IPs(ipv4/ipv6), seperate by ','
+                                  Example: -r 8.8.4.4,fe80::250::11
   -k [ --keybit ] BIT (=1)        set gre key bit; BIT defaults 1
   -s [ --snaplen ] LENGTH (=2048) set snoop packet snaplen; LENGTH defaults 
                                   2048 and units byte
