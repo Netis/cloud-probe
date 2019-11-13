@@ -149,8 +149,8 @@ Generic options:
 Allowed options:
   -i [ --interface ] NIC       interface to capture packets.
   -f [ --pcapfile ] PATH       specify pcap file for offline mode, mostly for test.
-  -s [ --sourceip ] SRC_IP     source ip filter.
-  -r [ --remoteip ] DST_IP     gre remote ip filter.
+  -s [ --sourceip ] SRC_IP     source ip filter. (Unsupported on IPv6)
+  -r [ --remoteip ] DST_IP     gre remote ip filter. (Unsupported on IPv6)
   -k [ --keybit ] BIT          gre key bit filter.
   -o [ --output ] OUT_PCAP     output pcap file
   -c [ --count ] MAX_NUM (=0)  Exit after receiving count packets. Default=0, 
@@ -171,6 +171,7 @@ sourceip：Drop captured GRE packet if its source ip doesn't match specified sou
 remoteip：Drop captured GRE packet if its remote ip doesn't match specified remoteip.<br>
 keybit：Drop captured GRE packet if its GRE channel keybit doesn't match specified keybit.
 <br>
+Known issue: packet with fragments, sourceip filter, remoteip filter is NOT supported with IPv6.
 
 * output<br>
 Output pcap file

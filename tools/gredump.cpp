@@ -12,9 +12,11 @@
 #include "scopeguard.h"
 #include "versioninfo.h"
 
-const int32_t PROT_ETH_MINLEN = 14;
-const int32_t PROT_IPV4_MINLEN = 20;
-const int32_t PROT_IPPACKET_MINLEN = PROT_ETH_MINLEN + PROT_IPV4_MINLEN;
+const int32_t ETH_HDR_LEN = 14;
+const int32_t IP4_HDR_LEN = 20;
+const int32_t IP6_HDR_LEN = 40;
+const int32_t PROT_IP4PACKET_MINLEN = ETH_HDR_LEN + IP4_HDR_LEN;
+const int32_t PROT_IP6PACKET_MINLEN = ETH_HDR_LEN + IP6_HDR_LEN;
 
 typedef struct IpFragCache {
     pcap_pkthdr pkthdr;
@@ -36,12 +38,30 @@ typedef struct GreHandleBuff {
     std::time_t lasttime;
 } gre_handle_buff_t;
 
+typedef struct _IP6RawHdr {
+    uint32_t ip6_vtf;
+    /* 4 bits version, 8 bits TC,
+                             20 bits flow-ID */
+    uint16_t ip6_payload_len;
+    /* payload length */
+    uint8_t ip6_next;
+    /* next header */
+    uint8_t ip6_hoplim;
+    /* hop limit */
+
+    struct in6_addr ip6_src;
+    /* source address */
+    struct in6_addr ip6_dst;      /* destination address */
+} IP6RawHdr;
+
+#define IPRAW_HDR_VER(p_rawiph) (ntohl(p_rawiph->ip6_vtf) >> 28)
+
 void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t *data) {
     uint8_t* p = (uint8_t*)data;
     int nCount = h->len;
 
     buff->captureCount++;
-    if (nCount < PROT_IPPACKET_MINLEN) {
+    if (nCount < PROT_IP4PACKET_MINLEN) {
 //        std::cerr << "Not IP Packet, drop it! len: " << nCount << std::endl;
         buff->dropNotGreCount++;
         return;
@@ -49,17 +69,50 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
     // ethernet
     uint8_t* eth = p;
     uint16_t etherType = ntohs(*((uint16_t*)(eth + 12)));
-    if (etherType != 0x0800) {
+    bool isIPv4 = (etherType == 0x0800);
+    bool isIPv6 = (etherType == 0x86dd);
+    if ((!isIPv4 && !isIPv6)
+        || (isIPv6 && nCount < PROT_IP6PACKET_MINLEN)) {
 //        std::cerr << "Ether Type not IP, drop it! ether type: " << etherType << std::endl;
         buff->dropNotGreCount++;
         return;
     }
+
     p += 14;
     nCount -= 14;
 
     // ip
     uint8_t* ipdata = p;
+    if (isIPv6) {
+        IP6RawHdr* hdr = (IP6RawHdr*) p;
 
+        // Verify version in IP6 Header agrees
+        if (IPRAW_HDR_VER(hdr) != 6) {
+            buff->dropNotGreCount++;
+            return;
+        }
+
+        uint16_t ip6_payload_len = ntohs(hdr->ip6_payload_len);
+        uint8_t protocol = hdr->ip6_next;
+
+        if (protocol != 47) {  // don't support IPv6 frag now.
+            buff->dropNotGreCount++;
+            return;
+        }
+
+        p += IP6_HDR_LEN;
+        pcap_pkthdr pkthdr = *h;
+        pkthdr.len = (bpf_u_int32)ip6_payload_len - 8;
+        pkthdr.caplen = (bpf_u_int32)ip6_payload_len - 8;
+        uint32_t keybit = ntohl(*((uint32_t*)(p+4)));
+        if (buff->grekey==0 || buff->grekey==keybit) {
+            pcap_dump((u_char *) buff->dumper, &pkthdr, p + 8);
+            buff->dumpCount++;
+        } else {
+            buff->dropFilterCount++;
+        }
+        return;
+    }
     uint8_t ihl = (*ipdata) & (uint8_t)0x0f;
     uint32_t iphdrlen = (uint32_t)ihl * 4;
 
@@ -178,8 +231,8 @@ int main(int argc, const char* argv[]) {
     desc.add_options()
         ("interface,i", boost::program_options::value<std::string>()->value_name("NIC"), "interface to capture packets.")
         ("pcapfile,f", boost::program_options::value<std::string>()->value_name("PATH"), "specify pcap file for offline mode, mostly for test.")
-        ("sourceip,s", boost::program_options::value<std::string>()->value_name("SRC_IP"), "source ip filter.")
-        ("remoteip,r", boost::program_options::value<std::string>()->value_name("DST_IP"), "gre remote ip filter.")
+        ("sourceip,s", boost::program_options::value<std::string>()->value_name("SRC_IP"), "source ip filter. (Unsupported on IPv6)")
+        ("remoteip,r", boost::program_options::value<std::string>()->value_name("DST_IP"), "gre remote ip filter. (Unsupported on IPv6)")
         ("keybit,k", boost::program_options::value<uint32_t>()->value_name("BIT"), "gre key bit filter.")
         ("output,o", boost::program_options::value<std::string>()->value_name("OUT_PCAP"), "output pcap file")
         ("count,c", boost::program_options::value<int>()->default_value(0)->value_name("MAX_NUM"), "Exit after receiving count packets. Default=0, No limit if count<=0.");
