@@ -27,7 +27,7 @@ public:
 
 	size_t getSockLen();
 
-    bool isIpV6() { return sinFamily_ == AF_INET6; }
+    bool isIpV6() const { return sinFamily_ == AF_INET6; }
 private:
     union {
 		struct sockaddr_in svrAddr4_;
