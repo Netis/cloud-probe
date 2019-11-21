@@ -12,6 +12,7 @@
 #else
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <netdb.h>
 #endif
 #include <pcap/pcap.h>
 #include "statislog.h"
@@ -49,10 +50,15 @@ int PcapExportGre::initSockets(size_t index, uint32_t keybit) {
         grehdr.keybit = htonl(keybit);
         std::memcpy(reinterpret_cast<void*>(&(grebuffer[0])), &grehdr, sizeof(grehdr_t));
 
-        _remote_addrs[index].sin_family = AF_INET;
-        _remote_addrs[index].sin_addr.s_addr = inet_addr(_remoteips[index].c_str());
+        int err = _remote_addrs[index].buildAddr(_remoteips[index].c_str());
+        if (err != 0) {
+            std::cerr << StatisLogContext::getTimeString() << "buildAddr failed, ip is " << _remoteips[index].c_str()
+                      << std::endl;
+            return err;
+        }
 
-        if ((socketfd = socket(AF_INET, SOCK_RAW, IPPROTO_GRE)) == INVALIDE_SOCKET_FD) {
+        int domain = _remote_addrs[index].getDomainAF_NET();
+        if ((socketfd = socket(domain, SOCK_RAW, IPPROTO_GRE)) == INVALIDE_SOCKET_FD) {
             std::cerr << StatisLogContext::getTimeString() << "Create socket failed, error code is " << errno
                       << ", error is " << strerror(errno) << "."
                       << std::endl;
@@ -127,18 +133,20 @@ int PcapExportGre::exportPacket(const struct pcap_pkthdr* header, const uint8_t*
 int PcapExportGre::exportPacket(size_t index, const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
     auto& grebuffer = _grebuffers[index];
     int socketfd = _socketfds[index];
-    auto& remote_addr = _remote_addrs[index];
+    auto& addrV4V6 = _remote_addrs[index];
+    struct sockaddr* remote_addr = addrV4V6.getSockAddr();
+    size_t socklen = addrV4V6.getSockLen();
 
     size_t length = (size_t) (header->caplen <= 65535 ? header->caplen : 65535);
     std::memcpy(reinterpret_cast<void*>(&(grebuffer[sizeof(grehdr_t)])),
                 reinterpret_cast<const void*>(pkt_data), length);
-    ssize_t nSend = sendto(socketfd, &(grebuffer[0]), length + sizeof(grehdr_t), 0, (struct sockaddr*) &remote_addr,
-                           sizeof(struct sockaddr));
+    ssize_t nSend = sendto(socketfd, &(grebuffer[0]), length + sizeof(grehdr_t), 0, remote_addr,
+                           socklen);
     while (nSend == -1 && errno == ENOBUFS) {
         usleep(1000);
         nSend = static_cast<int>(sendto(socketfd, &(grebuffer[0]), length + sizeof(grehdr_t), 0,
-                                        (struct sockaddr*) &remote_addr,
-                                        sizeof(struct sockaddr)));
+                                        remote_addr,
+                                        socklen));
     }
     if (nSend == -1) {
         std::cerr << StatisLogContext::getTimeString() << "Send to socket failed, error code is " << errno
@@ -153,5 +161,61 @@ int PcapExportGre::exportPacket(size_t index, const struct pcap_pkthdr* header, 
         return 1;
     }
     return 0;
+}
+
+
+AddressV4V6::AddressV4V6() {
+    sinFamily_ = AF_UNSPEC;
+}
+
+int AddressV4V6::buildAddr(const char* addr) {
+    char ip[128];
+    memset(ip, 0, sizeof(ip));
+    strcpy(ip, addr);
+
+    socklen_t maxLen = 128;
+
+    struct addrinfo *result;
+    int ret = getaddrinfo(ip, NULL, NULL, &result);
+    if (ret != 0) {
+        std::cerr << StatisLogContext::getTimeString() << "getaddrinfo failed, ip is " << addr << std::endl;
+        return ret;
+    }
+    struct sockaddr *sa = result->ai_addr;
+
+    sinFamily_ = sa->sa_family;
+    switch(sa->sa_family) {
+        case AF_INET:
+            inet_ntop(AF_INET, &((reinterpret_cast<struct sockaddr_in*>(sa))->sin_addr), ip, maxLen);
+            svrAddr4_.sin_family = AF_INET;
+            svrAddr4_.sin_addr.s_addr = inet_addr(ip);
+            break;
+        case AF_INET6:
+            inet_ntop(AF_INET6, &((reinterpret_cast<struct sockaddr_in6*>(sa))->sin6_addr), ip, maxLen);
+            memset(&svrAddr6_, 0, sizeof(svrAddr6_));
+            svrAddr6_.sin6_family = AF_INET6;
+            if (inet_pton(AF_INET6, ip, &svrAddr6_.sin6_addr) < 0 ) {
+                std::cerr << StatisLogContext::getTimeString() << "inet_pton failed, ip is " << addr << std::endl;
+                ret = -1;
+            }
+            break;
+        default:
+            std::cerr << StatisLogContext::getTimeString() << "Unsupport sa_family: " << sa->sa_family << std::endl;
+            ret = -2;
+    }
+    freeaddrinfo(result);
+    return ret;
+}
+
+int AddressV4V6::getDomainAF_NET() {
+    return isIpV6() ? AF_INET6 : AF_INET;
+}
+
+struct sockaddr* AddressV4V6::getSockAddr() {
+    return isIpV6() ? (struct sockaddr*)(getAddressV6()) : (struct sockaddr*)(getAddressV4());
+}
+
+size_t AddressV4V6::getSockLen() {
+    return isIpV6() ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
 }
 

@@ -27,7 +27,7 @@ int main(int argc, const char* argv[]) {
             ("pcapfile,f", boost::program_options::value<std::string>()->value_name("PATH"),
              "specify pcap file for offline mode, mostly for test")
             ("remoteip,r", boost::program_options::value<std::string>()->value_name("IPs"),
-             "set gre remote IPs, seperate by ',' Example: -r 8.8.4.4,8.8.8.8")
+             "set gre remote IPs(ipv4/ipv6), seperate by ',' Example: -r 8.8.4.4,fe80::250::11")
             ("keybit,k", boost::program_options::value<int>()->default_value(1)->value_name("BIT"),
              "set gre key bit; BIT defaults 1")
             ("snaplen,s", boost::program_options::value<int>()->default_value(2048)->value_name("LENGTH"),
