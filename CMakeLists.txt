@@ -211,6 +211,7 @@ set(SOURCE_FILES_PKTMINERG_BASE
         ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
         ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
         ${PROJECT_SOURCE_DIR}/src/statislog.cpp
+        ${PROJECT_SOURCE_DIR}/src/pcapexportplugin.cpp
         )
 
 set(SOURCE_FILES_PKTMINERG
@@ -257,7 +258,7 @@ add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
 if(WIN32)
 	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 endif()
-target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
+target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} "dl")
 
 if(UNIX AND NOT APPLE)
     # test

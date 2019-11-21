@@ -4,6 +4,7 @@
 #include <boost/algorithm/string.hpp>
 #include "pcaphandler.h"
 #include "socketgre.h"
+#include "pcapexportplugin.h"
 #include "versioninfo.h"
 #include "syshelp.h"
 
@@ -37,6 +38,9 @@ int main(int argc, const char* argv[]) {
              "set snoop buffer size; SIZE defaults 256 and units MB")
             ("count,c", boost::program_options::value<int>()->default_value(0)->value_name("COUNT"),
              "exit after receiving count packets; COUNT defaults; count<=0 means unlimited")
+            ("jsonstr", boost::program_options::value<std::string>()->value_name("JSONSTR"),
+             "specific json string for protocol extension, and use protocol extension to "
+             "generate tunnel protocol header for export packet.")
             ("priority,p", "set high priority mode")
             ("cpu", boost::program_options::value<int>()->value_name("ID"), "set cpu affinity ID")
             ("expression", boost::program_options::value<std::vector<std::string>>()->value_name("FILTER"),
@@ -230,23 +234,36 @@ int main(int argc, const char* argv[]) {
         }
     });
 
-    // export gre
-    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
-    int err = greExport->initExport();
-    if (err != 0) {
-        std::cerr << StatisLogContext::getTimeString()
-                  << "greExport initExport failed." << std::endl;
-        return err;
+    std::shared_ptr<PcapExportBase> exporter;
+    if (vm.count("jsonstr")) {
+        // export gre/erspan type1/2/3/vxlan...
+        std::string json_str = vm["jsonstr"].as<std::string>();
+        exporter = std::make_shared<PcapExportPlugin>(remoteips, json_str, bind_device, pmtudisc);
+        int err = exporter->initExport();
+        if (err != 0) {
+            std::cerr << StatisLogContext::getTimeString()
+            << "PcapExportPlugin initExport failed." << std::endl;
+            return err;
+        }
+        handler->addExport(exporter);
+    } else {
+        // export gre
+        exporter = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
+        int err = exporter->initExport();
+        if (err != 0) {
+            std::cerr << StatisLogContext::getTimeString()
+            << "greExport initExport failed." << std::endl;
+            return err;
+        }
+        handler->addExport(exporter);
     }
-    handler->addExport(greExport);
 
     // begin pcap snoop
-
     std::cout << StatisLogContext::getTimeString() << "Start pcap snoop." << std::endl;
     handler->startPcapLoop(nCount);
     std::cout << StatisLogContext::getTimeString() << "End pcap snoop." << std::endl;
 
     // end
-    greExport->closeExport();
+    exporter->closeExport();
     return 0;
 }
