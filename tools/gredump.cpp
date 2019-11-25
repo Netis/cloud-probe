@@ -12,6 +12,13 @@
 #include "scopeguard.h"
 #include "versioninfo.h"
 
+#define GRE_TYPE_TRANS_BRIDGING 0x6558
+#define ETHERNET_TYPE_ERSPAN_TYPE1   0x88be
+#define ETHERNET_TYPE_ERSPAN_TYPE2    0x88be
+#define ETHERNET_TYPE_ERSPAN_TYPE3    0x22eb
+
+
+
 const int32_t ETH_HDR_LEN = 14;
 const int32_t IP4_HDR_LEN = 20;
 const int32_t IP6_HDR_LEN = 40;
@@ -101,6 +108,21 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
         }
 
         p += IP6_HDR_LEN;
+
+        uint8_t gre_flags = p[0];
+        uint16_t ether_type = *((uint16_t*)(p + 2));
+        ether_type = ntohs(ether_type);
+        if (buff->grekey) {
+            if (gre_flags != 0x20) {
+                buff->dropFilterCount++;
+                return;
+            }
+            if (ether_type != GRE_TYPE_TRANS_BRIDGING) {
+                buff->dropFilterCount++;
+                return;
+            }
+        }
+
         pcap_pkthdr pkthdr = *h;
         pkthdr.len = (bpf_u_int32)ip6_payload_len - 8;
         pkthdr.caplen = (bpf_u_int32)ip6_payload_len - 8;
@@ -144,6 +166,21 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
     }
     p += iphdrlen;
     nCount -= iphdrlen;
+
+
+    uint8_t gre_flags = p[0];
+    uint16_t ether_type = *((uint16_t*)(p + 2));
+    ether_type = ntohs(ether_type);
+    if (buff->grekey) {
+        if (gre_flags != 0x20) {
+            buff->dropFilterCount++;
+            return;
+        }
+        if (ether_type != GRE_TYPE_TRANS_BRIDGING) {
+            buff->dropFilterCount++;
+            return;
+        }
+    }
 
     uint32_t keybit;
     bool bHasCache;

@@ -36,6 +36,10 @@ Allowed options:
   --nofilter                      force no filter; In online mode, only use when GRE interface
                                   is set via CLI, AND you confirm that the snoop interface is
                                   different from the gre interface.
+  --proto_config                  (This is a test feature.) The protocol extension's configuration in
+                                  JSON string format. If not set, packet-agent will use default
+                                  tunnel protocol (GRE with key) to export packet.
+                                  Now only supportted on Linux platform.
 
 ```
 
@@ -77,6 +81,38 @@ You can set the "--nofilter" paramter to close the filter function to improve pe
 * expression<br>
 expression: This parameter is used to match and filter the packets (syntax is same with tcpdump).
 This parameter will be invalid if "nofilter" parameter is set.
+<br>
+
+* proto_config<br>
+(This is a test feature.)
+'proto_config' contain the protocol extension's configuration in JSON string format.
+Protocol extension are various plugins of different tunnel protocol for exporting packet as several dynamic library (.so),
+The dynamic library must be located in same directory as pktminerg with file name 'lib<extension_name>.so'.
+If this parameter is not set, packet-agent will use default tunnel protocol(GRE with key) to export packet.
+Now only supportted on Linux platform.
+The configuration examples (proto_erspan_type3):
+```
+[
+    {
+        "ext_title": "proto_erspan_type3",
+        "entry": "packet_agent_proto_extionsion_entry",
+        "ext_params": {
+            "use_default_header": false,
+            "enable_vlan": true,
+            "vlan": 1024,
+            "enable_sequence": true,
+            "sequence_begin": 10000,
+            "enable_timestamp": true
+        }
+    }
+]
+```
+Now supported extension:
+proto_erspan_type1
+proto_erspan_type2
+proto_erspan_type3
+proto_gre
+
 <br>
 
 ### Examples

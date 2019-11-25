@@ -13,7 +13,10 @@
 
 #include "pcapexport.h"
 #include "gredef.h"
+#include "utils.h"
 #include "packet_agent_ext.h"
+
+
 
 
 
@@ -22,11 +25,11 @@ protected:
     // sockets
     std::vector<std::string> _remoteips;
     std::vector<int> _socketfds;
-    std::vector<struct sockaddr_in> _remote_addrs;
+    std::vector<struct AddressV4V6> _remote_addrs;
     std::vector<std::vector<char>> _buffers;
 
     // common params
-    std::string _json_str;
+    std::string _proto_config;
     std::vector<PacketAgentProtoExtension> _proto_extension;
 
     // std::vector<uint8_t> _proto_header_buffer;
@@ -39,9 +42,10 @@ protected:
 private:
     int initSockets(size_t index);
     int exportPacket(size_t index, const struct pcap_pkthdr *header, const uint8_t *pkt_data);
+    int loadLibrary();
 
 public:
-    PcapExportPlugin(const std::vector<std::string>& remoteips, const std::string& jsonstr,
+    PcapExportPlugin(const std::vector<std::string>& remoteips, const std::string& proto_config,
                      const std::string& bind_device, const int pmtudisc);
     ~PcapExportPlugin();
     int initExport();

@@ -8,33 +8,10 @@
 #include <vector>
 #include "pcapexport.h"
 #include "gredef.h"
+#include "utils.h"
 
 
 
-class AddressV4V6 {
-public:
-    AddressV4V6();
-
-	int buildAddr(const char* addr);
-
-	struct sockaddr_in* getAddressV4() { return &svrAddr4_; }
-
-	struct sockaddr_in6* getAddressV6() { return &svrAddr6_; }
-
-    int getDomainAF_NET();
-
-	struct sockaddr* getSockAddr();
-
-	size_t getSockLen();
-
-    bool isIpV6() const { return sinFamily_ == AF_INET6; }
-private:
-    union {
-		struct sockaddr_in svrAddr4_;
-		struct sockaddr_in6 svrAddr6_;
-	};
-    uint16_t sinFamily_;
-};
 
 
 class PcapExportGre : public PcapExportBase {

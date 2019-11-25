@@ -38,18 +38,20 @@ int main(int argc, const char* argv[]) {
              "set snoop buffer size; SIZE defaults 256 and units MB")
             ("count,c", boost::program_options::value<int>()->default_value(0)->value_name("COUNT"),
              "exit after receiving count packets; COUNT defaults; count<=0 means unlimited")
-            ("jsonstr", boost::program_options::value<std::string>()->value_name("JSONSTR"),
-             "specific json string for protocol extension, and use protocol extension to "
-             "generate tunnel protocol header for export packet.")
             ("priority,p", "set high priority mode")
             ("cpu", boost::program_options::value<int>()->value_name("ID"), "set cpu affinity ID")
             ("expression", boost::program_options::value<std::vector<std::string>>()->value_name("FILTER"),
              R"(filter packets with FILTER; FILTER as same as tcpdump BPF expression syntax)")
             ("dump", "specify dump file, mostly for integrated test")
             ("nofilter",
-             "force no filter; In online mode, only use when GRE interface "
+                 "force no filter; In online mode, only use when GRE interface "
                  "is set via CLI, AND you confirm that the snoop interface is "
-                 "different from the gre interface.");
+                 "different from the gre interface.")
+            ("proto_config", boost::program_options::value<std::string>()->value_name("PROTOCONFIG"),
+                 "(This is a test feature.) The protocol extension's configuration in"
+                 "JSON string format. If not set, packet-agent will use default"
+                 "tunnel protocol (GRE with key) to export packet."
+                 "Now only supportted on Linux platform.");
 
     boost::program_options::positional_options_description position;
     position.add("expression", -1);
@@ -235,10 +237,10 @@ int main(int argc, const char* argv[]) {
     });
 
     std::shared_ptr<PcapExportBase> exporter;
-    if (vm.count("jsonstr")) {
+    if (vm.count("proto_config")) {
         // export gre/erspan type1/2/3/vxlan...
-        std::string json_str = vm["jsonstr"].as<std::string>();
-        exporter = std::make_shared<PcapExportPlugin>(remoteips, json_str, bind_device, pmtudisc);
+        std::string proto_config_json_str = vm["proto_config"].as<std::string>();
+        exporter = std::make_shared<PcapExportPlugin>(remoteips, proto_config_json_str, bind_device, pmtudisc);
         int err = exporter->initExport();
         if (err != 0) {
             std::cerr << StatisLogContext::getTimeString()
