@@ -158,7 +158,13 @@ int PcapExportPlugin::loadLibrary() {
             std::string ext_title = item.second.get<std::string>("ext_title");
             std::string module_name = "lib" + ext_title + ".so";
             proto_ext.ext_title = ext_title;
+            const char* dl_err = dlerror();
             proto_ext.handle = dlopen(module_name.c_str(), RTLD_LAZY);
+            dl_err = dlerror();
+            if (dl_err) {
+                std::cerr  << dl_err << std::endl;
+                return -1;
+            }
             if (!proto_ext.handle) {
                 std::cerr << "Load plugin " <<  module_name << " failed!" << std::endl;
                 return -1;
@@ -195,6 +201,7 @@ int PcapExportPlugin::loadLibrary() {
 int PcapExportPlugin::initExport() {
     if (loadLibrary()) {
         std::cerr << "Load Extension Failed!" << std::endl;
+        return -1;
     }
 
     for (size_t i = 0; i < _remoteips.size(); ++i) {

@@ -6,10 +6,10 @@ option(PROJECT_WITH_PROF "Enable profiling and coverage report analysis" OFF)
 message("\${PROJECT_WITH_PROF}: ${PROJECT_WITH_PROF}")
 # cmake cxx flags
 if (${PROJECT_WITH_PROF})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -fprofile-arcs -ftest-coverage")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wl,-rpath,./ -fprofile-arcs -ftest-coverage")
     set(LINK_FLAGS "${LINK_FLAGS} -fprofile-arcs")
 else ()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wl,-rpath,./")
 endif ()
 
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
@@ -259,7 +259,7 @@ add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
 if(WIN32)
 	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 endif()
-target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} "dl")
+target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} ${CMAKE_DL_LIBS})
 
 if(UNIX AND NOT APPLE)
     # test
@@ -277,7 +277,7 @@ if(UNIX AND NOT APPLE)
                               ${TEST_DIR}/src/gtest-test-part.cc
                               ${TEST_DIR}/src/gtest-typed-test.cc)
     add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
-    target_link_libraries(unittest ${BOOST_LIB} pcap pthread)
+    target_link_libraries(unittest ${BOOST_LIB} pcap pthread ${CMAKE_DL_LIBS})
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
 endif()
 

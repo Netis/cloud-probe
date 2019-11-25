@@ -48,7 +48,7 @@ int main(int argc, const char* argv[]) {
                  "is set via CLI, AND you confirm that the snoop interface is "
                  "different from the gre interface.")
             ("proto_config", boost::program_options::value<std::string>()->value_name("PROTOCONFIG"),
-                 "(This is a test feature.) The protocol extension's configuration in"
+                 "(This is a test feature.) The protocol extension's configuration in "
                  "JSON string format. If not set, packet-agent will use default"
                  "tunnel protocol (GRE with key) to export packet."
                  "Now only supportted on Linux platform.");

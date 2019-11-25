@@ -146,7 +146,6 @@ int init_config(ProtoErspanType3Ctx* ctx, boost::property_tree::ptree& json_conf
     ctx->use_default_header = 1;
 
     auto entry_opt = json_config.get_child_optional("ext_params");
-    std::cout << "init_config called " <<std::endl;
     if (json_config.get_child_optional("ext_params")) {
         boost::property_tree::ptree& config_items = json_config.get_child("ext_params");
         if (config_items.get_child_optional("use_default_header")) {
