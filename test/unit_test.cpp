@@ -51,8 +51,7 @@ namespace {
         std::string proto_config = R"(
             [
                 {
-                    "ext_title": "proto_erspan_type3",
-                    "entry": "packet_agent_proto_extionsion_entry",
+                    "ext_file_path": "libproto_erspan_type3.so",
                     "ext_params": {
                         "use_default_header": false,
                         "enable_vlan": true,
@@ -80,8 +79,7 @@ namespace {
         std::string proto_config = R"(
             [
                 {
-                    "ext_title": "proto_erspan_type2",
-                    "entry": "packet_agent_proto_extionsion_entry",
+                    "ext_file_path": "libproto_erspan_type2.so",
                     "ext_params": {
                         "use_default_header": false,
                         "enable_vlan": true,
@@ -108,8 +106,7 @@ namespace {
         std::string proto_config = R"(
             [
                 {
-                    "ext_title": "proto_erspan_type1",
-                    "entry": "packet_agent_proto_extionsion_entry",
+                    "ext_file_path": "libproto_erspan_type1.so",
                     "ext_params": {
                     }
                 }

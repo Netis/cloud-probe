@@ -87,15 +87,33 @@ This parameter will be invalid if "nofilter" parameter is set.
 (This is a test feature.)
 'proto_config' contain the protocol extension's configuration in JSON string format.
 Protocol extension are various plugins of different tunnel protocol for exporting packet as several dynamic library (.so),
-The dynamic library must be located in same directory as pktminerg with file name 'lib<extension_name>.so'.
+You can assign .so file with absolute/relative path to configuration field "ext_file_path".
 If this parameter is not set, packet-agent will use default tunnel protocol(GRE with key) to export packet.
 Now only supportted on Linux platform.
-The configuration examples (proto_erspan_type3):
+Now supported extension:
+proto_erspan_type1
+proto_erspan_type2
+proto_erspan_type3
+proto_gre
+
+The configuration field explaination and usage examples as following:
 ```
+
+# The configuration field explanations:
+# ext_file_path: .so file with absolute/relative path. This field is mandatory.
+# ext_params: the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
+#     use_default_header: Use default value for all field. if set to true, another field in ext_params has no effect.
+#     enable_vlan/vlan/enable_sequence/sequence_begin/enable_timestamp/enable_key/key: as name said. 
+
+
+
+# examples: (these examples list all available field)
+
+# proto_erspan_type3 
+JSON_STR=$(cat << EOF
 [
     {
-        "ext_title": "proto_erspan_type3",
-        "entry": "packet_agent_proto_extionsion_entry",
+        "ext_file_path": "libproto_erspan_type3.so",
         "ext_params": {
             "use_default_header": false,
             "enable_vlan": true,
@@ -106,12 +124,64 @@ The configuration examples (proto_erspan_type3):
         }
     }
 ]
+EOF
+)
+./pktminerg -i eth0 -r 10.1.1.37 --proto_config "${JSON_STR}"
+
+# proto_erspan_type2 
+JSON_STR=$(cat << EOF
+[
+    {
+        "ext_file_path": "/path/to/libproto_erspan_type2.so",
+        "ext_params": {
+            "use_default_header": false,
+            "enable_vlan": true,
+            "vlan": 1027,
+            "enable_sequence": true,
+            "sequence_begin": 10000
+        }
+    }
+]
+EOF
+)
+./pktminerg -i eht0 -r 10.1.1.37 --dump --proto_config "${JSON_STR}"
+
+
+# proto_erspan_type1
+JSON_STR=$(cat << EOF
+[
+    {
+        "ext_file_path": "../libproto_erspan_type1.so",
+        "ext_params": {
+        }
+    }
+]
+EOF
+)
+./pktminerg -i eth0 -r 10.1.1.37 --proto_config "${JSON_STR}"
+
+
+# proto_gre
+JSON_STR=$(cat << EOF
+[
+    {
+        "ext_file_path": "libproto_gre.so",
+        "ext_params": {
+            "use_default_header": false,
+            "enable_key": true,
+            "key": 3,
+            "enable_sequence": true,
+            "sequence_begin": 10000
+        }
+    }
+]
+EOF
+)
+./pktminerg -i eth0 -r 10.1.1.36 --proto_config "${JSON_STR}"
+
+
 ```
-Now supported extension:
-proto_erspan_type1
-proto_erspan_type2
-proto_erspan_type3
-proto_gre
+
 
 <br>
 

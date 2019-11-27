@@ -22,6 +22,7 @@
     #include <dlfcn.h>
 #endif
 
+#define ENTRY_POINT "packet_agent_proto_extionsion_entry"
 
 #include "pcapexportplugin.h"
 #include "statislog.h"
@@ -144,7 +145,7 @@ int PcapExportPlugin::loadLibrary() {
     for (auto & item : pt) {
         PacketAgentProtoExtension proto_ext;
         proto_ext.need_update_header = 0;
-        proto_ext.ext_title = "";
+        proto_ext.ext_file_path = "";
         proto_ext.handle = nullptr;
         proto_ext.ctx = nullptr;
         proto_ext.get_proto_header_size_func = nullptr;
@@ -154,43 +155,37 @@ int PcapExportPlugin::loadLibrary() {
         proto_ext.update_proto_header_func = nullptr;
 
         // load ext handle
-        if (item.second.get_child_optional("ext_title")) {
-            std::string ext_title = item.second.get<std::string>("ext_title");
-            std::string module_name = "lib" + ext_title + ".so";
-            proto_ext.ext_title = ext_title;
+        if (item.second.get_child_optional("ext_file_path")) {
+            std::string ext_file_path = item.second.get<std::string>("ext_file_path");
+            // std::string module_name = "lib" + ext_title + ".so";
+            proto_ext.ext_file_path = ext_file_path;
             const char* dl_err = dlerror();
-            proto_ext.handle = dlopen(module_name.c_str(), RTLD_LAZY);
+            proto_ext.handle = dlopen(ext_file_path.c_str(), RTLD_LAZY);
             dl_err = dlerror();
             if (dl_err) {
                 std::cerr  << dl_err << std::endl;
                 return -1;
             }
             if (!proto_ext.handle) {
-                std::cerr << "Load plugin " <<  module_name << " failed!" << std::endl;
+                std::cerr << "Load plugin " <<  ext_file_path << " failed!" << std::endl;
                 return -1;
             }
         } else {
-            std::cerr << "Missing ext_title" << std::endl;
+            std::cerr << "Missing ext_file_path in config" << std::endl;
             return -1;
         }
 
         // call entry func for initialization
-        if (item.second.get_child_optional("entry")) {
-            std::string entry = item.second.get<std::string>("entry");
-            const char* dl_err = dlerror();
-            entry_func_t entry_func = (entry_func_t)dlsym(proto_ext.handle, entry.c_str());
-            dl_err = dlerror();
-            if (dl_err) {
-                std::cerr << "Load func " << entry << " error: " << dl_err << std::endl;
-                return -1;
-            }
-
-            proto_ext.json_config = item.second; // init ptree of json config first
-            entry_func(&proto_ext);
-        } else {
-            std::cerr << "Missing ext_title" << std::endl;
+        const char* dl_err = dlerror();
+        entry_func_t entry_func = (entry_func_t)dlsym(proto_ext.handle, ENTRY_POINT);
+        dl_err = dlerror();
+        if (dl_err) {
+            std::cerr << "Load func " << ENTRY_POINT << " error: " << dl_err << std::endl;
             return -1;
         }
+
+        proto_ext.json_config = item.second; // init ptree of json config first
+        entry_func(&proto_ext);
 
         _proto_extension.push_back(proto_ext);
     }

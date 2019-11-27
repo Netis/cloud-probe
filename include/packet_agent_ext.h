@@ -21,7 +21,7 @@ typedef int (*terminate_func_t)(void* ext_handle);
 typedef int (*entry_func_t)(void* ext_handle);
 
 typedef struct  _PacketAgentProtoExtension {
-    std::string ext_title;
+    std::string ext_file_path;
     boost::property_tree::ptree json_config;
     uint8_t need_update_header;
     void* handle;
