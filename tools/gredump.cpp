@@ -12,6 +12,13 @@
 #include "scopeguard.h"
 #include "versioninfo.h"
 
+#define GRE_TYPE_TRANS_BRIDGING 0x6558
+#define ETHERNET_TYPE_ERSPAN_TYPE1   0x88be
+#define ETHERNET_TYPE_ERSPAN_TYPE2    0x88be
+#define ETHERNET_TYPE_ERSPAN_TYPE3    0x22eb
+
+
+
 const int32_t ETH_HDR_LEN = 14;
 const int32_t IP4_HDR_LEN = 20;
 const int32_t IP6_HDR_LEN = 40;
@@ -101,18 +108,47 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
         }
 
         p += IP6_HDR_LEN;
+
+        uint8_t gre_flags = p[0];
+        uint16_t ether_type = *((uint16_t*)(p + 2));
+        ether_type = ntohs(ether_type);
+        uint16_t gre_header_size = 8;
+        if (buff->grekey) {
+            if (gre_flags != 0x20) {
+                buff->dropFilterCount++;
+                return;
+            }
+            if (ether_type != GRE_TYPE_TRANS_BRIDGING) {
+                buff->dropFilterCount++;
+                return;
+            }
+        }
+        if (ether_type == GRE_TYPE_TRANS_BRIDGING) {
+            gre_header_size = 8; // now only support key field in standard gre header.
+        } else if (ether_type == ETHERNET_TYPE_ERSPAN_TYPE3) {
+            gre_header_size = 20; // 8 bytes gre header + 12 bytes type3 header
+        } else if (ether_type == ETHERNET_TYPE_ERSPAN_TYPE2) {
+            gre_header_size = 16; // 8 bytes gre header + 8 bytes type2 header
+            if (gre_flags == 0) {
+                gre_header_size = 4; // type1 is obsolete
+            }
+        } else {
+            gre_header_size = 8;
+        }
+
         pcap_pkthdr pkthdr = *h;
-        pkthdr.len = (bpf_u_int32)ip6_payload_len - 8;
-        pkthdr.caplen = (bpf_u_int32)ip6_payload_len - 8;
+        pkthdr.len = (bpf_u_int32)ip6_payload_len - gre_header_size;
+        pkthdr.caplen = (bpf_u_int32)ip6_payload_len - gre_header_size;
         uint32_t keybit = ntohl(*((uint32_t*)(p+4)));
         if (buff->grekey==0 || buff->grekey==keybit) {
-            pcap_dump((u_char *) buff->dumper, &pkthdr, p + 8);
+            pcap_dump((u_char *) buff->dumper, &pkthdr, p + gre_header_size);
             buff->dumpCount++;
         } else {
             buff->dropFilterCount++;
         }
         return;
     }
+
     uint8_t ihl = (*ipdata) & (uint8_t)0x0f;
     uint32_t iphdrlen = (uint32_t)ihl * 4;
 
@@ -145,6 +181,35 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
     p += iphdrlen;
     nCount -= iphdrlen;
 
+
+    uint8_t gre_flags = p[0];
+    uint16_t ether_type = *((uint16_t*)(p + 2));
+    ether_type = ntohs(ether_type);
+    uint16_t gre_header_size = 8;
+    if (buff->grekey) {
+        if (gre_flags != 0x20) {
+            buff->dropFilterCount++;
+            return;
+        }
+        if (ether_type != GRE_TYPE_TRANS_BRIDGING) {
+            buff->dropFilterCount++;
+            return;
+        }
+    }
+
+    if (ether_type == GRE_TYPE_TRANS_BRIDGING) {
+        gre_header_size = 8; // now only support key field in standard gre header.
+    } else if (ether_type == ETHERNET_TYPE_ERSPAN_TYPE3) {
+        gre_header_size = 20; // 8 bytes gre header + 12 bytes type3 header
+    } else if (ether_type == ETHERNET_TYPE_ERSPAN_TYPE2) {
+        gre_header_size = 16; // 8 bytes gre header + 8 bytes type2 header
+        if (gre_flags == 0) {
+            gre_header_size = 4; // type1 is obsolete
+        }
+    } else {
+        gre_header_size = 8;
+    }
+
     uint32_t keybit;
     bool bHasCache;
     std::shared_ptr<ipfrag_cache_t> cache=nullptr;
@@ -159,11 +224,11 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
     if ( moreFrags == 0 ) {
         if (fragOffset == 0) {
             pcap_pkthdr pkthdr = *h;
-            pkthdr.len = (bpf_u_int32)nCount - 8;
-            pkthdr.caplen = (bpf_u_int32)nCount - 8;
+            pkthdr.len = (bpf_u_int32)nCount - gre_header_size;
+            pkthdr.caplen = (bpf_u_int32)nCount - gre_header_size;
             keybit = ntohl(*((uint32_t*)(p+4)));
             if (buff->grekey==0 || buff->grekey==keybit) {
-                pcap_dump((u_char *) buff->dumper, &pkthdr, p + 8);
+                pcap_dump((u_char *) buff->dumper, &pkthdr, p + gre_header_size);
                 buff->dumpCount++;
             } else {
                 buff->dropFilterCount++;
@@ -172,11 +237,11 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
             if (bHasCache) {
                 // last pkt of ip frag
                 std::memcpy((void*)(cache->ipfrag_buff + fragOffset * 8), p, (size_t)nCount);
-                cache->pkthdr.len += nCount - 8;
-                cache->pkthdr.caplen += nCount - 8;
+                cache->pkthdr.len += nCount - gre_header_size;
+                cache->pkthdr.caplen += nCount - gre_header_size;
                 keybit = ntohl(*((uint32_t*)(cache->ipfrag_buff+4)));
                 if (buff->grekey==0 || buff->grekey==keybit) {
-                    pcap_dump((u_char*)buff->dumper, &cache->pkthdr, (const uint8_t*)(cache->ipfrag_buff + 8));
+                    pcap_dump((u_char*)buff->dumper, &cache->pkthdr, (const uint8_t*)(cache->ipfrag_buff + gre_header_size));
                     buff->dumpCount++;
                 } else {
                     buff->dropFilterCount++;
