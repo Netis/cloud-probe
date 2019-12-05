@@ -18,34 +18,26 @@ extern "C"
 {
 #endif
 
-#define GRE_TYPE_TRANS_BRIDGING 0x6558
-#define GRE_STANDARD_MAX_HEADER_LENGTH 20
+#define VXLAN_DST_PORT   4789
 #define INVALIDE_SOCKET_FD  -1
+#define UDP_HEADER_LENGTH  8
 
-#define PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT         "use_default_header"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_KEY          "enable_key"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_KEY                 "key"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ          "enable_sequence"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE      "sequence_begin"
-
-#define LOG_MODULE_NAME "proto_gre: "
+#define PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT "use_default_header"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_VNI "vni"
 
 
+#define LOG_MODULE_NAME "proto_vxlan: "
 
-/* GRE related stuff */
-typedef struct _GREHdr {
-    uint8_t flags;
-    uint8_t version;
-    uint16_t ether_type;
-} GREHdr;
+typedef struct _VxLANHdr {
+    uint32_t flag_rsv;
+    uint32_t vni_rsv;
+} VxLANHdr;
 
 typedef struct _proto_extension_ctx {
     uint8_t use_default_header;
-    uint8_t enable_sequence;
-    uint8_t enable_key;
-    uint8_t need_update_header;
-    uint32_t sequence;
-    uint32_t key;
+    uint8_t pad0;
+    uint16_t pad1;
+    uint32_t vni;
     std::vector<std::string> remoteips;
     std::vector<int> socketfds;
     std::vector<struct AddressV4V6> remote_addrs;
@@ -55,72 +47,26 @@ typedef struct _proto_extension_ctx {
     int pmtudisc;
 }ProtoExtensionCtx;
 
-
 // tunnel header in outer L3 payload
 int get_proto_header_size(void* ext_handle, uint8_t* packet, uint32_t* len) {
     // TBD: support optional header fields
-    uint32_t ret_len = sizeof(GREHdr);
-    if (ext_handle) {
-        PacketAgentProtoExtension* handle = reinterpret_cast<PacketAgentProtoExtension*>(ext_handle);
-        if (handle->ctx) {
-            ProtoExtensionCtx* ctx = reinterpret_cast<ProtoExtensionCtx*>(handle->ctx);
-
-            if (ctx->enable_key) {
-                ret_len += 4;
-            }
-            if (ctx->enable_sequence) {
-                ret_len += 4;
-            }
-        }
-    }
-    return ret_len;
+    return sizeof(VxLANHdr) + UDP_HEADER_LENGTH;
 }
 
-/*
-0                   1                   2                   3
-0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|C|R|K|S|s|Recur|  Flags  | Ver |         Protocol Type         |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|      Checksum (optional)      |       Offset (optional)       |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Key (optional)                        |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Sequence Number (optional)                 |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         Routing (optional)
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
 
-int _init_proto_header(std::vector<char>& buffer, uint8_t enable_key, uint32_t key, uint8_t enable_sequence, uint32_t seq) {
-    GREHdr *hdr = reinterpret_cast<GREHdr*>(&(buffer[0]));
-    hdr->flags = 0;
-    hdr->version = 0;
-    hdr->ether_type = htons(GRE_TYPE_TRANS_BRIDGING);
-    uint32_t offset = sizeof(GREHdr);
-    uint8_t flags = 0;
-    // opt hdr
-    if (enable_key) {
-        flags = 0x20;
-        hdr->flags |=flags;
-        *((uint32_t*)(reinterpret_cast<uint8_t*>(&(buffer[offset])))) = htonl(key);
-        offset += 4;
-    }
 
-    if (enable_sequence) {
-        flags = 0x10;
-        hdr->flags |=flags;
-        *((uint32_t*)(reinterpret_cast<uint8_t*>(&(buffer[offset])))) = htonl(seq);
-        offset += 4;
-    }
-    return static_cast<int>(offset);
+int _init_proto_header(std::vector<char>& buffer, uint32_t vni) {
+    VxLANHdr *hdr = reinterpret_cast<VxLANHdr*>(&(buffer[0]));
+    hdr->flag_rsv = htonl(0x08000000);
+    hdr->vni_rsv = htonl(vni << 8);
+    return sizeof(VxLANHdr);
 }
 
 
 int _init_sockets(std::string& remote_ip, AddressV4V6& remote_addr, int& socketfd,
                   std::string& bind_device, int pmtudisc) {
     if (socketfd == INVALIDE_SOCKET_FD) {
-        int err = remote_addr.buildAddr(remote_ip.c_str());
+        int err = remote_addr.buildAddr(remote_ip.c_str(), VXLAN_DST_PORT);
         if (err != 0) {
             std::cerr <<  LOG_MODULE_NAME << "buildAddr failed, ip is " << remote_ip.c_str()
             << std::endl;
@@ -128,7 +74,7 @@ int _init_sockets(std::string& remote_ip, AddressV4V6& remote_addr, int& socketf
         }
 
         int domain = remote_addr.getDomainAF_NET();
-        if ((socketfd = socket(domain, SOCK_RAW, IPPROTO_GRE)) == INVALIDE_SOCKET_FD) {
+        if ((socketfd = socket(domain, SOCK_DGRAM, 0)) == INVALIDE_SOCKET_FD) {
             std::cerr <<  LOG_MODULE_NAME << "Create socket failed, error code is " << errno
             << ", error is " << strerror(errno) << "."
             << std::endl;
@@ -170,8 +116,7 @@ int init_export(void* ext_handle) {
     ProtoExtensionCtx* ctx = reinterpret_cast<ProtoExtensionCtx*>(proto_extension->ctx);
 
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
-        ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->enable_key, 
-                                                            ctx->key, ctx->enable_sequence, ctx->sequence));
+        ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->vni));
         int ret = _init_sockets(ctx->remoteips[i], ctx->remote_addrs[i], ctx->socketfds[i],
                                 ctx->bind_device, ctx->pmtudisc);
         if (ret != 0) {
@@ -218,18 +163,6 @@ int _export_packet_in_one_socket(AddressV4V6& remote_addr_v4v6, int& socketfd, s
     return 0;
 }
 
-int _export_packet_update_header(std::vector<char>& buffer, uint8_t enable_sequence, uint8_t enable_key) {
-    if (enable_sequence) {
-        uint32_t seq = 0;
-        uint16_t offset = enable_key ? (sizeof(GREHdr) + 4) : sizeof(GREHdr);
-        seq = *((uint32_t*)(reinterpret_cast<uint8_t*>(&(buffer[offset]))));
-        seq = ntohl(seq);
-        seq ++;
-        *((uint32_t*)(reinterpret_cast<uint8_t*>(&(buffer[offset])))) = htonl(seq);
-    }   
-    return 0;
-}
-
 
 int export_packet(void* ext_handle, const uint8_t *packet, uint32_t len) {
     if (!ext_handle) {
@@ -243,9 +176,6 @@ int export_packet(void* ext_handle, const uint8_t *packet, uint32_t len) {
 
     int ret = 0;
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
-        if (ctx->need_update_header) {
-           ret |=  _export_packet_update_header(ctx->buffers[i], ctx->enable_sequence, ctx->enable_key);
-        }
         ret |= _export_packet_in_one_socket(ctx->remote_addrs[i], ctx->socketfds[i], ctx->buffers[i],
                                             ctx->proto_header_len, packet, len);
     }
@@ -288,18 +218,16 @@ int terminate(void* ext_handle) {
 
 int _reset_context(ProtoExtensionCtx* ctx) {
     ctx->use_default_header = 0;
-    ctx->enable_sequence = 0;
-    ctx->enable_key = 0;
-    ctx->need_update_header = 0;
-    ctx->sequence = 0;
-    ctx->key = 0;   
+    ctx->pad0 = 0;
+    ctx->pad1 = 0;
+    ctx->vni = 0;
+    ctx->pmtudisc = -1;
+    ctx->proto_header_len = 0;
     ctx->remoteips.clear();
     ctx->socketfds.clear();
     ctx->remote_addrs.clear();
     ctx->buffers.clear();
-    ctx->proto_header_len = 0;
     ctx->bind_device = "";
-    ctx->pmtudisc = -1;
     return 0;
 }
 
@@ -361,20 +289,12 @@ int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
             ctx->use_default_header = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT));
         }
 
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_KEY)) {
-            ctx->enable_key = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_KEY));
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ)) {
-            ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ));
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_KEY)) {
-            ctx->key = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_KEY);
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
-            ctx->sequence = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_VNI)) {
+            ctx->vni = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_VNI);
+            if (ctx->vni >= 0x1000000) {
+                std::cerr << LOG_MODULE_NAME << "Invalid VNI value (greater than 2 ^ 24)!" << std::endl;
+                ctx->vni = 0;
+            }
         }
     }
 
@@ -405,14 +325,7 @@ int _init_context(ProtoExtensionCtx* ctx, std::string& remoteip_config, std::str
     ctx->buffers.resize(remote_ips_size);
     for (size_t i = 0; i < remote_ips_size; ++i) {
         ctx->socketfds[i] = INVALIDE_SOCKET_FD;
-        ctx->buffers[i].resize(65535 + GRE_STANDARD_MAX_HEADER_LENGTH, '\0');  // original packet, plus tunnel header in outer L3 payload
-    }
-
-    // update header indicate
-    if (ctx->use_default_header) {
-        ctx->need_update_header = 0;
-    } else {
-        ctx->need_update_header = ctx->enable_sequence;
+        ctx->buffers[i].resize(65535 + sizeof(VxLANHdr) + UDP_HEADER_LENGTH, '\0'); // original packet, plus tunnel header in outer L3 payload
     }
 
     return 0;
@@ -436,19 +349,19 @@ int packet_agent_proto_extionsion_entry(void* ext_handle) {
     if (proto_extension->remoteip_config) {
         remoteip_config = proto_extension->remoteip_config;
     }
-    std::cout << LOG_MODULE_NAME << "remoteip_config is " << remoteip_config <<  std::endl;
+    //std::cout << LOG_MODULE_NAME << "remoteip_config is" << remoteip_config <<  std::endl;
 
     std::string socket_config{};
     if (proto_extension->socket_config) {
         socket_config = proto_extension->socket_config;
     }
-    std::cout << LOG_MODULE_NAME << "socket_config is " << socket_config <<  std::endl;
+    //std::cout << LOG_MODULE_NAME << "socket_config is" << socket_config <<  std::endl;
 
     std::string proto_config{};
     if (proto_extension->proto_config) {
         proto_config = proto_extension->proto_config;
     }
-    std::cout << LOG_MODULE_NAME << "proto_config is " << proto_config <<  std::endl;
+    //std::cout << LOG_MODULE_NAME << "proto_config is" << proto_config <<  std::endl;
 
     _init_context(ctx, remoteip_config, socket_config, proto_config);
 
@@ -459,12 +372,8 @@ int packet_agent_proto_extionsion_entry(void* ext_handle) {
     proto_extension->terminate_func = terminate;
     proto_extension->ctx = ctx;
 
-    std::cout << LOG_MODULE_NAME << "The context values:" << std::endl;
     std::cout << "use_default_header " << (uint32_t)ctx->use_default_header <<std::endl;
-    std::cout << "enable_sequence " << (uint32_t)ctx->enable_sequence <<std::endl;
-    std::cout << "enable_key " << (uint32_t)ctx->enable_key <<std::endl;
-    std::cout << "sequence " << (uint32_t)ctx->sequence <<std::endl;
-    std::cout << "key " << (uint32_t)ctx->key <<std::endl;
+    std::cout << "vni " << (uint32_t)ctx->vni <<std::endl;
 
     return 0;
 }

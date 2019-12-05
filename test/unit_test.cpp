@@ -2,7 +2,7 @@
 #include "../src/syshelp.h"
 #include "../src/pcaphandler.h"
 #include "../src/socketgre.h"
-#include "../src/pcapexportplugin.h"
+#include "../src/pcapexport_extension.h"
 
 namespace {
     TEST(SysHelpTest, test) {
@@ -63,7 +63,7 @@ namespace {
                 }
             ]
         )";
-        PcapExportPlugin erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
         EXPECT_EQ(0, erspanExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;
@@ -90,7 +90,7 @@ namespace {
                 }
             ]
         )";
-        PcapExportPlugin erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
         EXPECT_EQ(0, erspanExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;
@@ -112,7 +112,7 @@ namespace {
                 }
             ]
         )";
-        PcapExportPlugin erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
         EXPECT_EQ(0, erspanExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;

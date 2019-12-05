@@ -211,7 +211,7 @@ set(SOURCE_FILES_PKTMINERG_BASE
         ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
         ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
         ${PROJECT_SOURCE_DIR}/src/statislog.cpp
-        ${PROJECT_SOURCE_DIR}/src/pcapexportplugin.cpp
+        ${PROJECT_SOURCE_DIR}/src/pcapexport_extension.cpp
         ${PROJECT_SOURCE_DIR}/src/utils.cpp
         )
 

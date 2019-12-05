@@ -14,5 +14,5 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../../bin)
 
 include_directories(../../include)
 
-set(SOURCE_FILES main.cpp)
+set(SOURCE_FILES main.cpp utils.cpp)
 add_library(proto_erspan_type2 SHARED ${SOURCE_FILES})

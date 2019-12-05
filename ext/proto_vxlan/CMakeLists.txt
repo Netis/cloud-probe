@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(proto_erspan_type1)
+project(proto_vxlan)
 
 
 set(PLUGIN_MAJOR_VERSION "0")
@@ -15,4 +15,4 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../../bin)
 include_directories(../../include)
 
 set(SOURCE_FILES main.cpp utils.cpp)
-add_library(proto_erspan_type1 SHARED ${SOURCE_FILES})
+add_library(proto_vxlan SHARED ${SOURCE_FILES})
