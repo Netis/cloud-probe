@@ -45,23 +45,21 @@ namespace {
         EXPECT_EQ(0, greExport.closeExport());
     }
 
-    TEST(erpsan_type3, test) {
+    TEST(proto_erpsan_type3, test) {
         std::vector<std::string> remoteips;
         remoteips.push_back("127.0.1.1");
         std::string proto_config = R"(
-            [
-                {
-                    "ext_file_path": "libproto_erspan_type3.so",
-                    "ext_params": {
-                        "use_default_header": false,
-                        "enable_vlan": true,
-                        "vlan": 1024,
-                        "enable_sequence": true,
-                        "sequence_begin": 10000,
-                        "enable_timestamp": true
-                    }
+            {
+                "ext_file_path": "libproto_erspan_type3.so",
+                "ext_params": {
+                    "use_default_header": false,
+                    "enable_vlan": true,
+                    "vlan": 1024,
+                    "enable_sequence": true,
+                    "sequence_begin": 10000,
+                    "enable_timestamp": true
                 }
-            ]
+            }
         )";
         PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
         EXPECT_EQ(0, erspanExport.initExport());
@@ -73,22 +71,20 @@ namespace {
         EXPECT_EQ(0, erspanExport.closeExport());
     }
 
-    TEST(erpsan_type2, test) {
+    TEST(proto_erpsan_type2, test) {
         std::vector<std::string> remoteips;
         remoteips.push_back("127.0.1.1");
         std::string proto_config = R"(
-            [
-                {
-                    "ext_file_path": "libproto_erspan_type2.so",
-                    "ext_params": {
-                        "use_default_header": false,
-                        "enable_vlan": true,
-                        "vlan": 1027,
-                        "enable_sequence": true,
-                        "sequence_begin": 10000
-                    }
+            {
+                "ext_file_path": "libproto_erspan_type2.so",
+                "ext_params": {
+                    "use_default_header": false,
+                    "enable_vlan": true,
+                    "vlan": 1027,
+                    "enable_sequence": true,
+                    "sequence_begin": 10000
                 }
-            ]
+            }
         )";
         PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
         EXPECT_EQ(0, erspanExport.initExport());
@@ -100,17 +96,15 @@ namespace {
         EXPECT_EQ(0, erspanExport.closeExport());
     }
 
-    TEST(erpsan_type1, test) {
+    TEST(proto_erpsan_type1, test) {
         std::vector<std::string> remoteips;
         remoteips.push_back("127.0.1.1");
         std::string proto_config = R"(
-            [
-                {
-                    "ext_file_path": "libproto_erspan_type1.so",
-                    "ext_params": {
-                    }
+            {
+                "ext_file_path": "libproto_erspan_type1.so",
+                "ext_params": {
                 }
-            ]
+            }
         )";
         PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
         EXPECT_EQ(0, erspanExport.initExport());
@@ -120,5 +114,52 @@ namespace {
         std::vector<uint8_t> pkt_data(32);
         EXPECT_EQ(0, erspanExport.exportPacket(&header, pkt_data.data()));
         EXPECT_EQ(0, erspanExport.closeExport());
+    }
+
+    TEST(proto_gre, test) {
+        std::vector<std::string> remoteips;
+        remoteips.push_back("127.0.1.1");
+        std::string proto_config = R"(
+            {
+                "ext_file_path": "libproto_gre.so",
+                "ext_params": {
+                    "use_default_header": false,
+                    "enable_key": true,
+                    "key": 3,
+                    "enable_sequence": true,
+                    "sequence_begin": 10000
+                }
+            }
+        )";
+        PcapExportExtension greExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        EXPECT_EQ(0, greExport.initExport());
+        pcap_pkthdr header;
+        header.caplen = 32;
+        header.len = 32;
+        std::vector<uint8_t> pkt_data(32);
+        EXPECT_EQ(0, greExport.exportPacket(&header, pkt_data.data()));
+        EXPECT_EQ(0, greExport.closeExport());
+    }
+
+    TEST(proto_vxlan, test) {
+        std::vector<std::string> remoteips;
+        remoteips.push_back("127.0.1.1");
+        std::string proto_config = R"(
+            {
+                "ext_file_path": "libproto_vxlan.so",
+                "ext_params": {
+                    "use_default_header": false,
+                    "vni": 3310
+                }
+            }
+        )";
+        PcapExportExtension vxlanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        EXPECT_EQ(0, vxlanExport.initExport());
+        pcap_pkthdr header;
+        header.caplen = 32;
+        header.len = 32;
+        std::vector<uint8_t> pkt_data(32);
+        EXPECT_EQ(0, vxlanExport.exportPacket(&header, pkt_data.data()));
+        EXPECT_EQ(0, vxlanExport.closeExport());
     }
 }

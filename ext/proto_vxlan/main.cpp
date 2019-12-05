@@ -349,19 +349,19 @@ int packet_agent_proto_extionsion_entry(void* ext_handle) {
     if (proto_extension->remoteip_config) {
         remoteip_config = proto_extension->remoteip_config;
     }
-    //std::cout << LOG_MODULE_NAME << "remoteip_config is" << remoteip_config <<  std::endl;
+    std::cout << LOG_MODULE_NAME << "remoteip_config is " << remoteip_config <<  std::endl;
 
     std::string socket_config{};
     if (proto_extension->socket_config) {
         socket_config = proto_extension->socket_config;
     }
-    //std::cout << LOG_MODULE_NAME << "socket_config is" << socket_config <<  std::endl;
+    std::cout << LOG_MODULE_NAME << "socket_config is " << socket_config <<  std::endl;
 
     std::string proto_config{};
     if (proto_extension->proto_config) {
         proto_config = proto_extension->proto_config;
     }
-    //std::cout << LOG_MODULE_NAME << "proto_config is" << proto_config <<  std::endl;
+    std::cout << LOG_MODULE_NAME << "proto_config is " << proto_config <<  std::endl;
 
     _init_context(ctx, remoteip_config, socket_config, proto_config);
 
@@ -372,8 +372,9 @@ int packet_agent_proto_extionsion_entry(void* ext_handle) {
     proto_extension->terminate_func = terminate;
     proto_extension->ctx = ctx;
 
-    std::cout << "use_default_header " << (uint32_t)ctx->use_default_header <<std::endl;
-    std::cout << "vni " << (uint32_t)ctx->vni <<std::endl;
+    std::cout << LOG_MODULE_NAME << "The context values: " << std::endl;
+    std::cout << "use_default_header " << (uint32_t)ctx->use_default_header << std::endl;
+    std::cout << "vni " << (uint32_t)ctx->vni << std::endl;
 
     return 0;
 }
