@@ -22,8 +22,10 @@ extern "C"
 #define INVALIDE_SOCKET_FD  -1
 
 #define PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT         "use_default_header"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN         "enable_vlan"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_VLAN                "vlan"
+// #define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN         "enable_vlan"
+// #define PROTO_CONFIG_KEY_EXT_PARAMS_VLAN                "vlan"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID       "enable_spanid"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_SPANID              "spanid"
 #define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ          "enable_sequence"
 #define PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE      "sequence_begin"
 
@@ -44,10 +46,10 @@ typedef struct _ERSpanType2Hdr {
 typedef struct _proto_extension_ctx {
     uint8_t use_default_header;
     uint8_t enable_sequence;
-    uint8_t enable_vlan;
+    uint8_t enable_spanid;
     uint8_t need_update_header;
-    uint32_t sequence;
-    uint16_t vlan;
+    uint32_t sequence_begin;
+    uint16_t spanid;
     uint16_t pad2;
     std::vector<std::string> remoteips;
     std::vector<int> socketfds;
@@ -66,18 +68,17 @@ int get_proto_header_size(void* ext_handle, uint8_t* packet, uint32_t* len) {
 
 
 
-int _init_proto_header(std::vector<char>& buffer, uint32_t seq, uint16_t vlan) {
+int _init_proto_header(std::vector<char>& buffer, uint32_t seq_beg, uint16_t spanid) {
     ERSpanType23GREHdr *hdr = reinterpret_cast<ERSpanType23GREHdr*>(&(buffer[0]));
     hdr->flags = htons(0x1000);  // S bit
     hdr->protocol = htons(ETHERNET_TYPE_ERSPAN_TYPE2);
-    hdr->sequence = htonl(seq);
+    hdr->sequence = htonl(seq_beg);
 
     ERSpanType2Hdr* erspan_hdr = reinterpret_cast<ERSpanType2Hdr*>(&(buffer[sizeof(ERSpanType23GREHdr)]));
-    uint16_t ver_vlan = 0x1000; // ver = 1
-    ver_vlan |= vlan;
+    uint16_t ver_vlan = 0x1000; // ver = 1; vlan = 0: now only support En tag = 11b(VLAN tag preserved in frame).
     erspan_hdr->ver_vlan = htons(ver_vlan);
-    erspan_hdr->flags_spanId = 0;
-    erspan_hdr->pad = 0;
+    erspan_hdr->flags_spanId = htons(0x1800 | spanid); // COS = 0, En = 11b, T = 0
+    erspan_hdr->pad = 0;  // idx = 0
     return sizeof(ERSpanType23GREHdr) + sizeof(ERSpanType2Hdr);
 }
 
@@ -135,7 +136,7 @@ int init_export(void* ext_handle) {
     ProtoExtensionCtx* ctx = reinterpret_cast<ProtoExtensionCtx*>(proto_extension->ctx);
 
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
-        ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->sequence, ctx->vlan));
+        ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->sequence_begin, ctx->spanid));
         int ret = _init_sockets(ctx->remoteips[i], ctx->remote_addrs[i], ctx->socketfds[i],
                                 ctx->bind_device, ctx->pmtudisc);
         if (ret != 0) {
@@ -250,10 +251,10 @@ int terminate(void* ext_handle) {
 int _reset_context(ProtoExtensionCtx* ctx) {
     ctx->use_default_header = 0;
     ctx->enable_sequence = 0;
-    ctx->enable_vlan = 0;
+    ctx->enable_spanid = 0;
     ctx->need_update_header = 0;
-    ctx->sequence = 0;
-    ctx->vlan = 0;
+    ctx->sequence_begin = 0;
+    ctx->spanid = 0;
     ctx->pad2 = 0;    
     ctx->remoteips.clear();
     ctx->socketfds.clear();
@@ -321,14 +322,13 @@ int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
         boost::property_tree::ptree& config_items = proto_config_tree.get_child(PROTO_CONFIG_KEY_EXTERN_PARAMS);
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT)) {
             ctx->use_default_header = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT));
+            if (ctx->use_default_header) {
+                return 0;
+            }
         }
-
+        /*
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN)) {
             ctx->enable_vlan = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN));
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ)) {
-            ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ));
         }
 
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_VLAN)) {
@@ -338,11 +338,33 @@ int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
                 ctx->vlan = 0;
             }
         }
+        */
 
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
-            ctx->sequence = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID)) {
+            ctx->enable_spanid = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID));
+            if (ctx->enable_spanid) {                
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SPANID)) {
+                    ctx->spanid = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SPANID);
+                    if (ctx->spanid >= 0x0400) {
+                        std::cerr << LOG_MODULE_NAME << "spanid value is out of bound(2 ^ 10). Reset to 0." << std::endl;
+                        ctx->spanid = 0;
+                    }
+                }
+            }
+        }
+
+
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ)) {
+            ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ));
+            if (ctx->enable_sequence) {
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
+                    ctx->sequence_begin = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
+                }
+            }
         }
     }
+
+
 
     return 0;
 }
@@ -424,14 +446,13 @@ int packet_agent_proto_extionsion_entry(void* ext_handle) {
     proto_extension->close_export_func = close_export;
     proto_extension->terminate_func = terminate;
     proto_extension->ctx = ctx;
-
+    
     std::cout << LOG_MODULE_NAME << "The context values: " << std::endl;
-    std::cout << "use_default_header " << (uint32_t)ctx->use_default_header <<std::endl;
+    std::cout << "use_default_header " << (uint32_t)ctx->use_default_header << std::endl;
     std::cout << "enable_sequence " << (uint32_t)ctx->enable_sequence <<std::endl;
-    std::cout << "enable_vlan " << (uint32_t)ctx->enable_vlan <<std::endl;
-    std::cout << "sequence " << (uint32_t)ctx->sequence <<std::endl;
-    std::cout << "vlan " << (uint32_t)ctx->vlan <<std::endl;
-
+    std::cout << "enable_spanid " << (uint32_t)ctx->enable_spanid << std::endl;
+    std::cout << "sequence_begin " << (uint32_t)ctx->sequence_begin << std::endl;
+    std::cout << "spanid " << (uint32_t)ctx->spanid << std::endl;   
     return 0;
 }
 

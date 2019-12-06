@@ -44,7 +44,7 @@ typedef struct _proto_extension_ctx {
     uint8_t enable_sequence;
     uint8_t enable_key;
     uint8_t need_update_header;
-    uint32_t sequence;
+    uint32_t sequence_begin;
     uint32_t key;
     std::vector<std::string> remoteips;
     std::vector<int> socketfds;
@@ -92,7 +92,7 @@ int get_proto_header_size(void* ext_handle, uint8_t* packet, uint32_t* len) {
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-int _init_proto_header(std::vector<char>& buffer, uint8_t enable_key, uint32_t key, uint8_t enable_sequence, uint32_t seq) {
+int _init_proto_header(std::vector<char>& buffer, uint8_t enable_key, uint32_t key, uint8_t enable_sequence, uint32_t seq_beg) {
     GREHdr *hdr = reinterpret_cast<GREHdr*>(&(buffer[0]));
     hdr->flags = 0;
     hdr->version = 0;
@@ -110,7 +110,7 @@ int _init_proto_header(std::vector<char>& buffer, uint8_t enable_key, uint32_t k
     if (enable_sequence) {
         flags = 0x10;
         hdr->flags |=flags;
-        *((uint32_t*)(reinterpret_cast<uint8_t*>(&(buffer[offset])))) = htonl(seq);
+        *((uint32_t*)(reinterpret_cast<uint8_t*>(&(buffer[offset])))) = htonl(seq_beg);
         offset += 4;
     }
     return static_cast<int>(offset);
@@ -171,7 +171,7 @@ int init_export(void* ext_handle) {
 
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
         ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->enable_key, 
-                                                            ctx->key, ctx->enable_sequence, ctx->sequence));
+                                                            ctx->key, ctx->enable_sequence, ctx->sequence_begin));
         int ret = _init_sockets(ctx->remoteips[i], ctx->remote_addrs[i], ctx->socketfds[i],
                                 ctx->bind_device, ctx->pmtudisc);
         if (ret != 0) {
@@ -291,7 +291,7 @@ int _reset_context(ProtoExtensionCtx* ctx) {
     ctx->enable_sequence = 0;
     ctx->enable_key = 0;
     ctx->need_update_header = 0;
-    ctx->sequence = 0;
+    ctx->sequence_begin = 0;
     ctx->key = 0;   
     ctx->remoteips.clear();
     ctx->socketfds.clear();
@@ -359,25 +359,31 @@ int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
         boost::property_tree::ptree& config_items = proto_config_tree.get_child(PROTO_CONFIG_KEY_EXTERN_PARAMS);
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT)) {
             ctx->use_default_header = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT));
+            if (ctx->use_default_header) {
+                return 0;
+            }
         }
 
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_KEY)) {
             ctx->enable_key = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_KEY));
+            if (ctx->enable_key) {
+
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_KEY)) {
+                    ctx->key = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_KEY);
+                }
+
+            }
         }
 
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ)) {
             ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ));
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_KEY)) {
-            ctx->key = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_KEY);
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
-            ctx->sequence = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
+            if (ctx->enable_sequence) {
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
+                    ctx->sequence_begin = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
+                }
+            }
         }
     }
-
     return 0;
 }
 
@@ -463,7 +469,7 @@ int packet_agent_proto_extionsion_entry(void* ext_handle) {
     std::cout << "use_default_header " << (uint32_t)ctx->use_default_header <<std::endl;
     std::cout << "enable_sequence " << (uint32_t)ctx->enable_sequence <<std::endl;
     std::cout << "enable_key " << (uint32_t)ctx->enable_key <<std::endl;
-    std::cout << "sequence " << (uint32_t)ctx->sequence <<std::endl;
+    std::cout << "sequence_begin " << (uint32_t)ctx->sequence_begin <<std::endl;
     std::cout << "key " << (uint32_t)ctx->key <<std::endl;
 
     return 0;

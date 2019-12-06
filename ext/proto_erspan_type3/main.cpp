@@ -23,13 +23,29 @@ extern "C"
 #define INVALIDE_SOCKET_FD  -1
 
 #define PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT         "use_default_header"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN         "enable_vlan"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_VLAN                "vlan"
+// #define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN         "enable_vlan"
+// #define PROTO_CONFIG_KEY_EXT_PARAMS_VLAN                "vlan"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID       "enable_spanid"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_SPANID              "spanid"
 #define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ          "enable_sequence"
 #define PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE      "sequence_begin"
 #define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_TIMESTAMP    "enable_timestamp"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_TIMESTAMP_TYPE      "timestamp_type"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SECURITY_GRP_TAG "enable_security_grp_tag"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_SECURITY_GRP_TAG    "security_grp_tag"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_HW_ID        "enable_hw_id"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_HW_ID               "hw_id"
+
 
 #define LOG_MODULE_NAME "proto_erspan_type3: "
+
+
+typedef enum _timestamp_type {
+    GRA_100_MICROSECONDS = 0,
+    GRA_100_NANOSECONDS,
+    GRA_IEEE_1588,
+    GRA_USER_DEFINED
+}TimestampType;
 
 typedef struct _ERSpanType23GREHdr {
     uint16_t flags;
@@ -40,20 +56,24 @@ typedef struct _ERSpanType23GREHdr {
 typedef struct _ERSpanType3Hdr {
     uint16_t ver_vlan;
     uint16_t flags_spanId;
-    uint32_t timestamp;
-    uint16_t pad0;
-    uint16_t pad1;
+    uint32_t timestamp; // granularity : 100 microseconds
+    uint16_t security_grp_tag;
+    uint16_t hwid_flags;
 } ERSpanType3Hdr;
 
 typedef struct _proto_extension_ctx {
     uint8_t use_default_header;
     uint8_t enable_sequence;
-    uint8_t enable_vlan;
-    uint8_t enable_timestamp;  // granularity : 100 microseconds
-    uint32_t sequence;
-    uint16_t vlan;
-    uint8_t need_update_header;
-    uint8_t pad;
+    uint8_t enable_spanid;
+    uint8_t enable_timestamp;
+    uint8_t timestamp_type;
+    uint32_t sequence_begin;
+    uint16_t spanid;
+    uint8_t enable_security_grp_tag;
+    uint8_t enable_hw_id;
+    uint8_t hw_id;
+    uint16_t security_grp_tag;
+    uint8_t need_update_header;    
     std::chrono::high_resolution_clock::time_point time_begin;
     std::vector<std::string> remoteips;
     std::vector<int> socketfds;
@@ -74,22 +94,20 @@ int get_proto_header_size(void* ext_handle, uint8_t* packet, uint32_t* len) {
 
 
 
-int _init_proto_header(std::vector<char>& buffer, uint32_t seq, uint16_t vlan) {
+int _init_proto_header(std::vector<char>& buffer, uint32_t seq_beg, uint16_t spanid, uint16_t secur_grp_tag, uint8_t hw_id) {
 
     ERSpanType23GREHdr *hdr = reinterpret_cast<ERSpanType23GREHdr*>(&(buffer[0]));
     hdr->flags = htons(0x1000);  // S bit
     hdr->protocol = htons(ETHERNET_TYPE_ERSPAN_TYPE3);
-    hdr->sequence = htonl(seq);
+    hdr->sequence = htonl(seq_beg);
 
     ERSpanType3Hdr* erspan_hdr = reinterpret_cast<ERSpanType3Hdr*>(&(buffer[sizeof(ERSpanType23GREHdr)]));
-    uint16_t ver_vlan = 0x2000; // ver = 2
-    ver_vlan |= vlan;
+    uint16_t ver_vlan = 0x2000; // ver = 2, vlan = 0
     erspan_hdr->ver_vlan = htons(ver_vlan);
-    erspan_hdr->flags_spanId = 0;
-    erspan_hdr->timestamp = 0;  // granularity : 100 microseconds
-    erspan_hdr->pad0 = 0;
-    erspan_hdr->pad1 = 0;
-
+    erspan_hdr->flags_spanId = htons(spanid); // COS = 0, BSO = 0, T = 0
+    erspan_hdr->timestamp = 0;  
+    erspan_hdr->security_grp_tag = htons(secur_grp_tag);
+    erspan_hdr->hwid_flags = htons(hw_id << 4); // Gra = 00b
     return sizeof(ERSpanType23GREHdr) + sizeof(ERSpanType3Hdr);
 }
 
@@ -147,7 +165,8 @@ int init_export(void* ext_handle) {
     ProtoExtensionCtx* ctx = reinterpret_cast<ProtoExtensionCtx*>(proto_extension->ctx);
 
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
-        ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->sequence, ctx->vlan));
+        ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->sequence_begin,
+                                                                         ctx->spanid, ctx->security_grp_tag, ctx->hw_id));
         int ret = _init_sockets(ctx->remoteips[i], ctx->remote_addrs[i], ctx->socketfds[i],
                                 ctx->bind_device, ctx->pmtudisc);
         if (ret != 0) {
@@ -268,12 +287,16 @@ int terminate(void* ext_handle) {
 int _reset_context(ProtoExtensionCtx* ctx) {
     ctx->use_default_header = 0;
     ctx->enable_sequence = 0;
-    ctx->enable_vlan = 0;
+    ctx->enable_spanid = 0;
     ctx->enable_timestamp = 0;
-    ctx->sequence = 0;
-    ctx->vlan = 0;
+    ctx->sequence_begin = 0;
+    ctx->spanid = 0;
+    ctx->timestamp_type = GRA_100_MICROSECONDS;
+    ctx->enable_security_grp_tag = 0;
+    ctx->enable_hw_id = 0;
+    ctx->hw_id = 0;
+    ctx->security_grp_tag = 0;
     ctx->need_update_header = 0;
-    ctx->pad = 0;   
     ctx->remoteips.clear();
     ctx->socketfds.clear();
     ctx->remote_addrs.clear();
@@ -340,21 +363,14 @@ int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
         boost::property_tree::ptree& config_items = proto_config_tree.get_child(PROTO_CONFIG_KEY_EXTERN_PARAMS);
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT)) {
             ctx->use_default_header = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT));
+            if (ctx->use_default_header) {
+                return 0;
+            }
         }
 
+        /*
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN)) {
             ctx->enable_vlan = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN));
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ)) {
-            ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ));
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_TIMESTAMP)) {
-            ctx->enable_timestamp = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_TIMESTAMP));
-            if (ctx->enable_timestamp ) {
-                ctx->time_begin = std::chrono::high_resolution_clock::now();
-            }
         }
 
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_VLAN)) {
@@ -364,11 +380,68 @@ int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
                 ctx->vlan = 0;
             }
         }
+        */
 
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
-            ctx->sequence = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID)) {
+            ctx->enable_spanid = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID));
+            if (ctx->enable_spanid) {
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SPANID)) {
+                    ctx->spanid = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SPANID);
+                    if (ctx->spanid >= 0x0400) {
+                        std::cerr << LOG_MODULE_NAME << "spanid value is out of bound(2 ^ 10). Reset to 0." << std::endl;
+                        ctx->spanid = 0;
+                    }
+                }
+            }
+        }
+
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ)) {
+            ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ));
+            if (ctx->enable_sequence) {
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
+                    ctx->sequence_begin = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
+                }                
+            }
+        }
+
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_TIMESTAMP)) {
+            ctx->enable_timestamp = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_TIMESTAMP));
+            if (ctx->enable_timestamp ) {
+                ctx->time_begin = std::chrono::high_resolution_clock::now();
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_TIMESTAMP_TYPE)) {
+                    ctx->timestamp_type = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_TIMESTAMP_TYPE));
+                    if (ctx->timestamp_type != GRA_100_MICROSECONDS) {
+                        std::cout << LOG_MODULE_NAME << "Now only support 100-microseconds granularity type. Reset type to it." << std::endl;
+                        ctx->timestamp_type = GRA_100_MICROSECONDS;
+                    }
+                }
+            }
+        }
+
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SECURITY_GRP_TAG)) {
+            ctx->enable_security_grp_tag = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SECURITY_GRP_TAG));
+            if (ctx->enable_security_grp_tag) {
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SECURITY_GRP_TAG)) {
+                    ctx->security_grp_tag = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SECURITY_GRP_TAG);
+                }
+            }
+        }
+
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_HW_ID)) {
+            ctx->enable_hw_id = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_HW_ID));
+            if (ctx->enable_hw_id) {
+                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_HW_ID)) {
+                    ctx->hw_id = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_HW_ID);
+                    if (ctx->hw_id >= 0x40) {
+                        std::cerr << LOG_MODULE_NAME << "hw_id value is out of bound(2 ^ 6). Reset to 0." << std::endl;
+                        ctx->hw_id = 0;
+                    }
+                }
+            }
         }
     }
+
+
 
     return 0;
 }
@@ -450,15 +523,19 @@ int packet_agent_proto_extionsion_entry(void* ext_handle) {
     proto_extension->close_export_func = close_export;
     proto_extension->terminate_func = terminate;
     proto_extension->ctx = ctx;
-
+    
     std::cout << LOG_MODULE_NAME << "The context values:" << std::endl;
-    std::cout << "use_default_header " << (uint32_t)ctx->use_default_header <<std::endl;
-    std::cout << "enable_sequence " << (uint32_t)ctx->enable_sequence <<std::endl;
-    std::cout << "enable_vlan " << (uint32_t)ctx->enable_vlan <<std::endl;
-    std::cout << "enable_timestamp " << (uint32_t)ctx->enable_timestamp <<std::endl;
-    std::cout << "sequence " << (uint32_t)ctx->sequence <<std::endl;
-    std::cout << "vlan " << (uint32_t)ctx->vlan <<std::endl;
-
+    std::cout << "use_default_header " << (uint32_t)ctx->use_default_header << std::endl;
+    std::cout << "enable_sequence " << (uint32_t)ctx->enable_sequence << std::endl;
+    std::cout << "enable_spanid " << (uint32_t)ctx->enable_spanid <<std::endl;
+    std::cout << "enable_timestamp " << (uint32_t)ctx->enable_timestamp << std::endl;
+    std::cout << "timestamp_type " << (uint32_t)ctx->timestamp_type << std::endl;
+    std::cout << "sequence_begin " << (uint32_t)ctx->sequence_begin << std::endl;
+    std::cout << "spanid " << (uint32_t)ctx->spanid << std::endl;
+    std::cout << "enable_security_grp_tag " << (uint32_t)ctx->enable_security_grp_tag << std::endl;
+    std::cout << "security_grp_tag " << (uint32_t)ctx->security_grp_tag << std::endl;
+    std::cout << "enable_hw_id " << (uint32_t)ctx->enable_hw_id << std::endl;
+    std::cout << "hw_id " << (uint32_t)ctx->hw_id << std::endl;    
     return 0;
 }
 

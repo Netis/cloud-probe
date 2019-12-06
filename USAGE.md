@@ -84,26 +84,24 @@ This parameter will be invalid if "nofilter" parameter is set.
 <br>
 
 * proto_config<br>
-(Experimental feature. For linux platform only.)
-'proto_config' contain the protocol extension's configuration in JSON string format.
+(Experimental feature. For linux platform only.)<br/>
+'proto_config' contain the protocol extension's configuration in JSON string format.<br/>
 Protocol extension are various plugins of different tunnel protocol for exporting packet as several dynamic library (.so),
-You can assign .so file with absolute/relative path to configuration field "ext_file_path".
-If this parameter is not set, packet-agent will use default tunnel protocol(GRE with key) to export packet.
-Now supported extension:
-proto_erspan_type1
-proto_erspan_type2
-proto_erspan_type3
-proto_gre
-proto_vxlan
-
-The configuration field explaination and usage examples as following:
+You can assign .so file with absolute/relative path to configuration field "ext_file_path".<br/>
+If this parameter is not set, packet-agent will use default tunnel protocol(GRE with key) to export packet.<br/><br/>
+<b>Supported extension - features now :</b><br/>
+proto_erspan_type1<br/>
+proto_erspan_type2  -  Sequence No. / Spanid(Session ID)<br/>
+proto_erspan_type3  -  Sequence No. / Spanid(Session ID) / Timestamp(GRA_100_MICROSECONDS type only) / Security Group Tag / Hw ID<br/>
+proto_gre  -  Sequence No. / Key<br/>
+proto_vxlan  -  VxLAN Network Indetifier(VNI)<br/><br/>
+The configuration field explaination and usage examples as following:<br/>
 ```
-
 # The configuration field explanations:
-# ext_file_path: .so file with absolute/relative path. This field is mandatory.
+# ext_file_path: .so file with absolute path, or relative path from pwd. This field is mandatory.
 # ext_params: the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
 #     use_default_header: Use default value for all field. if set to true, another field in ext_params has no effect.
-#     enable_vlan/vlan/enable_sequence/sequence_begin/enable_timestamp/enable_key/key/vni: as name said. 
+#     enable_spanid/spani/enable_sequence/sequence_begin/enable_timestamp/timestamp_type/enable_key/key/vni: as name said. 
 
 
 
@@ -116,11 +114,16 @@ JSON_STR=$(cat << EOF
     "ext_file_path": "libproto_erspan_type3.so",
     "ext_params": {
         "use_default_header": false,
-        "enable_vlan": true,
-        "vlan": 1024,
+        "enable_spanid": true,
+        "spanid": 1020,
         "enable_sequence": true,
         "sequence_begin": 10000,
-        "enable_timestamp": true
+        "enable_timestamp": true,
+        "timestamp_type": 0,
+        "enable_security_grp_tag": true,
+        "security_grp_tag": 32768,
+        "enable_hw_id": true,
+        "hw_id": 31        
     }
 }
 EOF
@@ -130,18 +133,18 @@ EOF
 # proto_erspan_type2 
 JSON_STR=$(cat << EOF
 {
-    "ext_file_path": "/path/to/libproto_erspan_type2.so",
+    "ext_file_path": "libproto_erspan_type2.so",
     "ext_params": {
         "use_default_header": false,
-        "enable_vlan": true,
-        "vlan": 1027,
+        "enable_spanid": true,
+        "spanid": 1022,
         "enable_sequence": true,
         "sequence_begin": 10000
     }
 }
 EOF
 )
-./pktminerg -i eht0 -r 10.1.1.37 --dump --proto_config "${JSON_STR}"
+./pktminerg -i eth0 -r 10.1.1.37 --dump --proto_config "${JSON_STR}"
 
 
 # proto_erspan_type1
@@ -184,9 +187,6 @@ JSON_STR=$(cat << EOF
 EOF
 )
 ./pktminerg -i eth0 -r 10.1.1.36 --proto_config "${JSON_STR}"
-
-
-
 ```
 
 

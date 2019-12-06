@@ -287,6 +287,9 @@ int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
         boost::property_tree::ptree& config_items = proto_config_tree.get_child(PROTO_CONFIG_KEY_EXTERN_PARAMS);
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT)) {
             ctx->use_default_header = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT));
+            if (ctx->use_default_header) {
+                return 0;
+            }
         }
 
         if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_VNI)) {
