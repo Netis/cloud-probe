@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 2.8)
 project(proto_gre)
 
 
@@ -14,5 +14,5 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../../bin)
 
 include_directories(../../include)
 
-set(SOURCE_FILES main.cpp)
+set(SOURCE_FILES main.cpp utils.cpp)
 add_library(proto_gre SHARED ${SOURCE_FILES})

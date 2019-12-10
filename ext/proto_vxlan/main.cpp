@@ -18,39 +18,26 @@ extern "C"
 {
 #endif
 
-#define ETHERNET_TYPE_ERSPAN_TYPE2    0x88be
+#define VXLAN_DST_PORT   4789
 #define INVALIDE_SOCKET_FD  -1
+#define UDP_HEADER_LENGTH  8
 
-#define PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT         "use_default_header"
-// #define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN         "enable_vlan"
-// #define PROTO_CONFIG_KEY_EXT_PARAMS_VLAN                "vlan"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID       "enable_spanid"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_SPANID              "spanid"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ          "enable_sequence"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE      "sequence_begin"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT "use_default_header"
+#define PROTO_CONFIG_KEY_EXT_PARAMS_VNI "vni"
 
-#define LOG_MODULE_NAME "proto_erspan_type2: "
 
-typedef struct _ERSpanType23GREHdr {
-    uint16_t flags;
-    uint16_t protocol;
-    uint32_t sequence;
-} ERSpanType23GREHdr;
+#define LOG_MODULE_NAME "proto_vxlan: "
 
-typedef struct _ERSpanType2Hdr {
-    uint16_t ver_vlan;
-    uint16_t flags_spanId;
-    uint32_t pad;
-} ERSpanType2Hdr;
+typedef struct _VxLANHdr {
+    uint32_t flag_rsv;
+    uint32_t vni_rsv;
+} VxLANHdr;
 
 typedef struct _proto_extension_ctx {
     uint8_t use_default_header;
-    uint8_t enable_sequence;
-    uint8_t enable_spanid;
-    uint8_t need_update_header;
-    uint32_t sequence_begin;
-    uint16_t spanid;
-    uint16_t pad2;
+    uint8_t pad0;
+    uint16_t pad1;
+    uint32_t vni;
     std::vector<std::string> remoteips;
     std::vector<int> socketfds;
     std::vector<struct AddressV4V6> remote_addrs;
@@ -63,30 +50,23 @@ typedef struct _proto_extension_ctx {
 // tunnel header in outer L3 payload
 int get_proto_header_size(void* ext_handle, uint8_t* packet, uint32_t* len) {
     // TBD: support optional header fields
-    return sizeof(ERSpanType23GREHdr) + sizeof(ERSpanType2Hdr);
+    return sizeof(VxLANHdr) + UDP_HEADER_LENGTH;
 }
 
 
 
-int _init_proto_header(std::vector<char>& buffer, uint32_t seq_beg, uint16_t spanid) {
-    ERSpanType23GREHdr *hdr = reinterpret_cast<ERSpanType23GREHdr*>(&(buffer[0]));
-    hdr->flags = htons(0x1000);  // S bit
-    hdr->protocol = htons(ETHERNET_TYPE_ERSPAN_TYPE2);
-    hdr->sequence = htonl(seq_beg);
-
-    ERSpanType2Hdr* erspan_hdr = reinterpret_cast<ERSpanType2Hdr*>(&(buffer[sizeof(ERSpanType23GREHdr)]));
-    uint16_t ver_vlan = 0x1000; // ver = 1; vlan = 0: now only support En tag = 11b(VLAN tag preserved in frame).
-    erspan_hdr->ver_vlan = htons(ver_vlan);
-    erspan_hdr->flags_spanId = htons(0x1800 | spanid); // COS = 0, En = 11b, T = 0
-    erspan_hdr->pad = 0;  // idx = 0
-    return sizeof(ERSpanType23GREHdr) + sizeof(ERSpanType2Hdr);
+int _init_proto_header(std::vector<char>& buffer, uint32_t vni) {
+    VxLANHdr *hdr = reinterpret_cast<VxLANHdr*>(&(buffer[0]));
+    hdr->flag_rsv = htonl(0x08000000);
+    hdr->vni_rsv = htonl(vni << 8);
+    return sizeof(VxLANHdr);
 }
 
 
 int _init_sockets(std::string& remote_ip, AddressV4V6& remote_addr, int& socketfd,
                   std::string& bind_device, int pmtudisc) {
     if (socketfd == INVALIDE_SOCKET_FD) {
-        int err = remote_addr.buildAddr(remote_ip.c_str());
+        int err = remote_addr.buildAddr(remote_ip.c_str(), VXLAN_DST_PORT);
         if (err != 0) {
             std::cerr <<  LOG_MODULE_NAME << "buildAddr failed, ip is " << remote_ip.c_str()
             << std::endl;
@@ -94,7 +74,7 @@ int _init_sockets(std::string& remote_ip, AddressV4V6& remote_addr, int& socketf
         }
 
         int domain = remote_addr.getDomainAF_NET();
-        if ((socketfd = socket(domain, SOCK_RAW, IPPROTO_GRE)) == INVALIDE_SOCKET_FD) {
+        if ((socketfd = socket(domain, SOCK_DGRAM, 0)) == INVALIDE_SOCKET_FD) {
             std::cerr <<  LOG_MODULE_NAME << "Create socket failed, error code is " << errno
             << ", error is " << strerror(errno) << "."
             << std::endl;
@@ -136,7 +116,7 @@ int init_export(void* ext_handle) {
     ProtoExtensionCtx* ctx = reinterpret_cast<ProtoExtensionCtx*>(proto_extension->ctx);
 
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
-        ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->sequence_begin, ctx->spanid));
+        ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->vni));
         int ret = _init_sockets(ctx->remoteips[i], ctx->remote_addrs[i], ctx->socketfds[i],
                                 ctx->bind_device, ctx->pmtudisc);
         if (ret != 0) {
@@ -157,6 +137,7 @@ int _export_packet_in_one_socket(AddressV4V6& remote_addr_v4v6, int& socketfd, s
     struct sockaddr* remote_addr = remote_addr_v4v6.getSockAddr();
     size_t socklen = remote_addr_v4v6.getSockLen();
     size_t length = (size_t) (len <= 65535 ? len : 65535);
+
 
     std::memcpy(reinterpret_cast<void*>(&(buffer[content_offset])),
                 reinterpret_cast<const void*>(packet), length);
@@ -183,17 +164,6 @@ int _export_packet_in_one_socket(AddressV4V6& remote_addr_v4v6, int& socketfd, s
 }
 
 
-int _export_packet_update_header(std::vector<char>& buffer, uint8_t enable_sequence) {
-    if (enable_sequence) {
-        ERSpanType23GREHdr *hdr = reinterpret_cast<ERSpanType23GREHdr*>(&(buffer[0]));
-        uint32_t seq = ntohl(hdr->sequence);
-        seq++;
-        hdr->sequence = htonl(seq);
-    }  
-    return 0;
-}
-
-
 int export_packet(void* ext_handle, const uint8_t *packet, uint32_t len) {
     if (!ext_handle) {
         return 1;
@@ -206,9 +176,6 @@ int export_packet(void* ext_handle, const uint8_t *packet, uint32_t len) {
 
     int ret = 0;
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
-        if (ctx->need_update_header) {
-           ret |=  _export_packet_update_header(ctx->buffers[i], ctx->enable_sequence);
-        }
         ret |= _export_packet_in_one_socket(ctx->remote_addrs[i], ctx->socketfds[i], ctx->buffers[i],
                                             ctx->proto_header_len, packet, len);
     }
@@ -248,21 +215,19 @@ int terminate(void* ext_handle) {
 }
 
 
+
 int _reset_context(ProtoExtensionCtx* ctx) {
     ctx->use_default_header = 0;
-    ctx->enable_sequence = 0;
-    ctx->enable_spanid = 0;
-    ctx->need_update_header = 0;
-    ctx->sequence_begin = 0;
-    ctx->spanid = 0;
-    ctx->pad2 = 0;    
+    ctx->pad0 = 0;
+    ctx->pad1 = 0;
+    ctx->vni = 0;
+    ctx->pmtudisc = -1;
+    ctx->proto_header_len = 0;
     ctx->remoteips.clear();
     ctx->socketfds.clear();
     ctx->remote_addrs.clear();
     ctx->buffers.clear();
-    ctx->proto_header_len = 0;
     ctx->bind_device = "";
-    ctx->pmtudisc = -1;
     return 0;
 }
 
@@ -326,45 +291,15 @@ int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
                 return 0;
             }
         }
-        /*
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN)) {
-            ctx->enable_vlan = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN));
-        }
 
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_VLAN)) {
-            ctx->vlan = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_VLAN);
-            if (ctx->vlan >= 0x1000) {
-                std::cerr << LOG_MODULE_NAME << "vlan value is out of bound(2 ^ 12). Reset to 0." << std::endl;
-                ctx->vlan = 0;
-            }
-        }
-        */
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID)) {
-            ctx->enable_spanid = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID));
-            if (ctx->enable_spanid) {                
-                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SPANID)) {
-                    ctx->spanid = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SPANID);
-                    if (ctx->spanid >= 0x0400) {
-                        std::cerr << LOG_MODULE_NAME << "spanid value is out of bound(2 ^ 10). Reset to 0." << std::endl;
-                        ctx->spanid = 0;
-                    }
-                }
-            }
-        }
-
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ)) {
-            ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ));
-            if (ctx->enable_sequence) {
-                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
-                    ctx->sequence_begin = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
-                }
+        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_VNI)) {
+            ctx->vni = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_VNI);
+            if (ctx->vni >= 0x1000000) {
+                std::cerr << LOG_MODULE_NAME << "Invalid VNI value (greater than 2 ^ 24)!" << std::endl;
+                ctx->vni = 0;
             }
         }
     }
-
-
 
     return 0;
 }
@@ -393,14 +328,7 @@ int _init_context(ProtoExtensionCtx* ctx, std::string& remoteip_config, std::str
     ctx->buffers.resize(remote_ips_size);
     for (size_t i = 0; i < remote_ips_size; ++i) {
         ctx->socketfds[i] = INVALIDE_SOCKET_FD;
-        ctx->buffers[i].resize(65535 + sizeof(ERSpanType23GREHdr) + sizeof(ERSpanType2Hdr), '\0'); // original packet, plus tunnel header in outer L3 payload
-    }
-
-    // update header indicate
-    if (ctx->use_default_header) {
-        ctx->need_update_header = 0;
-    } else {
-        ctx->need_update_header = ctx->enable_sequence;
+        ctx->buffers[i].resize(65535 + sizeof(VxLANHdr) + UDP_HEADER_LENGTH, '\0'); // original packet, plus tunnel header in outer L3 payload
     }
 
     return 0;
@@ -446,13 +374,11 @@ int packet_agent_proto_extionsion_entry(void* ext_handle) {
     proto_extension->close_export_func = close_export;
     proto_extension->terminate_func = terminate;
     proto_extension->ctx = ctx;
-    
+
     std::cout << LOG_MODULE_NAME << "The context values: " << std::endl;
     std::cout << "use_default_header " << (uint32_t)ctx->use_default_header << std::endl;
-    std::cout << "enable_sequence " << (uint32_t)ctx->enable_sequence <<std::endl;
-    std::cout << "enable_spanid " << (uint32_t)ctx->enable_spanid << std::endl;
-    std::cout << "sequence_begin " << (uint32_t)ctx->sequence_begin << std::endl;
-    std::cout << "spanid " << (uint32_t)ctx->spanid << std::endl;   
+    std::cout << "vni " << (uint32_t)ctx->vni << std::endl;
+
     return 0;
 }
 

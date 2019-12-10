@@ -2,9 +2,10 @@
 #include <csignal>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
+
 #include "pcaphandler.h"
 #include "socketgre.h"
-#include "pcapexportplugin.h"
+#include "pcapexport_extension.h"
 #include "versioninfo.h"
 #include "syshelp.h"
 
@@ -48,10 +49,10 @@ int main(int argc, const char* argv[]) {
                  "is set via CLI, AND you confirm that the snoop interface is "
                  "different from the gre interface.")
             ("proto_config", boost::program_options::value<std::string>()->value_name("PROTOCONFIG"),
-                 "(This is a test feature.) The protocol extension's configuration in "
+                 "(Experimental feature. For linux platform only.) "
+                 "The protocol extension's configuration in "
                  "JSON string format. If not set, packet-agent will use default"
-                 "tunnel protocol (GRE with key) to export packet."
-                 "Now only supportted on Linux platform.");
+                 "tunnel protocol (GRE with key) to export packet.");
 
     boost::program_options::positional_options_description position;
     position.add("expression", -1);
@@ -237,10 +238,26 @@ int main(int argc, const char* argv[]) {
     });
 
     std::shared_ptr<PcapExportBase> exporter;
+#ifdef WIN32
+    // export gre
+    if (vm.count("proto_config")) {
+        std::cerr << StatisLogContext::getTimeString()
+                  << "Not support --proto_config on Windows platform. Run as classic mode(Gre with key)" << std::endl;
+    }
+    exporter = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
+    int err = exporter->initExport();
+    if (err != 0) {
+        std::cerr << StatisLogContext::getTimeString()
+        << "greExport initExport failed." << std::endl;
+        return err;
+    }
+    handler->addExport(exporter);
+#else
     if (vm.count("proto_config")) {
         // export gre/erspan type1/2/3/vxlan...
         std::string proto_config_json_str = vm["proto_config"].as<std::string>();
-        exporter = std::make_shared<PcapExportPlugin>(remoteips, proto_config_json_str, bind_device, pmtudisc);
+        // exporter = std::make_shared<PcapExportPlugin>(remoteips, proto_config_json_str, bind_device, pmtudisc);
+        exporter = std::make_shared<PcapExportExtension>(remoteips, proto_config_json_str, bind_device, pmtudisc);
         int err = exporter->initExport();
         if (err != 0) {
             std::cerr << StatisLogContext::getTimeString()
@@ -259,6 +276,7 @@ int main(int argc, const char* argv[]) {
         }
         handler->addExport(exporter);
     }
+#endif
 
     // begin pcap snoop
     std::cout << StatisLogContext::getTimeString() << "Start pcap snoop." << std::endl;
