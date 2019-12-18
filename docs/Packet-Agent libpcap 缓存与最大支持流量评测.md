@@ -13,7 +13,7 @@ libpcap version 1.5.3
 # 测试结果
 
 
-|libpcap buffsize| 进程内存占用 | 进程内存占用 |
+|libpcap buffsize| 进程内存占用 | 最大支持流量 |
 |----------------|--------------|--------------|
 |18 MB |	32 MB |	549 Mbps|
 |36 MB |	50 MB |	705 Mbps|
