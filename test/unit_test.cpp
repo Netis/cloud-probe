@@ -52,6 +52,11 @@ namespace {
             {
                 "ext_file_path": "libproto_erspan_type3.so",
                 "ext_params": {
+                    "remoteips": [
+                        "10.1.1.37"
+                    ],
+                    "bind_device": "eno16777984",
+                    "pmtudisc_option": "dont",
                     "use_default_header": false,
                     "enable_vlan": true,
                     "vlan": 1024,
@@ -61,7 +66,7 @@ namespace {
                 }
             }
         )";
-        PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        PcapExportExtension erspanExport(PcapExportExtension::EXT_TYPE_PORT_MIRROR, proto_config);
         EXPECT_EQ(0, erspanExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;
@@ -78,6 +83,11 @@ namespace {
             {
                 "ext_file_path": "libproto_erspan_type2.so",
                 "ext_params": {
+                    "remoteips": [
+                        "10.1.1.37"
+                    ],
+                    "bind_device": "eno16777984",
+                    "pmtudisc_option": "dont",                   
                     "use_default_header": false,
                     "enable_vlan": true,
                     "vlan": 1027,
@@ -86,7 +96,7 @@ namespace {
                 }
             }
         )";
-        PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        PcapExportExtension erspanExport(PcapExportExtension::EXT_TYPE_PORT_MIRROR, proto_config);
         EXPECT_EQ(0, erspanExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;
@@ -103,10 +113,15 @@ namespace {
             {
                 "ext_file_path": "libproto_erspan_type1.so",
                 "ext_params": {
+                    "remoteips": [
+                        "10.1.1.37"
+                    ],
+                    "bind_device": "eno16777984",
+                    "pmtudisc_option": "dont"
                 }
             }
         )";
-        PcapExportExtension erspanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        PcapExportExtension erspanExport(PcapExportExtension::EXT_TYPE_PORT_MIRROR, proto_config);
         EXPECT_EQ(0, erspanExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;
@@ -123,6 +138,11 @@ namespace {
             {
                 "ext_file_path": "libproto_gre.so",
                 "ext_params": {
+                    "remoteips": [
+                        "10.1.1.37"
+                    ],
+                    "bind_device": "eno16777984",
+                    "pmtudisc_option": "dont",                    
                     "use_default_header": false,
                     "enable_key": true,
                     "key": 3,
@@ -131,7 +151,7 @@ namespace {
                 }
             }
         )";
-        PcapExportExtension greExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        PcapExportExtension greExport(PcapExportExtension::EXT_TYPE_PORT_MIRROR, proto_config);
         EXPECT_EQ(0, greExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;
@@ -148,12 +168,17 @@ namespace {
             {
                 "ext_file_path": "libproto_vxlan.so",
                 "ext_params": {
+                    "remoteips": [
+                        "10.1.1.37"
+                    ],
+                    "bind_device": "eno16777984",
+                    "pmtudisc_option": "dont",                    
                     "use_default_header": false,
                     "vni": 3310
                 }
             }
         )";
-        PcapExportExtension vxlanExport(remoteips, proto_config, "", IP_PMTUDISC_DONT);
+        PcapExportExtension vxlanExport(PcapExportExtension::EXT_TYPE_PORT_MIRROR, proto_config);
         EXPECT_EQ(0, vxlanExport.initExport());
         pcap_pkthdr header;
         header.caplen = 32;

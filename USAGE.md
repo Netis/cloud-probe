@@ -36,10 +36,15 @@ Allowed options:
   --nofilter                      force no filter; In online mode, only use when GRE interface
                                   is set via CLI, AND you confirm that the snoop interface is
                                   different from the gre interface.
-  --proto_config                  (Experimental feature. For linux platform only.) 
-                                  The protocol extension's configuration in
+  --proto-config                  (Experimental feature. For linux platform only.) 
+                                  The port mirror extension's configuration in
                                   JSON string format. If not set, packet-agent will use default
-                                  tunnel protocol (GRE with key) to export packet.
+                                  tunnel protocol (GRE with key) to export packet. If set, -r/-B/-M
+                                  is ignore.
+  --monitor-config                (Experimental feature. For linux platform only.)
+                                  The monitor extension's configuration in
+                                  JSON string format. If not set, network monitor is disabled.
+                                  Now only support NetFlow V1/5/7 protocol..
 
 ```
 
@@ -94,12 +99,15 @@ proto_erspan_type1<br/>
 proto_erspan_type2  -  Sequence No. / Spanid(Session ID)<br/>
 proto_erspan_type3  -  Sequence No. / Spanid(Session ID) / Timestamp(GRA_100_MICROSECONDS type only) / Security Group Tag / Hw ID<br/>
 proto_gre  -  Sequence No. / Key<br/>
-proto_vxlan  -  VxLAN Network Indetifier(VNI)<br/><br/>
+proto_vxlan  -  VxLAN Network Indetifier(VNI)<br/>
+monitor_netflow  -  collector ips <br/><br/>
 The configuration field explaination and usage examples as following:<br/>
 ```
 # The configuration field explanations:
-# ext_file_path: .so file with absolute path, or relative path from pwd. This field is mandatory.
-# ext_params: the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
+# ext_file_path(mandatory): .so file with absolute path, or relative path from pwd. This field is mandatory.
+# ext_params(mandatory): the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
+#     remoteips(mandatory): the list of remote ips. 
+#     bind_device/pmtudisc_option: export socket options
 #     use_default_header: Use default value for all field. if set to true, another field in ext_params has no effect.
 #     enable_spanid/spani/enable_sequence/sequence_begin/enable_timestamp/timestamp_type/enable_key/key/vni: as name said. 
 
@@ -113,6 +121,12 @@ JSON_STR=$(cat << EOF
 {
     "ext_file_path": "libproto_erspan_type3.so",
     "ext_params": {
+        "remoteips": [
+            "10.1.1.37",
+            "10.1.1.38"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",      
         "use_default_header": false,
         "enable_spanid": true,
         "spanid": 1020,
@@ -128,13 +142,18 @@ JSON_STR=$(cat << EOF
 }
 EOF
 )
-./pktminerg -i eth0 -r 10.1.1.37 --proto_config "${JSON_STR}"
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
 
 # proto_erspan_type2 
 JSON_STR=$(cat << EOF
 {
     "ext_file_path": "libproto_erspan_type2.so",
     "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
         "use_default_header": false,
         "enable_spanid": true,
         "spanid": 1022,
@@ -144,7 +163,7 @@ JSON_STR=$(cat << EOF
 }
 EOF
 )
-./pktminerg -i eth0 -r 10.1.1.37 --dump --proto_config "${JSON_STR}"
+./pktminerg -i eth0 --dump --proto-config "${JSON_STR}"
 
 
 # proto_erspan_type1
@@ -152,11 +171,16 @@ JSON_STR=$(cat << EOF
 {
     "ext_file_path": "../libproto_erspan_type1.so",
     "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont"
     }
 }
 EOF
 )
-./pktminerg -i eth0 -r 10.1.1.37 --proto_config "${JSON_STR}"
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
 
 
 # proto_gre
@@ -164,6 +188,11 @@ JSON_STR=$(cat << EOF
 {
     "ext_file_path": "libproto_gre.so",
     "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
         "use_default_header": false,
         "enable_key": true,
         "key": 3,
@@ -173,20 +202,25 @@ JSON_STR=$(cat << EOF
 }
 EOF
 )
-./pktminerg -i eth0 -r 10.1.1.36 --proto_config "${JSON_STR}"
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
 
 # proto_vxlan
 JSON_STR=$(cat << EOF
 {
     "ext_file_path": "libproto_vxlan.so",
     "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
         "use_default_header": false,
         "vni": 3310
     }
 }
 EOF
 )
-./pktminerg -i eth0 -r 10.1.1.36 --proto_config "${JSON_STR}"
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
 ```
 
 
