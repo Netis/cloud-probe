@@ -121,7 +121,8 @@ pktminerg -i eth0 -r 172.16.1.201 -M dont
 ## 文档/ 链接
 * [安装](./INSTALL.md)和[使用](./USAGE.md)（仅英文版）。
 * [构建条件及步骤](./BUILD.md)（仅英文版）。
-* [发布日志 / 路线图](./CHANGES.md)（仅英文版）。
+* [Packet-Agent 云平台性能评测](./docs/Packet-Agent性能评测.md)（仅中文版）。
+* [Packet-Agent libpcap 缓存与最大支持流量评测](./docs/Packet-Agent-libpcap缓存与最大支持流量评测.md)（仅中文版）。
 
 ## 贡献
 您可以fork本项目并提交Pull Request。我们欢迎所有开源社区的同学提交自己的贡献。
