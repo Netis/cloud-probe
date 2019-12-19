@@ -4,6 +4,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <pcap/pcap.h>
 
 #include <netdb.h>
 
@@ -307,15 +308,22 @@ int _export_packet_in_one_socket(AddressV4V6& remote_addr_v4v6, int& socketfd, s
 }
 
 
-int export_packet(void* ext_handle, const uint8_t *packet, uint32_t len) {
+int export_packet(void* ext_handle, const void* pkthdr, const uint8_t *packet) {
     if (!ext_handle) {
         return 1;
     }
+
     packet_agent_extension_itf_t* extension_itf = reinterpret_cast<packet_agent_extension_itf_t*>(ext_handle);
     if (!extension_itf->ctx) {
         return 1;
     }
     extension_ctx_t* ctx = reinterpret_cast<extension_ctx_t*>(extension_itf->ctx);
+
+    if (!pkthdr || !packet) {
+        std::cerr << LOG_MODULE_NAME << "pkthdr or pkt is null. " << std::endl;
+        return 1;
+    }
+    uint32_t len = (reinterpret_cast<const struct pcap_pkthdr*>(pkthdr))->caplen;
 
     int ret = 0;
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {

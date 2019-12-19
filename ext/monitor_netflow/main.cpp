@@ -4,6 +4,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <pcap/pcap.h>
 
 #include <netdb.h>
 
@@ -39,6 +40,9 @@ EOF
 )
 ./pktminerg -i eno16777984 -r 10.1.1.37 --monitor-config "${JSON_STR}"
 */
+
+extern void pcap_callback(u_char *useless,
+    const struct pcap_pkthdr* pkthdr, const u_char *packet);
 
 
 #define EXT_CONFIG_KEY_OF_COLLECTORS_IPPORT "collectors_ipport"
@@ -111,11 +115,22 @@ int _init_monitor_config(extension_ctx_t* ctx, std::string& monitor_config) {
         }
     }
 
+
+    return 0;
+}
+
+int _init_context(extension_ctx_t* ctx, std::string& monitor_config) {
+    _reset_context(ctx);
+
+    if (_init_monitor_config(ctx, monitor_config)) {
+        return 1;
+    }
+
     // ctx log
     std::cout << LOG_MODULE_NAME << "The context values:" << std::endl;
     for (auto &item : ctx->collectors_ipport) {
-    	std::cout << "ip: " << item.ip << std::endl;
-    	std::cout << "port: " << item.port << std::endl;
+        std::cout << "ip: " << item.ip << std::endl;
+        std::cout << "port: " << item.port << std::endl;
     }
     std::cout << "interface: " << ctx->interface << std::endl;
     return 0;
@@ -138,9 +153,7 @@ int init_export(void* ext_handle, const char* ext_config) {
     }
     std::cout << LOG_MODULE_NAME << "monitor_config is " << monitor_config <<  std::endl;
 
-	_reset_context(ctx);
-    _init_monitor_config(ctx, monitor_config);
-
+    _init_context(ctx, monitor_config);
 
     // fprobe init
 
@@ -148,7 +161,7 @@ int init_export(void* ext_handle, const char* ext_config) {
 }
 
 
-int export_packet(void* ext_handle, const uint8_t *packet, uint32_t len) {
+int export_packet(void* ext_handle, const void* pkthdr, const uint8_t *packet) {
     if (!ext_handle) {
         return 1;
     }
@@ -157,9 +170,15 @@ int export_packet(void* ext_handle, const uint8_t *packet, uint32_t len) {
         return 1;
     }
     extension_ctx_t* ctx = reinterpret_cast<extension_ctx_t*>(extension_itf->ctx);
+    if (!pkthdr || !packet) {
+        std::cerr << LOG_MODULE_NAME << "pkthdr or pkt is null. " << std::endl;
+        return 1;
+    }
 
 
     // fprobe export
+    u_char useless = 0;
+    pcap_callback(&useless, reinterpret_cast<const struct pcap_pkthdr*>(pkthdr), packet);
 
 	return 0;
 }

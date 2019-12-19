@@ -118,7 +118,7 @@ int PcapExportExtension::closeExport() {
 int PcapExportExtension::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
     int ret = 0;
     if (_extension_itf.export_packet_func) {
-       ret = _extension_itf.export_packet_func(&_extension_itf, pkt_data, header->caplen);
+        ret = _extension_itf.export_packet_func(&_extension_itf, header, pkt_data);
     } else {
         std::cerr << StatisLogContext::getTimeString() << "export_packet_func not exist" << std::endl;
         return -1;

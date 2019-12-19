@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 typedef int (*pf_init_export_t)(void* ext_handle, const char* ext_config);
-typedef int (*pf_export_packet_t)(void* ext_handle, const uint8_t *packet, uint32_t len);
+typedef int (*pf_export_packet_t)(void* ext_handle, const void* pkthdr, const uint8_t *packet);
 typedef int (*pf_close_export_t)(void* ext_handle);
 typedef int (*pf_terminate_t)(void* ext_handle);
 typedef int (*pf_entry_t)(void* ext_handle);
