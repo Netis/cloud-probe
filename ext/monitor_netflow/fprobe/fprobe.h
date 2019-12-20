@@ -19,7 +19,8 @@
 #define SCHED SCHED_FIFO
 #define EMIT_TIMEOUT 5
 #define UNPENDING_TIMEOUT 5
-#define THREADS 5
+// #define THREADS 5
+#define THREADS 4
 #define COPY_INTO 0
 #define MOVE_INTO 1
 

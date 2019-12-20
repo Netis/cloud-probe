@@ -1627,3 +1627,486 @@ int main(int argc, char **argv)
 	return 0;
 #endif
 }
+
+
+
+
+int init_fprobe(struct getopt_parms *parms, int addrc, char **addrv) {
+	char errbuf[PCAP_ERRBUF_SIZE >= 128 ? PCAP_ERRBUF_SIZE : 128];
+	struct bpf_program bpf_filter;
+	char *dhost, *dport, *lhost, *type = 0, *log_suffix = 0;
+	int c, i, sock, memory_limit = 0, link_type, link_type_idx, snaplen;
+	struct addrinfo hints, *res;
+	struct sockaddr_in saddr;
+	pthread_attr_t tattr;
+	struct sigaction sigact;
+	static void *threads[THREADS - 1] = {&emit_thread, &scan_thread, &unpending_thread/*, &pcap_thread*/};
+	struct timeval timeout;
+
+#ifdef WALL
+	link_type_idx = 0;
+#endif
+
+	sched_min = sched_get_priority_min(SCHED);
+	sched_max = sched_get_priority_max(SCHED);
+
+	memset(&saddr, 0 , sizeof(saddr));
+	memset(&hints, 0 , sizeof(hints));
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+
+	promisc = -(--parms[pflag].count);
+	dev = parms[iflag].arg;
+	if (dev) if (*dev == '-') log_dest = 2;
+	if (parms[Sflag].count) snaplen = atoi(parms[Sflag].arg);
+	else snaplen = 256;
+	if (parms[sflag].count) scan_interval = atoi(parms[sflag].arg);
+	if (parms[gflag].count) frag_lifetime = atoi(parms[gflag].arg);
+	if (parms[dflag].count) inactive_lifetime = atoi(parms[dflag].arg);
+	if (parms[eflag].count) active_lifetime = atoi(parms[eflag].arg);
+	if (parms[nflag].count) {
+		switch (atoi(parms[nflag].arg)) {
+			case 1:
+				netflow = &NetFlow1;
+				break;
+
+			case 5:
+				break;
+
+			case 7:
+				netflow = &NetFlow7;
+				break;
+
+			default:
+				fprintf(stderr, "Illegal %s\n", "NetFlow version");
+				exit(1);
+		}
+	}
+	if (parms[vflag].count) verbosity = atoi(parms[vflag].arg);
+	if (parms[lflag].count) {
+		if ((log_suffix = strchr(parms[lflag].arg, ':'))) {
+			*log_suffix++ = 0;
+			if (*log_suffix) {
+				sprintf(errbuf, "[%s]", log_suffix);
+				strcat(ident, errbuf);
+			}
+		}
+		if (*parms[lflag].arg) log_dest = atoi(parms[lflag].arg);
+		if (log_suffix) *--log_suffix = ':';
+	}
+	if (!(pidfilepath = malloc(sizeof(PID_DIR) + 1 + strlen(ident) + 1 + 3 + 1))) {
+	err_malloc:
+		fprintf(stderr, "malloc(): %s\n", strerror(errno));
+		exit(1);
+	}
+	sprintf(pidfilepath, "%s/%s.pid", PID_DIR, ident);
+	if (parms[qflag].count) {
+		pending_queue_length = atoi(parms[qflag].arg);
+		if (pending_queue_length < 1) {
+			fprintf(stderr, "Illegal %s\n", "pending queue length");
+			exit(1);
+		}
+	}
+	if (parms[rflag].count) {
+		schedp.sched_priority = atoi(parms[rflag].arg);
+		if (schedp.sched_priority
+			&& (schedp.sched_priority < sched_min
+				|| schedp.sched_priority > sched_max)) {
+			fprintf(stderr, "Illegal %s\n", "realtime priority");
+			exit(1);
+		}
+	}
+	if (parms[Bflag].count)
+		sockbufsize = atoi(parms[Bflag].arg) << 10;
+	if (parms[bflag].count) {
+		bulk_quantity = atoi(parms[bflag].arg);
+		if (bulk_quantity < 1 || bulk_quantity > BULK_QUANTITY_MAX) {
+			fprintf(stderr, "Illegal %s\n", "bulk size");
+			exit(1);
+		}
+	}
+	if (parms[mflag].count) memory_limit = atoi(parms[mflag].arg) << 10;
+	if (parms[xflag].count)
+		if ((sscanf(parms[xflag].arg, "%d:%d", &snmp_input_index, &snmp_output_index)) == 1)
+			snmp_output_index = snmp_input_index;
+	if (parms[tflag].count)
+		sscanf(parms[tflag].arg, "%d:%d", &emit_rate_bytes, &emit_rate_delay);
+	if (parms[aflag].count) {
+		if (getaddrinfo(parms[aflag].arg, 0, &hints, &res)) {
+		bad_lhost:
+			fprintf(stderr, "Illegal %s\n", "source address");
+			exit(1);
+		} else {
+			saddr = *((struct sockaddr_in *) res->ai_addr);
+			freeaddrinfo(res);
+		}
+	}
+	if (parms[Kflag].count) link_layer_size = atoi(parms[Kflag].arg);
+	link_layer = parms[kflag].count;
+	if (parms[uflag].count) 
+		if ((pw = getpwnam(parms[uflag].arg)) == NULL) {
+			fprintf(stderr, "getpwnam(%s): %s\n", parms[uflag].arg, errno ? strerror(errno) : "Unknown user");
+			exit(1);
+		}
+
+
+
+
+	if (addrc < 1) usage();
+	if (!(peers = malloc(addrc * sizeof(struct peer)))) goto err_malloc;
+	for (i = 0, npeers = 0; i < addrc; i++, npeers++) {
+		dhost = addrv[i];
+		if (!(dport = strchr(dhost, ':'))) goto bad_collector;
+		*dport++ = 0;
+		if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+			fprintf(stderr, "socket(): %s\n", strerror(errno));
+			exit(1);
+		}
+		peers[npeers].sock = sock;
+		peers[npeers].type = PEER_MIRROR;
+		peers[npeers].laddr = saddr;
+		peers[npeers].seq = 0;
+		if ((lhost = strchr(dport, '/'))) {
+			*lhost++ = 0;
+			if ((type = strchr(lhost, '/'))) {
+				*type++ = 0;
+				switch (*type) {
+					case 0:
+					case 'm':
+						break;
+
+					case 'r':
+						peers[npeers].type = PEER_ROTATE;
+						npeers_rot++;
+						break;
+
+					default:
+						goto bad_collector;
+				}
+			}
+			if (*lhost) {
+				if (getaddrinfo(lhost, 0, &hints, &res)) goto bad_lhost;
+				peers[npeers].laddr = *((struct sockaddr_in *) res->ai_addr);
+				freeaddrinfo(res);
+			}
+		}
+		if (bind(sock, (struct sockaddr *) &peers[npeers].laddr,
+				sizeof(struct sockaddr_in))) {
+			fprintf(stderr, "bind(): %s\n", strerror(errno));
+			exit(1);
+		}
+		if (getaddrinfo(dhost, dport, &hints, &res)) {
+		bad_collector:
+			fprintf(stderr, "Error in collector #%d parameters\n", npeers + 1);
+			exit(1);
+		}
+		peers[npeers].addr = *((struct sockaddr_in *) res->ai_addr);
+		freeaddrinfo(res);
+		if (connect(sock, (struct sockaddr *) &peers[npeers].addr,
+				sizeof(struct sockaddr_in))) {
+			fprintf(stderr, "connect(): %s\n", strerror(errno));
+			exit(1);
+		}
+
+		/* Restore command line */
+		if (type) *--type = '/';
+		if (lhost) *--lhost = '/';
+		*--dport = ':';
+	}
+
+
+	/* Daemonize (if log destination stdout-free) */
+	log_dest = 2;
+
+	my_log_open(ident, verbosity, log_dest);
+	if (!(log_dest & 2)) {
+		switch (fork()) {
+			case -1:
+				fprintf(stderr, "fork(): %s", strerror(errno));
+				exit(1);
+
+			case 0:
+				setsid();
+				freopen("/dev/null", "r", stdin);
+				freopen("/dev/null", "w", stdout);
+				freopen("/dev/null", "w", stderr);
+				break;
+
+			default:
+				exit(0);
+		}
+	} else {
+		setvbuf(stdout, (char *)0, _IONBF, 0);
+		setvbuf(stderr, (char *)0, _IONBF, 0);
+	}
+
+	pid = getpid();
+	sprintf(errbuf, "[%ld]", (long) pid);
+	strcat(ident, errbuf);
+
+
+	/* Initialization */
+	/*
+
+	if (!dev)
+		if (!(dev = pcap_lookupdev(errbuf))) {
+			my_log(LOG_CRIT, "pcap_lookupdev(): %s\n", errbuf);
+			exit(1);
+		}
+
+	if (*dev == '-') {
+		pcap_handle = pcap_open_offline(dev, errbuf);
+		if (!pcap_handle) {
+			my_log(LOG_CRIT, "pcap_open_offline(): %s",errbuf);
+			exit(1);
+		}
+	} else {
+		pcap_handle = pcap_open_live(dev, snaplen, promisc, 1000, errbuf);
+		if (!pcap_handle) {
+			my_log(LOG_CRIT, "pcap_open_live(): %s",errbuf);
+			exit(1);
+		}
+		if (sockbufsize)
+			if (setsockopt(pcap_fileno(pcap_handle), SOL_SOCKET,
+				SO_RCVBUF, &sockbufsize, sizeof(sockbufsize)) < 0)
+				my_log(LOG_WARNING, "setsockopt(): %s", strerror(errno));
+	}
+	*/
+
+	// link_type = pcap_datalink(pcap_handle);
+	link_type = DLT_EN10MB; // only support ethernet
+	for (i = 0;; i++)
+		if (dlt[i].linktype == link_type || dlt[i].linktype == -1) {
+			off_nl = dlt[i].offset_nl;
+			link_type_idx = i;
+			break;
+		}
+
+	if (link_layer_size >= 0) off_nl = link_layer_size;
+	if (off_nl == -1) {
+		my_log(LOG_CRIT, "Uknown data link type %d. Use -K option.", link_type);
+		exit(1);
+	}
+	/*
+	if (parms[fflag].arg) {
+		filter = parms[fflag].arg;
+		if (pcap_compile(pcap_handle, &bpf_filter, filter, 1, 0) == -1) {
+			my_log(LOG_CRIT, "pcap_compile(): %s. Filter: %s",
+				pcap_geterr(pcap_handle), filter);
+			exit(1);
+		}
+		if (pcap_setfilter(pcap_handle, &bpf_filter) == -1) {
+			my_log(LOG_CRIT, "pcap_setfilter(): %s", pcap_geterr(pcap_handle));
+			exit(1);
+		}
+	} else my_log(LOG_WARNING, "Filter expression is empty! Are you sure?");
+	*/
+
+	hash_init(); /* Actually for crc16 only */
+	mem_init(sizeof(struct Flow), bulk_quantity, memory_limit);
+	for (i = 0; i < 1 << HASH_BITS; i++) pthread_mutex_init(&flows_mutex[i], 0);
+
+
+#ifdef UPTIME_TRICK
+	/* Hope 12 days is enough :-/ */
+	start_time_offset = 1 << 20;
+
+	/* start_time_offset = active_lifetime + inactive_lifetime + scan_interval; */
+#endif
+	gettime(&start_time);
+
+	/*
+	Build static pending queue as circular buffer.
+	We can't use dynamic flow allocation in pcap_callback() because
+	memory routines shared between threads, including non-realtime.
+	Collision (mem_mutex lock in mem_alloc()) of pcap_callback()
+	with such (non-realtime) thread may cause intolerable slowdown
+	and packets loss as effect.
+	*/
+	if (!(pending_head = mem_alloc())) goto err_mem_alloc;
+	pending_tail = pending_head;
+	for (i = pending_queue_length - 1; i--;) {
+		if (!(pending_tail->next = mem_alloc())) {
+		err_mem_alloc:
+			my_log(LOG_CRIT, "mem_alloc(): %s", strerror(errno));
+			exit(1);
+		}
+		pending_tail = pending_tail->next;
+	}
+	pending_tail->next = pending_head;
+	pending_tail = pending_head;
+
+	/*
+	sigemptyset(&sig_mask);
+	sigact.sa_handler = &sighandler;
+	sigact.sa_mask = sig_mask;
+	sigact.sa_flags = 0;
+	sigaddset(&sig_mask, SIGTERM);
+	sigaction(SIGTERM, &sigact, 0);
+#if ((DEBUG) & DEBUG_I)
+	sigaddset(&sig_mask, SIGUSR1);
+	sigaction(SIGUSR1, &sigact, 0);
+#endif
+	if (pthread_sigmask(SIG_BLOCK, &sig_mask, 0)) {
+		my_log(LOG_CRIT, "pthread_sigmask(): %s", strerror(errno));
+		exit(1);
+	}
+	*/
+
+	my_log(LOG_INFO, "Starting %s...", VERSION);
+
+	if (parms[cflag].count) {
+		if (chdir(parms[cflag].arg) || chroot(".")) {
+			my_log(LOG_CRIT, "could not chroot to %s: %s", parms[cflag].arg, strerror(errno));
+			exit(1);
+		}
+	}
+
+#ifdef OS_SOLARIS
+	pthread_setconcurrency(THREADS);
+#endif
+
+	schedp.sched_priority = schedp.sched_priority - THREADS + 2;
+	pthread_attr_init(&tattr);
+	for (i = 0; i < THREADS - 1; i++) {
+		if (schedp.sched_priority > 0) {
+			if ((pthread_attr_setschedpolicy(&tattr, SCHED)) ||
+				(pthread_attr_setschedparam(&tattr, &schedp))) {
+				my_log(LOG_CRIT, "pthread_attr_setschedpolicy(): %s", strerror(errno));
+				exit(1);
+			}
+		}
+		if (pthread_create(&thid, &tattr, threads[i], 0)) {
+			my_log(LOG_CRIT, "pthread_create(): %s", strerror(errno));
+			exit(1);
+		}
+		pthread_detach(thid);
+		schedp.sched_priority++;
+	}
+
+	if (pw) {
+		if (setgroups(0, NULL) < 0) {
+			my_log(LOG_CRIT, "setgroups: %s", strerror(errno));
+			exit(1);
+		}
+		if (setregid(pw->pw_gid, pw->pw_gid)) {
+			my_log(LOG_CRIT, "setregid(%u): %s", pw->pw_gid, strerror(errno));
+			exit(1);
+		}
+		if (setreuid(pw->pw_uid, pw->pw_uid)) {
+			my_log(LOG_CRIT, "setreuid(%u): %s", pw->pw_uid, strerror(errno));
+			exit(1);
+		}
+	}
+
+	/*
+	if (!(pidfile = fopen(pidfilepath, "w")))
+		my_log(LOG_ERR, "Can't create pid file. fopen(): %s", strerror(errno));
+	else {
+		fprintf(pidfile, "%ld\n", (long) pid);
+		fclose(pidfile);
+	}
+
+
+	my_log(LOG_INFO, "pid: %d", pid);
+	my_log(LOG_INFO, "interface: %s, datalink: %s (%d)",
+		dev, dlt[link_type_idx].descr, link_type);
+	my_log(LOG_INFO, "filter: \"%s\"", filter);
+	my_log(LOG_INFO, "options: p=%d s=%u g=%u d=%u e=%u n=%u a=%s x=%u:%u "
+		"b=%u m=%u q=%u B=%u r=%u t=%u:%u S=%d K=%d k=%d c=%s u=%s v=%u l=%u%s",
+		promisc, scan_interval, frag_lifetime, inactive_lifetime, active_lifetime,
+		netflow->Version, inet_ntoa(saddr.sin_addr), snmp_input_index, snmp_output_index,
+		bulk_quantity, memory_limit >> 10, pending_queue_length, sockbufsize >> 10,
+		schedp.sched_priority - 1, emit_rate_bytes, emit_rate_delay, snaplen, off_nl, link_layer,
+		parms[cflag].count ? parms[cflag].arg : "", parms[uflag].count ? parms[uflag].arg : "",
+		verbosity, log_dest, log_suffix ? log_suffix : "");
+	for (i = 0; i < npeers; i++) {
+		switch (peers[i].type) {
+			case PEER_MIRROR:
+				c = 'm';
+				break;
+			case PEER_ROTATE:
+				c = 'r';
+				break;
+		}
+		snprintf(errbuf, sizeof(errbuf), "%s", inet_ntoa(peers[i].laddr.sin_addr));
+		my_log(LOG_INFO,"collector #%d: %s:%u/%s/%c", i + 1,
+			inet_ntoa(peers[i].addr.sin_addr), ntohs(peers[i].addr.sin_port), errbuf, c);
+	}
+	*/
+
+	snmp_input_index = htons(snmp_input_index);
+	snmp_output_index = htons(snmp_output_index);
+
+	// pthread_sigmask(SIG_UNBLOCK, &sig_mask, 0);
+
+	return 0;
+}
+
+int close_fprobe() {
+	scan_interval = 1;
+	frag_lifetime = -1;
+	active_lifetime = -1;
+	inactive_lifetime = -1;
+	emit_timeout = 1;
+	unpending_timeout = 1;
+	killed = 1;
+	pthread_cond_signal(&scan_cond);
+	pthread_cond_signal(&unpending_cond);
+	my_log(LOG_INFO, "SIGTERM received. Emitting flows cache...");
+
+	while (!killed
+		|| (total_elements - free_elements - pending_queue_length)
+		|| emit_count
+		|| pending_tail->flags) {
+
+		sleep(1);
+	}
+	my_log(LOG_INFO, "Emitting flows cache finished! fprobe module closed.");
+/*
+	timeout.tv_usec = 0;
+	while (!killed
+		|| (total_elements - free_elements - pending_queue_length)
+		|| emit_count
+		|| pending_tail->flags) {
+
+		if (!sigs) {
+			timeout.tv_sec = scan_interval;
+			select(0, 0, 0, 0, &timeout);
+		}
+
+		if (sigs & SIGTERM_MASK && !killed) {
+			sigs &= ~SIGTERM_MASK;
+			my_log(LOG_INFO, "SIGTERM received. Emitting flows cache...");
+			scan_interval = 1;
+			frag_lifetime = -1;
+			active_lifetime = -1;
+			inactive_lifetime = -1;
+			emit_timeout = 1;
+			unpending_timeout = 1;
+			killed = 1;
+			pthread_cond_signal(&scan_cond);
+			pthread_cond_signal(&unpending_cond);
+		}
+
+#if ((DEBUG) & DEBUG_I)
+		if (sigs & SIGUSR1_MASK) {
+			sigs &= ~SIGUSR1_MASK;
+			info_debug();
+		}
+#endif
+	}
+	remove(pidfilepath);
+#if ((DEBUG) & DEBUG_I)
+	info_debug();
+#endif
+	my_log(LOG_INFO, "Done.");
+#ifdef WALL
+	return 0;
+#endif
+*/
+
+	return 0;
+}
+

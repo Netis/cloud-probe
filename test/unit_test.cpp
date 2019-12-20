@@ -187,4 +187,36 @@ namespace {
         EXPECT_EQ(0, vxlanExport.exportPacket(&header, pkt_data.data()));
         EXPECT_EQ(0, vxlanExport.closeExport());
     }
+
+    TEST(monitor_netflow, test) {
+        std::vector<std::string> remoteips;
+        remoteips.push_back("127.0.1.1");
+        std::string monitor_config = R"(
+            {
+                "ext_file_path": "libmonitor_netflow.so",
+                "ext_params": {
+                    "collectors_ipport": [
+                        {
+                            "ip": "10.1.1.37",
+                            "port": 2055
+                        },
+                        {
+                            "ip": "10.1.1.38",
+                            "port": 2055
+                        }
+                    ],
+                    "interface": "eth0",
+                    "netflow_version": 5
+                }
+            }
+        )";
+        PcapExportExtension netflowExport(PcapExportExtension::EXT_TYPE_TRAFFIC_MONITOR, monitor_config);
+        EXPECT_EQ(0, netflowExport.initExport());
+        pcap_pkthdr header;
+        header.caplen = 32;
+        header.len = 32;
+        std::vector<uint8_t> pkt_data(32);
+        EXPECT_EQ(0, netflowExport.exportPacket(&header, pkt_data.data()));
+        EXPECT_EQ(0, netflowExport.closeExport());
+    }
 }

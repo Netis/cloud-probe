@@ -40,11 +40,10 @@ Allowed options:
                                   The port mirror extension's configuration in
                                   JSON string format. If not set, packet-agent will use default
                                   tunnel protocol (GRE with key) to export packet. If set, -r/-B/-M
-                                  is ignore.
+                                  is ignored.
   --monitor-config                (Experimental feature. For linux platform only.)
-                                  The monitor extension's configuration in
+                                  The traffic monitor extension's configuration in
                                   JSON string format. If not set, network monitor is disabled.
-                                  Now only support NetFlow V1/5/7 protocol..
 
 ```
 
@@ -88,29 +87,69 @@ expression: This parameter is used to match and filter the packets (syntax is sa
 This parameter will be invalid if "nofilter" parameter is set.
 <br>
 
-* proto_config<br>
+* proto-config<br>
 (Experimental feature. For linux platform only.)<br/>
-'proto_config' contain the protocol extension's configuration in JSON string format.<br/>
-Protocol extension are various plugins of different tunnel protocol for exporting packet as several dynamic library (.so),
-You can assign .so file with absolute/relative path to configuration field "ext_file_path".<br/>
-If this parameter is not set, packet-agent will use default tunnel protocol(GRE with key) to export packet.<br/><br/>
-<b>Supported extension - features now :</b><br/>
-proto_erspan_type1<br/>
-proto_erspan_type2  -  Sequence No. / Spanid(Session ID)<br/>
-proto_erspan_type3  -  Sequence No. / Spanid(Session ID) / Timestamp(GRA_100_MICROSECONDS type only) / Security Group Tag / Hw ID<br/>
-proto_gre  -  Sequence No. / Key<br/>
-proto_vxlan  -  VxLAN Network Indetifier(VNI)<br/>
-monitor_netflow  -  collector ips <br/><br/>
+'proto-config' contain the port mirror extension's configuration in JSON string format.<br/>
+Port mirror extension are various plugins of different tunnel protocol for exporting packet as several dynamic library (.so), 
+you can assign .so file with absolute/relative path to configuration field "ext_file_path". <br/>
+If this parameter is not set, packet-agent will use default tunnel protocol(GRE with key) to export packet.<br/>
+If set, -r/-B/-M params is ignored. <br/>
+
+
+* monitor-config<br>
+(Experimental feature. For linux platform only.)<br/>
+'monitor-config' contain the traffic monitor extension's configuration in JSON string format.<br/>
+Traffic monitor extension are various plugins as several dynamic library (.so), 
+you can assign .so file with absolute/relative path to configuration field "ext_file_path".<br/>
+If this parameter is not set, Network monitor function is disabled. <br/>
+This config can specific with 'proto-config' at the same time. <br/><br/>
+
+
+
+<br>
+
+### Examples
+* Network interface example
+```
+pktminerg -i eth0 -r 172.16.1.201
+```
+* Pcap file example
+```
+pktminerg -f sample.pcap -r 172.16.1.201
+```
+* Filter example
+```
+pktminerg -i eth0 -r 172.16.1.201 --expression '172.16.1.12'
+```
+* CPU affinity and high priority example (Not supported on Windows Platform)
+```
+pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
+```
+* nofilter example, the packet capture network interface must different from the GRE output interface
+```
+pktminerg -i eth0 -r 172.16.1.201 --nofilter
+```
+
+<br>
+
+### Extensions
+Supported extensions and parameters now :<br/>
+* proto_erspan_type1<br/>
+* proto_erspan_type2 : Sequence No. / Spanid(Session ID)<br/>
+* proto_erspan_type3 : Sequence No. / Spanid(Session ID) / Timestamp(GRA_100_MICROSECONDS type only) / Security Group Tag / Hw ID<br/>
+* proto_gre : Sequence No. / Key<br/>
+* proto_vxlan : VxLAN Network Indetifier(VNI)<br/>
+* monitor_netflow : Collectors ip and port / Interface / Netflow Ver. <br/><br/>
+
 The configuration field explaination and usage examples as following:<br/>
 ```
-# The configuration field explanations:
+# The port mirror extension's configuration field explanations:
 # ext_file_path(mandatory): .so file with absolute path, or relative path from pwd. This field is mandatory.
 # ext_params(mandatory): the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
 #     remoteips(mandatory): the list of remote ips. 
 #     bind_device/pmtudisc_option: export socket options
 #     use_default_header: Use default value for all field. if set to true, another field in ext_params has no effect.
-#     enable_spanid/spani/enable_sequence/sequence_begin/enable_timestamp/timestamp_type/enable_key/key/vni: as name said. 
-
+#     enable_spanid/spani/enable_sequence/sequence_begin/enable_timestamp/timestamp_type/enable_key/key/vni: as name said.
 
 
 # Examples: 
@@ -221,34 +260,78 @@ JSON_STR=$(cat << EOF
 EOF
 )
 ./pktminerg -i eth0 --proto-config "${JSON_STR}"
-```
 
 
-<br>
 
-### Examples
-* Network interface example
-```
-pktminerg -i eth0 -r 172.16.1.201
-```
-* Pcap file example
-```
-pktminerg -f sample.pcap -r 172.16.1.201
-```
-* Filter example
-```
-pktminerg -i eth0 -r 172.16.1.201 --expression '172.16.1.12'
-```
-* CPU affinity and high priority example (Not supported on Windows Platform)
-```
-pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
-```
-* nofilter example, the packet capture network interface must different from the GRE output interface
-```
-pktminerg -i eth0 -r 172.16.1.201 --nofilter
+
+
+
+
+
+# The traffic monitor extension's configuration field explanations:
+# ext_file_path(mandatory): .so file with absolute path, or relative path from pwd. This field is mandatory.
+# ext_params(mandatory): the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
+#     collectors_ipport(mandatory): the list of collectors. 
+#         ip: collector ip.
+#         port: netflow packet send port.
+#     interface: (optional) the itf name that netflow monitored.
+#     netflow_version: (optional, default=5) Netflow protocol version. Now only support v1/5/7.
+
+
+# Examples: 
+#  - these examples list all available field.
+
+# monitor_netflow 
+# combination of 2 type extention
+JSON_STR=$(cat << EOF
+{
+    "ext_file_path": "libproto_erspan_type3.so",
+    "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
+        "use_default_header": false,
+        "enable_spanid": true,
+        "spanid": 1020,
+        "enable_sequence": true,
+        "sequence_begin": 10000,
+        "enable_timestamp": true,
+        "timestamp_type": 0,
+        "enable_security_grp_tag": true,
+        "security_grp_tag": 32768,
+        "enable_hw_id": true,
+        "hw_id": 31        
+    }
+}
+EOF
+)
+
+MON_STR=$(cat << EOF
+{
+    "ext_file_path": "libmonitor_netflow.so",
+    "ext_params": {
+        "collectors_ipport": [
+            {
+                "ip": "10.1.1.37",
+                "port": 2055
+            },
+            {
+                "ip": "10.1.1.38",
+                "port": 2055
+            }
+        ],
+        "interface": "eth0",
+        "netflow_version": 5
+    }
+}
+EOF
+)
+./pktminerg -i eth0 --proto-config "${JSON_STR}" --monitor-config "${MON_STR}"
+
 ```
 
-<br>
 <br>
 <br>
 <br>

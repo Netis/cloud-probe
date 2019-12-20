@@ -13,8 +13,9 @@
 
 std::shared_ptr<PcapHandler> handler = nullptr;
 
-int get_ext_config_param(std::string& proto_config, std::vector<std::string>& extension_remoteips,
+int get_port_mirror_config_param(std::string& proto_config, std::vector<std::string>& extension_remoteips,
     std::string& extension_bind_device, int& extension_pmtudisc);
+int get_traffic_monitor_config_param(std::string& monitor_config, std::vector<std::string>& collectorips);
 
 int main(int argc, const char* argv[]) {
     boost::program_options::options_description generic("Generic options");
@@ -55,13 +56,13 @@ int main(int argc, const char* argv[]) {
                  "different from the gre interface.")
             ("proto-config", boost::program_options::value<std::string>()->value_name("PROTO-CONFIG"),
                  "(Experimental feature. For linux platform only.) "
-                 "The protocol extension's configuration in "
+                 "The port mirror extension's configuration in "
                  "JSON string format. If not set, packet-agent will use default "
                  "tunnel protocol (GRE with key) to export packet. "
                  "If set, -r, -B, -M is ignore.")
             ("monitor-config", boost::program_options::value<std::string>()->value_name("MONITOR-CONFIG"),
                  "(Experimental feature. For linux platform only.) "
-                 "The monitor extension's configuration in "
+                 "The traffic monitor extension's configuration in "
                  "JSON string format. If not set, network monitor is disabled. "
                  "Now only support NetFlow V1/5/7 protocol.");
 
@@ -107,6 +108,7 @@ int main(int argc, const char* argv[]) {
     std::string bind_device = "";
     int pmtudisc = -1;
     std::vector<std::string> remoteips;
+    std::vector<std::string> collectorips;
 
 #ifdef WIN32  
     // TODO: support proto-config and pmtudisc_option
@@ -124,7 +126,7 @@ int main(int argc, const char* argv[]) {
 #else
     if (vm.count("proto-config")) {
         std::string proto_config_json_str = vm["proto-config"].as<std::string>();
-        get_ext_config_param(proto_config_json_str, remoteips, bind_device, pmtudisc);
+        get_port_mirror_config_param(proto_config_json_str, remoteips, bind_device, pmtudisc);
         if (remoteips.size() == 0) {
             std::cerr << StatisLogContext::getTimeString() << "Please set port mirror extension remote ip in json. "
                       << std::endl;
@@ -158,6 +160,10 @@ int main(int argc, const char* argv[]) {
                 return 1;
             }
         }
+    }
+    if (vm.count("monitor-config")) {
+        std::string monitor_config = vm["monitor-config"].as<std::string>();
+        get_traffic_monitor_config_param(monitor_config, collectorips);
     }
 #endif // WIN32
 
@@ -203,6 +209,14 @@ int main(int argc, const char* argv[]) {
                 filter = filter + " and not host " + remoteips[i];
             } else {
                 filter = "not host " + remoteips[i];
+            }
+        }
+        
+        for (size_t i = 0; i < collectorips.size(); ++i) {
+            if (filter.length() > 0) {
+                filter = filter + " and not host " + collectorips[i];
+            } else {
+                filter = "not host " + collectorips[i];
             }
         }
     }
@@ -352,7 +366,7 @@ int main(int argc, const char* argv[]) {
 
 
 
-int get_ext_config_param(std::string& proto_config, std::vector<std::string>& extension_remoteips,
+int get_port_mirror_config_param(std::string& proto_config, std::vector<std::string>& extension_remoteips,
             std::string& extension_bind_device, int& extension_pmtudisc) {
     std::stringstream ss(proto_config);
     boost::property_tree::ptree proto_config_tree;
@@ -397,6 +411,37 @@ int get_ext_config_param(std::string& proto_config, std::vector<std::string>& ex
             } else {
                 std::cerr << "pktminerg: " << "pmtudisc_option config invalid. Reset to -1." << std::endl;
                 extension_pmtudisc = -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int get_traffic_monitor_config_param(std::string& monitor_config, std::vector<std::string>& collectorips) {
+    std::stringstream ss(monitor_config);
+    boost::property_tree::ptree monitor_config_tree;
+
+    collectorips.clear();
+
+    try {
+        boost::property_tree::read_json(ss, monitor_config_tree);
+    } catch (boost::property_tree::ptree_error & e) {
+        std::cerr << "pktminerg: " << "Parse monitor_config json string failed!" << std::endl;
+        return -1;
+    }
+
+    // ext_params
+    if (monitor_config_tree.get_child_optional("ext_params")) {
+        boost::property_tree::ptree& config_items = monitor_config_tree.get_child("ext_params");
+
+        // ext_params.collectors_ipport[]
+        if (config_items.get_child_optional("collectors_ipport")) {
+            boost::property_tree::ptree& collectors_ipport = config_items.get_child("collectors_ipport");
+            for (auto it = collectors_ipport.begin(); it != collectors_ipport.end(); it++) {
+                // ext_params.collectors_ipport[].ip
+                if (it->second.get_child_optional("ip")) {
+                    collectorips.push_back(it->second.get<std::string>("ip"));
+                }
             }
         }
     }
