@@ -274,7 +274,6 @@ EOF
 #     collectors_ipport(mandatory): the list of collectors. 
 #         ip: collector ip.
 #         port: netflow packet send port.
-#     interface: (optional) the itf name that netflow monitored.
 #     netflow_version: (optional, default=5) Netflow protocol version. Now only support v1/5/7.
 
 
@@ -322,7 +321,6 @@ MON_STR=$(cat << EOF
                 "port": 2055
             }
         ],
-        "interface": "eth0",
         "netflow_version": 5
     }
 }

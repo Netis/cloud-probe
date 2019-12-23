@@ -1,12 +1,12 @@
 
-# Netflow Monitor Plugin 0.0.1
+# Netflow Monitor Plugin 0.1.0
 
 [![Stable release](https://img.shields.io/badge/version-0.0.1-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.5)
 [![Software License](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](./COPYING)
 
 
 ## Introduce
- Netflow Monitor Plugin( or extension) is a dynamic library for interface traffic monitor along with Netis Packet Agent. It based on fprobe and can support Netflow V1/5/7 protocols.
+Netflow Monitor Plugin( or extension) is a dynamic library for interface traffic monitor along with Netis Packet Agent. It based on fprobe and can support Netflow V1/5/7 protocols.
 
 ## Getting Started
 ### Installation
@@ -26,7 +26,6 @@ make -j 4
 #     collectors_ipport(mandatory): the list of collectors. 
 #         ip: collector ip.
 #         port: netflow packet send port.
-#     interface: (optional) the itf name that netflow monitored for print. This ext only statistics the packets from packet-agent captured, so this params has no effect.
 #     netflow_version: (optional, default=5) Netflow protocol version. Now only support v1/5/7.
 
 
@@ -74,7 +73,6 @@ MON_STR=$(cat << EOF
                 "port": 2055
             }
         ],
-        "interface": "eth0",
         "netflow_version": 5
     }
 }
