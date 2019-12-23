@@ -55,7 +55,6 @@ namespace {
                     "remoteips": [
                         "10.1.1.37"
                     ],
-                    "bind_device": "eno16777984",
                     "pmtudisc_option": "dont",
                     "use_default_header": false,
                     "enable_vlan": true,
@@ -86,7 +85,6 @@ namespace {
                     "remoteips": [
                         "10.1.1.37"
                     ],
-                    "bind_device": "eno16777984",
                     "pmtudisc_option": "dont",                   
                     "use_default_header": false,
                     "enable_vlan": true,
@@ -116,7 +114,6 @@ namespace {
                     "remoteips": [
                         "10.1.1.37"
                     ],
-                    "bind_device": "eno16777984",
                     "pmtudisc_option": "dont"
                 }
             }
@@ -141,7 +138,6 @@ namespace {
                     "remoteips": [
                         "10.1.1.37"
                     ],
-                    "bind_device": "eno16777984",
                     "pmtudisc_option": "dont",                    
                     "use_default_header": false,
                     "enable_key": true,
@@ -171,7 +167,6 @@ namespace {
                     "remoteips": [
                         "10.1.1.37"
                     ],
-                    "bind_device": "eno16777984",
                     "pmtudisc_option": "dont",                    
                     "use_default_header": false,
                     "vni": 3310
