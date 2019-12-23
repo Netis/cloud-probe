@@ -13,10 +13,10 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../../bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../../bin)
 
 include_directories(../../include)
-include_directories(./fprobe)
+include_directories(./fprobe-1.1/src)
 
 
-set(FPROBE_DIR ${PROJECT_SOURCE_DIR}/fprobe)
+set(FPROBE_DIR ${PROJECT_SOURCE_DIR}/fprobe-1.1/src)
 set(SOURCE_FILES_FPROBE ${FPROBE_DIR}/fprobe.c
         ${FPROBE_DIR}/fprobe.c
         ${FPROBE_DIR}/hash.c
@@ -27,3 +27,4 @@ set(SOURCE_FILES_FPROBE ${FPROBE_DIR}/fprobe.c
 
 set(SOURCE_FILES main.cpp ${SOURCE_FILES_FPROBE})
 add_library(monitor_netflow SHARED ${SOURCE_FILES})
+target_link_libraries(monitor_netflow pthread pcap)

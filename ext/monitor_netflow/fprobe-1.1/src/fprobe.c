@@ -1093,6 +1093,9 @@ void pcap_callback(u_char *useless,
 		switch (flow->proto) {
 			case IPPROTO_TCP:
 			case IPPROTO_UDP:
+				// packet-agent added / modified
+				// flow->sp = ((struct udphdr *)tl)->uh_sport;
+				// flow->dp = ((struct udphdr *)tl)->uh_dport;
 				flow->sp = ((struct udphdr *)tl)->source;
 				flow->dp = ((struct udphdr *)tl)->dest;
 				goto tl_known;
@@ -1696,7 +1699,7 @@ int init_fprobe(struct getopt_parms *parms, int addrc, char **addrv) {
 		if (log_suffix) *--log_suffix = ':';
 	}
 	if (!(pidfilepath = malloc(sizeof(PID_DIR) + 1 + strlen(ident) + 1 + 3 + 1))) {
-	err_malloc:
+		err_malloc:
 		fprintf(stderr, "malloc(): %s\n", strerror(errno));
 		exit(1);
 	}
@@ -1728,13 +1731,13 @@ int init_fprobe(struct getopt_parms *parms, int addrc, char **addrv) {
 	}
 	if (parms[mflag].count) memory_limit = atoi(parms[mflag].arg) << 10;
 	if (parms[xflag].count)
-		if ((sscanf(parms[xflag].arg, "%d:%d", &snmp_input_index, &snmp_output_index)) == 1)
-			snmp_output_index = snmp_input_index;
+	if ((sscanf(parms[xflag].arg, "%d:%d", &snmp_input_index, &snmp_output_index)) == 1)
+		snmp_output_index = snmp_input_index;
 	if (parms[tflag].count)
 		sscanf(parms[tflag].arg, "%d:%d", &emit_rate_bytes, &emit_rate_delay);
 	if (parms[aflag].count) {
 		if (getaddrinfo(parms[aflag].arg, 0, &hints, &res)) {
-		bad_lhost:
+			bad_lhost:
 			fprintf(stderr, "Illegal %s\n", "source address");
 			exit(1);
 		} else {
@@ -1744,11 +1747,11 @@ int init_fprobe(struct getopt_parms *parms, int addrc, char **addrv) {
 	}
 	if (parms[Kflag].count) link_layer_size = atoi(parms[Kflag].arg);
 	link_layer = parms[kflag].count;
-	if (parms[uflag].count) 
-		if ((pw = getpwnam(parms[uflag].arg)) == NULL) {
-			fprintf(stderr, "getpwnam(%s): %s\n", parms[uflag].arg, errno ? strerror(errno) : "Unknown user");
-			exit(1);
-		}
+	if (parms[uflag].count)
+	if ((pw = getpwnam(parms[uflag].arg)) == NULL) {
+		fprintf(stderr, "getpwnam(%s): %s\n", parms[uflag].arg, errno ? strerror(errno) : "Unknown user");
+		exit(1);
+	}
 
 
 
@@ -1792,19 +1795,19 @@ int init_fprobe(struct getopt_parms *parms, int addrc, char **addrv) {
 			}
 		}
 		if (bind(sock, (struct sockaddr *) &peers[npeers].laddr,
-				sizeof(struct sockaddr_in))) {
+				 sizeof(struct sockaddr_in))) {
 			fprintf(stderr, "bind(): %s\n", strerror(errno));
 			exit(1);
 		}
 		if (getaddrinfo(dhost, dport, &hints, &res)) {
-		bad_collector:
+			bad_collector:
 			fprintf(stderr, "Error in collector #%d parameters\n", npeers + 1);
 			exit(1);
 		}
 		peers[npeers].addr = *((struct sockaddr_in *) res->ai_addr);
 		freeaddrinfo(res);
 		if (connect(sock, (struct sockaddr *) &peers[npeers].addr,
-				sizeof(struct sockaddr_in))) {
+					sizeof(struct sockaddr_in))) {
 			fprintf(stderr, "connect(): %s\n", strerror(errno));
 			exit(1);
 		}
@@ -1928,7 +1931,7 @@ int init_fprobe(struct getopt_parms *parms, int addrc, char **addrv) {
 	pending_tail = pending_head;
 	for (i = pending_queue_length - 1; i--;) {
 		if (!(pending_tail->next = mem_alloc())) {
-		err_mem_alloc:
+			err_mem_alloc:
 			my_log(LOG_CRIT, "mem_alloc(): %s", strerror(errno));
 			exit(1);
 		}
@@ -2057,9 +2060,9 @@ int close_fprobe() {
 	my_log(LOG_INFO, "SIGTERM received. Emitting flows cache...");
 
 	while (!killed
-		|| (total_elements - free_elements - pending_queue_length)
-		|| emit_count
-		|| pending_tail->flags) {
+		   || (total_elements - free_elements - pending_queue_length)
+		   || emit_count
+		   || pending_tail->flags) {
 
 		sleep(1);
 	}
@@ -2109,4 +2112,3 @@ int close_fprobe() {
 
 	return 0;
 }
-
