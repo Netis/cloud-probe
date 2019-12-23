@@ -11,7 +11,7 @@
 ## Getting Started
 ### Installation
 ```bash
-cd /path/to/packet-agent/ext/monitor_netflow
+cd ./packet-agent/ext/monitor_netflow
 cmake .
 make -j 4
 # Then the libmonitor_netflow.so binary will be generated at "./packet-agent/bin/".
@@ -26,7 +26,7 @@ make -j 4
 #     collectors_ipport(mandatory): the list of collectors. 
 #         ip: collector ip.
 #         port: netflow packet send port.
-#     interface: (optional) the itf name that netflow monitored.
+#     interface: (optional) the itf name that netflow monitored for print. This ext only statistics the packets from packet-agent captured, so this params has no effect.
 #     netflow_version: (optional, default=5) Netflow protocol version. Now only support v1/5/7.
 
 
@@ -90,8 +90,7 @@ Now only support Linux platform.
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.
 
 ## License
-Copyright (c) 2018 Netis.<br/>
-The content of this repository bound by the following licenses:
+Copyright (c) 2019 Netis.<br/>
 - This plugin source code is licensed under the [GPL v2](./COPYING).
 
 ## Contact info
