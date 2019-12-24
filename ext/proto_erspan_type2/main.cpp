@@ -4,6 +4,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <pcap/pcap.h>
 
 #include <netdb.h>
 
@@ -18,16 +19,41 @@ extern "C"
 {
 #endif
 
+/*
+# proto_erspan_type2 
+JSON_STR=$(cat << EOF
+{
+    "ext_file_path": "libproto_erspan_type2.so",
+    "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
+        "use_default_header": false,
+        "enable_spanid": true,
+        "spanid": 1022,
+        "enable_sequence": true,
+        "sequence_begin": 10000
+    }
+}
+EOF
+)
+./pktminerg -i eno16777984 --dump --proto-config "${JSON_STR}"
+*/
+
 #define ETHERNET_TYPE_ERSPAN_TYPE2    0x88be
 #define INVALIDE_SOCKET_FD  -1
 
-#define PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT         "use_default_header"
-// #define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN         "enable_vlan"
-// #define PROTO_CONFIG_KEY_EXT_PARAMS_VLAN                "vlan"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID       "enable_spanid"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_SPANID              "spanid"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ          "enable_sequence"
-#define PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE      "sequence_begin"
+
+#define EXT_CONFIG_KEY_OF_EXT_PARAMS_REMOTE_IPS         "remoteips"
+#define EXT_CONFIG_KEY_OF_EXT_PARAMS_BIND_DEVICE        "bind_device"
+#define EXT_CONFIG_KEY_OF_EXT_PARAMS_PMTUDISC_OPTION    "pmtudisc_option"
+#define EXT_CONFIG_KEY_OF_EXT_PARAMS_USE_DEFAULT         "use_default_header"
+#define EXT_CONFIG_KEY_OF_EXT_PARAMS_ENABLE_SPANID       "enable_spanid"
+#define EXT_CONFIG_KEY_OF_EXT_PARAMS_SPANID              "spanid"
+#define EXT_CONFIG_KEY_OF_EXT_PARAMS_ENABLE_SEQ          "enable_sequence"
+#define EXT_CONFIG_KEY_OF_EXT_PARAMS_SEQ_INIT_VALUE      "sequence_begin"
 
 #define LOG_MODULE_NAME "proto_erspan_type2: "
 
@@ -43,7 +69,7 @@ typedef struct _ERSpanType2Hdr {
     uint32_t pad;
 } ERSpanType2Hdr;
 
-typedef struct _proto_extension_ctx {
+typedef struct _extension_ctx {
     uint8_t use_default_header;
     uint8_t enable_sequence;
     uint8_t enable_spanid;
@@ -58,12 +84,151 @@ typedef struct _proto_extension_ctx {
     uint32_t proto_header_len;
     std::string bind_device;
     int pmtudisc;
-}ProtoExtensionCtx;
+}extension_ctx_t;
 
 // tunnel header in outer L3 payload
 int get_proto_header_size(void* ext_handle, uint8_t* packet, uint32_t* len) {
     // TBD: support optional header fields
     return sizeof(ERSpanType23GREHdr) + sizeof(ERSpanType2Hdr);
+}
+
+
+int _reset_context(extension_ctx_t* ctx) {
+    ctx->use_default_header = 0;
+    ctx->enable_sequence = 0;
+    ctx->enable_spanid = 0;
+    ctx->need_update_header = 0;
+    ctx->sequence_begin = 0;
+    ctx->spanid = 0;
+    ctx->pad2 = 0;    
+    ctx->remoteips.clear();
+    ctx->socketfds.clear();
+    ctx->remote_addrs.clear();
+    ctx->buffers.clear();
+    ctx->proto_header_len = 0;
+    ctx->bind_device = "";
+    ctx->pmtudisc = -1;
+    return 0;
+}
+
+int _init_proto_config(extension_ctx_t* ctx, std::string& proto_config) {
+    std::stringstream ss(proto_config);
+    boost::property_tree::ptree proto_config_tree;
+
+    try {
+        boost::property_tree::read_json(ss, proto_config_tree);
+    } catch (boost::property_tree::ptree_error & e) {
+        std::cerr << LOG_MODULE_NAME << "Parse proto_config json string failed!" << std::endl;
+        return -1;
+    }
+
+    if (proto_config_tree.get_child_optional(EXT_CONFIG_KEY_OF_EXTERN_PARAMS)) {
+        boost::property_tree::ptree& config_items = proto_config_tree.get_child(EXT_CONFIG_KEY_OF_EXTERN_PARAMS);
+
+        // ext_params.remoteips[]
+        if (config_items.get_child_optional(EXT_CONFIG_KEY_OF_EXT_PARAMS_REMOTE_IPS)) {
+            boost::property_tree::ptree& remote_ip_tree = config_items.get_child(EXT_CONFIG_KEY_OF_EXT_PARAMS_REMOTE_IPS);
+
+            for (auto it = remote_ip_tree.begin(); it != remote_ip_tree.end(); it++) {
+                ctx->remoteips.push_back(it->second.get_value<std::string>());
+            }
+        }
+
+        // ext_params.bind_device
+        if (config_items.get_child_optional(EXT_CONFIG_KEY_OF_EXT_PARAMS_BIND_DEVICE)) {
+            ctx->bind_device = config_items.get<std::string>(EXT_CONFIG_KEY_OF_EXT_PARAMS_BIND_DEVICE);
+        }
+
+        // ext_params.pmtudisc
+        if (config_items.get_child_optional(EXT_CONFIG_KEY_OF_EXT_PARAMS_PMTUDISC_OPTION)) {
+            std::string pmtudisc_option = config_items.get<std::string>(EXT_CONFIG_KEY_OF_EXT_PARAMS_PMTUDISC_OPTION);
+            if (pmtudisc_option == "do") {
+                ctx->pmtudisc = IP_PMTUDISC_DO;
+            } else if (pmtudisc_option == "dont") {
+                ctx->pmtudisc = IP_PMTUDISC_DONT;
+            } else if (pmtudisc_option == "want") {
+                ctx->pmtudisc = IP_PMTUDISC_WANT;
+            } else {
+                std::cerr << LOG_MODULE_NAME << "pmtudisc_option config invalid. Reset to -1." << std::endl;
+                ctx->pmtudisc = -1;
+            }
+        }
+
+        if (config_items.get_child_optional(EXT_CONFIG_KEY_OF_EXT_PARAMS_USE_DEFAULT)) {
+            ctx->use_default_header = static_cast<uint8_t>(config_items.get<bool>(EXT_CONFIG_KEY_OF_EXT_PARAMS_USE_DEFAULT));
+            if (ctx->use_default_header) {
+                return 0;
+            }
+        }
+
+
+        if (config_items.get_child_optional(EXT_CONFIG_KEY_OF_EXT_PARAMS_ENABLE_SPANID)) {
+            ctx->enable_spanid = static_cast<uint8_t>(config_items.get<bool>(EXT_CONFIG_KEY_OF_EXT_PARAMS_ENABLE_SPANID));
+            if (ctx->enable_spanid) {                
+                if (config_items.get_child_optional(EXT_CONFIG_KEY_OF_EXT_PARAMS_SPANID)) {
+                    ctx->spanid = config_items.get<uint16_t>(EXT_CONFIG_KEY_OF_EXT_PARAMS_SPANID);
+                    if (ctx->spanid >= 0x0400) {
+                        std::cerr << LOG_MODULE_NAME << "spanid value is out of bound(2 ^ 10). Reset to 0." << std::endl;
+                        ctx->spanid = 0;
+                    }
+                }
+            }
+        }
+
+
+        if (config_items.get_child_optional(EXT_CONFIG_KEY_OF_EXT_PARAMS_ENABLE_SEQ)) {
+            ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(EXT_CONFIG_KEY_OF_EXT_PARAMS_ENABLE_SEQ));
+            if (ctx->enable_sequence) {
+                if (config_items.get_child_optional(EXT_CONFIG_KEY_OF_EXT_PARAMS_SEQ_INIT_VALUE)) {
+                    ctx->sequence_begin = config_items.get<uint32_t>(EXT_CONFIG_KEY_OF_EXT_PARAMS_SEQ_INIT_VALUE);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+int _init_context(extension_ctx_t* ctx, std::string& proto_config) {
+    _reset_context(ctx);
+    ctx->use_default_header = 1;
+
+    if (_init_proto_config(ctx, proto_config)) {
+        return 1;
+    }
+
+    std::cout << LOG_MODULE_NAME << "The context values: " << std::endl;
+    std::cout << "remote ips: " << std::endl;
+    for (auto& item : ctx->remoteips) {
+        std::cout << "  " << item << std::endl;
+    }
+    std::cout << "bind_device " << ctx->bind_device <<std::endl;
+    std::cout << "pmtudisc_option " << ctx->pmtudisc <<std::endl;
+    std::cout << "use_default_header " << (uint32_t)ctx->use_default_header << std::endl;
+    std::cout << "enable_sequence " << (uint32_t)ctx->enable_sequence <<std::endl;
+    std::cout << "enable_spanid " << (uint32_t)ctx->enable_spanid << std::endl;
+    std::cout << "sequence_begin " << (uint32_t)ctx->sequence_begin << std::endl;
+    std::cout << "spanid " << (uint32_t)ctx->spanid << std::endl;  
+
+    // allocate space for socket
+    unsigned long remote_ips_size = ctx->remoteips.size();
+    ctx->remote_addrs.resize(remote_ips_size);
+    ctx->socketfds.resize(remote_ips_size);
+    ctx->buffers.resize(remote_ips_size);
+    for (size_t i = 0; i < remote_ips_size; ++i) {
+        ctx->socketfds[i] = INVALIDE_SOCKET_FD;
+        ctx->buffers[i].resize(65535 + sizeof(ERSpanType23GREHdr) + sizeof(ERSpanType2Hdr), '\0'); // original packet, plus tunnel header in outer L3 payload
+    }
+
+    // update header indicate
+    if (ctx->use_default_header) {
+        ctx->need_update_header = 0;
+    } else {
+        ctx->need_update_header = ctx->enable_sequence;
+    }
+
+    return 0;
 }
 
 
@@ -123,17 +288,24 @@ int _init_sockets(std::string& remote_ip, AddressV4V6& remote_addr, int& socketf
     return 0;
 }
 
-int init_export(void* ext_handle) {
+int init_export(void* ext_handle, const char* ext_config) {
     if (!ext_handle) {
         return 1;
     }
 
-    PacketAgentProtoExtension* proto_extension = reinterpret_cast<PacketAgentProtoExtension*>(ext_handle);
-    if (!proto_extension->ctx) {
+    packet_agent_extension_itf_t* extension_itf = reinterpret_cast<packet_agent_extension_itf_t*>(ext_handle);
+    if (!extension_itf->ctx) {
         return 1;
     }
 
-    ProtoExtensionCtx* ctx = reinterpret_cast<ProtoExtensionCtx*>(proto_extension->ctx);
+    extension_ctx_t* ctx = reinterpret_cast<extension_ctx_t*>(extension_itf->ctx);
+    std::string proto_config{};
+    if (ext_config) {
+        proto_config = ext_config;
+    }
+    std::cout << LOG_MODULE_NAME << "proto_config is " << proto_config <<  std::endl;
+
+    _init_context(ctx, proto_config);
 
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
         ctx->proto_header_len = static_cast<uint32_t>(_init_proto_header(ctx->buffers[i], ctx->sequence_begin, ctx->spanid));
@@ -194,15 +366,21 @@ int _export_packet_update_header(std::vector<char>& buffer, uint8_t enable_seque
 }
 
 
-int export_packet(void* ext_handle, const uint8_t *packet, uint32_t len) {
+int export_packet(void* ext_handle, const void* pkthdr, const uint8_t *packet) {
     if (!ext_handle) {
         return 1;
     }
-    PacketAgentProtoExtension* proto_extension = reinterpret_cast<PacketAgentProtoExtension*>(ext_handle);
-    if (!proto_extension->ctx) {
+    packet_agent_extension_itf_t* extension_itf = reinterpret_cast<packet_agent_extension_itf_t*>(ext_handle);
+    if (!extension_itf->ctx) {
         return 1;
     }
-    ProtoExtensionCtx* ctx = reinterpret_cast<ProtoExtensionCtx*>(proto_extension->ctx);
+    extension_ctx_t* ctx = reinterpret_cast<extension_ctx_t*>(extension_itf->ctx);
+
+    if (!pkthdr || !packet) {
+        std::cerr << LOG_MODULE_NAME << "pkthdr or pkt is null. " << std::endl;
+        return 1;
+    }
+    uint32_t len = (reinterpret_cast<const struct pcap_pkthdr*>(pkthdr))->caplen;
 
     int ret = 0;
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
@@ -221,11 +399,11 @@ int close_export(void* ext_handle) {
     if (!ext_handle) {
         return 1;
     }
-    PacketAgentProtoExtension* proto_extension = reinterpret_cast<PacketAgentProtoExtension*>(ext_handle);
-    if (!proto_extension->ctx) {
+    packet_agent_extension_itf_t* extension_itf = reinterpret_cast<packet_agent_extension_itf_t*>(ext_handle);
+    if (!extension_itf->ctx) {
         return 1;
     }
-    ProtoExtensionCtx* ctx = reinterpret_cast<ProtoExtensionCtx*>(proto_extension->ctx);
+    extension_ctx_t* ctx = reinterpret_cast<extension_ctx_t*>(extension_itf->ctx);
 
     for (size_t i = 0; i < ctx->remoteips.size(); ++i) {
         if (ctx->socketfds[i] != INVALIDE_SOCKET_FD) {
@@ -239,220 +417,32 @@ int close_export(void* ext_handle) {
 // 
 int terminate(void* ext_handle) {
     if (ext_handle) {
-        PacketAgentProtoExtension* handle = reinterpret_cast<PacketAgentProtoExtension*>(ext_handle);
+        packet_agent_extension_itf_t* handle = reinterpret_cast<packet_agent_extension_itf_t*>(ext_handle);
         if (handle->ctx) {
-            delete reinterpret_cast<ProtoExtensionCtx*>(handle->ctx);
+            delete reinterpret_cast<extension_ctx_t*>(handle->ctx);
         }
     }
     return 0;
 }
 
-
-int _reset_context(ProtoExtensionCtx* ctx) {
-    ctx->use_default_header = 0;
-    ctx->enable_sequence = 0;
-    ctx->enable_spanid = 0;
-    ctx->need_update_header = 0;
-    ctx->sequence_begin = 0;
-    ctx->spanid = 0;
-    ctx->pad2 = 0;    
-    ctx->remoteips.clear();
-    ctx->socketfds.clear();
-    ctx->remote_addrs.clear();
-    ctx->buffers.clear();
-    ctx->proto_header_len = 0;
-    ctx->bind_device = "";
-    ctx->pmtudisc = -1;
-    return 0;
-}
-
-int _init_remote_ips(ProtoExtensionCtx* ctx, std::string& remoteip_config) {
-    std::vector<std::string>& ipref = ctx->remoteips;
-    std::stringstream ss(remoteip_config);
-    boost::property_tree::ptree remote_ip_tree;
-
-    try {
-        boost::property_tree::read_json(ss, remote_ip_tree);
-    } catch (boost::property_tree::ptree_error & e) {
-        std::cerr << LOG_MODULE_NAME << "Parse remote_ips json string failed!" << std::endl;
-        return -1;
-    }
-
-    for (auto it = remote_ip_tree.begin(); it != remote_ip_tree.end(); it++) {
-        ipref.push_back(it->second.get_value<std::string>());
-    }
-
-    return 0;
-}
-
-int _init_socket_configs(ProtoExtensionCtx* ctx, std::string& socket_config) {
-    std::stringstream ss(socket_config);
-    boost::property_tree::ptree socket_config_tree;
-    try {
-        boost::property_tree::read_json(ss, socket_config_tree);
-    } catch (boost::property_tree::ptree_error & e) {
-        std::cerr << LOG_MODULE_NAME << "Parse socket_config json string failed!" << std::endl;
-        return -1;
-    }
-
-    if (socket_config_tree.get_child_optional(SOCKET_CONFIG_KEY_SO_BINDTODEVICE)) {
-        ctx->bind_device = socket_config_tree.get<std::string>(SOCKET_CONFIG_KEY_SO_BINDTODEVICE);
-    }
-
-    if (socket_config_tree.get_child_optional(SOCKET_CONFIG_KEY_IP_MTU_DISCOVER)) {
-        ctx->pmtudisc = socket_config_tree.get<int>(SOCKET_CONFIG_KEY_IP_MTU_DISCOVER);
-    }
-
-    return 0;
-}
-
-
-int _init_proto_config(ProtoExtensionCtx* ctx, std::string& proto_config) {
-    std::stringstream ss(proto_config);
-    boost::property_tree::ptree proto_config_tree;
-
-    try {
-        boost::property_tree::read_json(ss, proto_config_tree);
-    } catch (boost::property_tree::ptree_error & e) {
-        std::cerr << LOG_MODULE_NAME << "Parse proto_config json string failed!" << std::endl;
-        return -1;
-    }
-
-    if (proto_config_tree.get_child_optional(PROTO_CONFIG_KEY_EXTERN_PARAMS)) {
-        boost::property_tree::ptree& config_items = proto_config_tree.get_child(PROTO_CONFIG_KEY_EXTERN_PARAMS);
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT)) {
-            ctx->use_default_header = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_USE_DEFAULT));
-            if (ctx->use_default_header) {
-                return 0;
-            }
-        }
-        /*
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN)) {
-            ctx->enable_vlan = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_VLAN));
-        }
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_VLAN)) {
-            ctx->vlan = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_VLAN);
-            if (ctx->vlan >= 0x1000) {
-                std::cerr << LOG_MODULE_NAME << "vlan value is out of bound(2 ^ 12). Reset to 0." << std::endl;
-                ctx->vlan = 0;
-            }
-        }
-        */
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID)) {
-            ctx->enable_spanid = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SPANID));
-            if (ctx->enable_spanid) {                
-                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SPANID)) {
-                    ctx->spanid = config_items.get<uint16_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SPANID);
-                    if (ctx->spanid >= 0x0400) {
-                        std::cerr << LOG_MODULE_NAME << "spanid value is out of bound(2 ^ 10). Reset to 0." << std::endl;
-                        ctx->spanid = 0;
-                    }
-                }
-            }
-        }
-
-
-        if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ)) {
-            ctx->enable_sequence = static_cast<uint8_t>(config_items.get<bool>(PROTO_CONFIG_KEY_EXT_PARAMS_ENABLE_SEQ));
-            if (ctx->enable_sequence) {
-                if (config_items.get_child_optional(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE)) {
-                    ctx->sequence_begin = config_items.get<uint32_t>(PROTO_CONFIG_KEY_EXT_PARAMS_SEQ_INIT_VALUE);
-                }
-            }
-        }
-    }
-
-
-
-    return 0;
-}
-
-
-int _init_context(ProtoExtensionCtx* ctx, std::string& remoteip_config, std::string& socket_config, std::string& proto_config) {
-    _reset_context(ctx);
-    ctx->use_default_header = 1;
-
-    if (_init_remote_ips(ctx, remoteip_config)) {
-        return 1;
-    }
-
-    if (_init_socket_configs(ctx, socket_config)) {
-        return 1;
-    }
-
-    if (_init_proto_config(ctx, proto_config)) {
-        return 1;
-    }
-
-    // allocate space for socket
-    unsigned long remote_ips_size = ctx->remoteips.size();
-    ctx->remote_addrs.resize(remote_ips_size);
-    ctx->socketfds.resize(remote_ips_size);
-    ctx->buffers.resize(remote_ips_size);
-    for (size_t i = 0; i < remote_ips_size; ++i) {
-        ctx->socketfds[i] = INVALIDE_SOCKET_FD;
-        ctx->buffers[i].resize(65535 + sizeof(ERSpanType23GREHdr) + sizeof(ERSpanType2Hdr), '\0'); // original packet, plus tunnel header in outer L3 payload
-    }
-
-    // update header indicate
-    if (ctx->use_default_header) {
-        ctx->need_update_header = 0;
-    } else {
-        ctx->need_update_header = ctx->enable_sequence;
-    }
-
-    return 0;
-}
-
-
-int packet_agent_proto_extionsion_entry(void* ext_handle) {
+int packet_agent_extension_entry(void* ext_handle) {
     if (!ext_handle) {
         std::cerr << LOG_MODULE_NAME << "The ext_handle is not ready!" << std::endl;
         return -1;
     }
 
-    ProtoExtensionCtx* ctx = new ProtoExtensionCtx();
+    extension_ctx_t* ctx = new extension_ctx_t();
     if (!ctx) {
         std::cerr << LOG_MODULE_NAME << "malloc context failed!" << std::endl;
         return -1;
     }
 
-    PacketAgentProtoExtension* proto_extension = (PacketAgentProtoExtension* )ext_handle;
-    std::string remoteip_config{};
-    if (proto_extension->remoteip_config) {
-        remoteip_config = proto_extension->remoteip_config;
-    }
-    std::cout << LOG_MODULE_NAME << "remoteip_config is " << remoteip_config <<  std::endl;
-
-    std::string socket_config{};
-    if (proto_extension->socket_config) {
-        socket_config = proto_extension->socket_config;
-    }
-    std::cout << LOG_MODULE_NAME << "socket_config is " << socket_config <<  std::endl;
-
-    std::string proto_config{};
-    if (proto_extension->proto_config) {
-        proto_config = proto_extension->proto_config;
-    }
-    std::cout << LOG_MODULE_NAME << "proto_config is " << proto_config <<  std::endl;
-
-    _init_context(ctx, remoteip_config, socket_config, proto_config);
-
-    proto_extension->get_proto_header_size_func = get_proto_header_size;
-    proto_extension->init_export_func = init_export;
-    proto_extension->export_packet_func = export_packet;
-    proto_extension->close_export_func = close_export;
-    proto_extension->terminate_func = terminate;
-    proto_extension->ctx = ctx;
-    
-    std::cout << LOG_MODULE_NAME << "The context values: " << std::endl;
-    std::cout << "use_default_header " << (uint32_t)ctx->use_default_header << std::endl;
-    std::cout << "enable_sequence " << (uint32_t)ctx->enable_sequence <<std::endl;
-    std::cout << "enable_spanid " << (uint32_t)ctx->enable_spanid << std::endl;
-    std::cout << "sequence_begin " << (uint32_t)ctx->sequence_begin << std::endl;
-    std::cout << "spanid " << (uint32_t)ctx->spanid << std::endl;   
+    packet_agent_extension_itf_t* extension_itf = (packet_agent_extension_itf_t* )ext_handle;
+    extension_itf->init_export_func = init_export;
+    extension_itf->export_packet_func = export_packet;
+    extension_itf->close_export_func = close_export;
+    extension_itf->terminate_func = terminate;
+    extension_itf->ctx = ctx;
     return 0;
 }
 

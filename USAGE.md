@@ -36,10 +36,14 @@ Allowed options:
   --nofilter                      force no filter; In online mode, only use when GRE interface
                                   is set via CLI, AND you confirm that the snoop interface is
                                   different from the gre interface.
-  --proto_config                  (Experimental feature. For linux platform only.) 
-                                  The protocol extension's configuration in
+  --proto-config                  (Experimental feature. For linux platform only.) 
+                                  The port mirror extension's configuration in
                                   JSON string format. If not set, packet-agent will use default
-                                  tunnel protocol (GRE with key) to export packet.
+                                  tunnel protocol (GRE with key) to export packet. If set, -r/-B/-M
+                                  is ignored.
+  --monitor-config                (Experimental feature. For linux platform only.)
+                                  The traffic monitor extension's configuration in
+                                  JSON string format. If not set, network monitor is disabled.
 
 ```
 
@@ -83,111 +87,23 @@ expression: This parameter is used to match and filter the packets (syntax is sa
 This parameter will be invalid if "nofilter" parameter is set.
 <br>
 
-* proto_config<br>
+* proto-config<br>
 (Experimental feature. For linux platform only.)<br/>
-'proto_config' contain the protocol extension's configuration in JSON string format.<br/>
-Protocol extension are various plugins of different tunnel protocol for exporting packet as several dynamic library (.so),
-You can assign .so file with absolute/relative path to configuration field "ext_file_path".<br/>
-If this parameter is not set, packet-agent will use default tunnel protocol(GRE with key) to export packet.<br/><br/>
-<b>Supported extension - features now :</b><br/>
-proto_erspan_type1<br/>
-proto_erspan_type2  -  Sequence No. / Spanid(Session ID)<br/>
-proto_erspan_type3  -  Sequence No. / Spanid(Session ID) / Timestamp(GRA_100_MICROSECONDS type only) / Security Group Tag / Hw ID<br/>
-proto_gre  -  Sequence No. / Key<br/>
-proto_vxlan  -  VxLAN Network Indetifier(VNI)<br/><br/>
-The configuration field explaination and usage examples as following:<br/>
-```
-# The configuration field explanations:
-# ext_file_path: .so file with absolute path, or relative path from pwd. This field is mandatory.
-# ext_params: the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
-#     use_default_header: Use default value for all field. if set to true, another field in ext_params has no effect.
-#     enable_spanid/spani/enable_sequence/sequence_begin/enable_timestamp/timestamp_type/enable_key/key/vni: as name said. 
+'proto-config' contain the port mirror extension's configuration in JSON string format.<br/>
+Port mirror extension are various plugins of different tunnel protocol for exporting packet as several dynamic library (.so), 
+you can assign .so file with absolute/relative path to configuration field "ext_file_path". <br/>
+If this parameter is not set, packet-agent will use default tunnel protocol(GRE with key) to export packet.<br/>
+If set, -r/-B/-M params is ignored. <br/>
 
 
+* monitor-config<br>
+(Experimental feature. For linux platform only.)<br/>
+'monitor-config' contain the traffic monitor extension's configuration in JSON string format.<br/>
+Traffic monitor extension are various plugins as several dynamic library (.so), 
+you can assign .so file with absolute/relative path to configuration field "ext_file_path".<br/>
+If this parameter is not set, Network monitor function is disabled. <br/>
+This config can specific with 'proto-config' at the same time. <br/><br/>
 
-# Examples: 
-#  - these examples list all available field.
-
-# proto_erspan_type3 
-JSON_STR=$(cat << EOF
-{
-    "ext_file_path": "libproto_erspan_type3.so",
-    "ext_params": {
-        "use_default_header": false,
-        "enable_spanid": true,
-        "spanid": 1020,
-        "enable_sequence": true,
-        "sequence_begin": 10000,
-        "enable_timestamp": true,
-        "timestamp_type": 0,
-        "enable_security_grp_tag": true,
-        "security_grp_tag": 32768,
-        "enable_hw_id": true,
-        "hw_id": 31        
-    }
-}
-EOF
-)
-./pktminerg -i eth0 -r 10.1.1.37 --proto_config "${JSON_STR}"
-
-# proto_erspan_type2 
-JSON_STR=$(cat << EOF
-{
-    "ext_file_path": "libproto_erspan_type2.so",
-    "ext_params": {
-        "use_default_header": false,
-        "enable_spanid": true,
-        "spanid": 1022,
-        "enable_sequence": true,
-        "sequence_begin": 10000
-    }
-}
-EOF
-)
-./pktminerg -i eth0 -r 10.1.1.37 --dump --proto_config "${JSON_STR}"
-
-
-# proto_erspan_type1
-JSON_STR=$(cat << EOF
-{
-    "ext_file_path": "../libproto_erspan_type1.so",
-    "ext_params": {
-    }
-}
-EOF
-)
-./pktminerg -i eth0 -r 10.1.1.37 --proto_config "${JSON_STR}"
-
-
-# proto_gre
-JSON_STR=$(cat << EOF
-{
-    "ext_file_path": "libproto_gre.so",
-    "ext_params": {
-        "use_default_header": false,
-        "enable_key": true,
-        "key": 3,
-        "enable_sequence": true,
-        "sequence_begin": 10000
-    }
-}
-EOF
-)
-./pktminerg -i eth0 -r 10.1.1.36 --proto_config "${JSON_STR}"
-
-# proto_vxlan
-JSON_STR=$(cat << EOF
-{
-    "ext_file_path": "libproto_vxlan.so",
-    "ext_params": {
-        "use_default_header": false,
-        "vni": 3310
-    }
-}
-EOF
-)
-./pktminerg -i eth0 -r 10.1.1.36 --proto_config "${JSON_STR}"
-```
 
 
 <br>
@@ -215,6 +131,205 @@ pktminerg -i eth0 -r 172.16.1.201 --nofilter
 ```
 
 <br>
+
+### Extensions
+Supported extensions and parameters now :<br/>
+* proto_erspan_type1<br/>
+* proto_erspan_type2 : Sequence No. / Spanid(Session ID)<br/>
+* proto_erspan_type3 : Sequence No. / Spanid(Session ID) / Timestamp(GRA_100_MICROSECONDS type only) / Security Group Tag / Hw ID<br/>
+* proto_gre : Sequence No. / Key<br/>
+* proto_vxlan : VxLAN Network Indetifier(VNI)<br/>
+* monitor_netflow : Collectors ip and port / Interface / Netflow Ver. <br/><br/>
+
+The configuration field explaination and usage examples as following:<br/>
+```
+# The port mirror extension's configuration field explanations:
+# ext_file_path(mandatory): .so file with absolute path, or relative path from pwd. This field is mandatory.
+# ext_params(mandatory): the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
+#     remoteips(mandatory): the list of remote ips. 
+#     bind_device/pmtudisc_option: export socket options
+#     use_default_header: Use default value for all field. if set to true, another field in ext_params has no effect.
+#     enable_spanid/spani/enable_sequence/sequence_begin/enable_timestamp/timestamp_type/enable_key/key/vni: as name said.
+
+
+# Examples: 
+#  - these examples list all available field.
+
+# proto_erspan_type3 
+JSON_STR=$(cat << EOF
+{
+    "ext_file_path": "libproto_erspan_type3.so",
+    "ext_params": {
+        "remoteips": [
+            "10.1.1.37",
+            "10.1.1.38"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",      
+        "use_default_header": false,
+        "enable_spanid": true,
+        "spanid": 1020,
+        "enable_sequence": true,
+        "sequence_begin": 10000,
+        "enable_timestamp": true,
+        "timestamp_type": 0,
+        "enable_security_grp_tag": true,
+        "security_grp_tag": 32768,
+        "enable_hw_id": true,
+        "hw_id": 31        
+    }
+}
+EOF
+)
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
+
+# proto_erspan_type2 
+JSON_STR=$(cat << EOF
+{
+    "ext_file_path": "libproto_erspan_type2.so",
+    "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
+        "use_default_header": false,
+        "enable_spanid": true,
+        "spanid": 1022,
+        "enable_sequence": true,
+        "sequence_begin": 10000
+    }
+}
+EOF
+)
+./pktminerg -i eth0 --dump --proto-config "${JSON_STR}"
+
+
+# proto_erspan_type1
+JSON_STR=$(cat << EOF
+{
+    "ext_file_path": "../libproto_erspan_type1.so",
+    "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont"
+    }
+}
+EOF
+)
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
+
+
+# proto_gre
+JSON_STR=$(cat << EOF
+{
+    "ext_file_path": "libproto_gre.so",
+    "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
+        "use_default_header": false,
+        "enable_key": true,
+        "key": 3,
+        "enable_sequence": true,
+        "sequence_begin": 10000
+    }
+}
+EOF
+)
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
+
+# proto_vxlan
+JSON_STR=$(cat << EOF
+{
+    "ext_file_path": "libproto_vxlan.so",
+    "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
+        "use_default_header": false,
+        "vni": 3310
+    }
+}
+EOF
+)
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
+
+
+
+
+
+
+
+
+# The traffic monitor extension's configuration field explanations:
+# ext_file_path(mandatory): .so file with absolute path, or relative path from pwd. This field is mandatory.
+# ext_params(mandatory): the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
+#     collectors_ipport(mandatory): the list of collectors. 
+#         ip: collector ip.
+#         port: netflow packet send port.
+#     netflow_version: (optional, default=5) Netflow protocol version. Now only support v1/5/7.
+
+
+# Examples: 
+#  - these examples list all available field.
+
+# monitor_netflow 
+# combination of 2 type extention
+JSON_STR=$(cat << EOF
+{
+    "ext_file_path": "libproto_erspan_type3.so",
+    "ext_params": {
+        "remoteips": [
+            "10.1.1.37"
+        ],
+        "bind_device": "eno16777984",
+        "pmtudisc_option": "dont",
+        "use_default_header": false,
+        "enable_spanid": true,
+        "spanid": 1020,
+        "enable_sequence": true,
+        "sequence_begin": 10000,
+        "enable_timestamp": true,
+        "timestamp_type": 0,
+        "enable_security_grp_tag": true,
+        "security_grp_tag": 32768,
+        "enable_hw_id": true,
+        "hw_id": 31        
+    }
+}
+EOF
+)
+
+MON_STR=$(cat << EOF
+{
+    "ext_file_path": "libmonitor_netflow.so",
+    "ext_params": {
+        "collectors_ipport": [
+            {
+                "ip": "10.1.1.37",
+                "port": 2055
+            },
+            {
+                "ip": "10.1.1.38",
+                "port": 2055
+            }
+        ],
+        "netflow_version": 5
+    }
+}
+EOF
+)
+./pktminerg -i eth0 --proto-config "${JSON_STR}" --monitor-config "${MON_STR}"
+
+```
+
 <br>
 <br>
 <br>

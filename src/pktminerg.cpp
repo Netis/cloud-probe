@@ -2,6 +2,8 @@
 #include <csignal>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include "pcaphandler.h"
 #include "socketgre.h"
@@ -10,6 +12,10 @@
 #include "syshelp.h"
 
 std::shared_ptr<PcapHandler> handler = nullptr;
+
+int get_port_mirror_config_param(std::string& proto_config, std::vector<std::string>& extension_remoteips,
+    std::string& extension_bind_device, int& extension_pmtudisc);
+int get_traffic_monitor_config_param(std::string& monitor_config, std::vector<std::string>& collectorips);
 
 int main(int argc, const char* argv[]) {
     boost::program_options::options_description generic("Generic options");
@@ -48,11 +54,17 @@ int main(int argc, const char* argv[]) {
                  "force no filter; In online mode, only use when GRE interface "
                  "is set via CLI, AND you confirm that the snoop interface is "
                  "different from the gre interface.")
-            ("proto_config", boost::program_options::value<std::string>()->value_name("PROTOCONFIG"),
+            ("proto-config", boost::program_options::value<std::string>()->value_name("PROTO-CONFIG"),
                  "(Experimental feature. For linux platform only.) "
-                 "The protocol extension's configuration in "
-                 "JSON string format. If not set, packet-agent will use default"
-                 "tunnel protocol (GRE with key) to export packet.");
+                 "The port mirror extension's configuration in "
+                 "JSON string format. If not set, packet-agent will use default "
+                 "tunnel protocol (GRE with key) to export packet. "
+                 "If set, -r, -B, -M is ignore.")
+            ("monitor-config", boost::program_options::value<std::string>()->value_name("MONITOR-CONFIG"),
+                 "(Experimental feature. For linux platform only.) "
+                 "The traffic monitor extension's configuration in "
+                 "JSON string format. If not set, network monitor is disabled. "
+                 "Now only support NetFlow V1/5/7 protocol.");
 
     boost::program_options::positional_options_description position;
     position.add("expression", -1);
@@ -91,42 +103,76 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    std::string bind_device = "";
-    if (vm.count("bind_device")) {
-        bind_device = vm["bind_device"].as<std::string>();
-    }
 
+    // exporter params:
+    std::string bind_device = "";
     int pmtudisc = -1;
-#ifdef WIN32
-    //TODO: support pmtudisc_option on WIN32
-#else
-    if (vm.count("pmtudisc_option")) {
-        const auto pmtudisc_option = vm["pmtudisc_option"].as<std::string>();
-        if (pmtudisc_option == "do") {
-            pmtudisc = IP_PMTUDISC_DO;
-        } else if (pmtudisc_option == "dont") {
-            pmtudisc = IP_PMTUDISC_DONT;
-        } else if (pmtudisc_option == "want") {
-            pmtudisc = IP_PMTUDISC_WANT;
-        } else {
-            std::cerr << StatisLogContext::getTimeString()
-                      << "Wrong value for -M: do, dont, want are valid ones." << std::endl;
-            return 1;
-        }
-    }
-#endif // WIN32
+    std::vector<std::string> remoteips;
+    std::vector<std::string> collectorips;
+
+#ifdef WIN32  
+    // TODO: support proto-config and pmtudisc_option
     if (!vm.count("remoteip")) {
         std::cerr << StatisLogContext::getTimeString() << "Please set gre remote ip with --remoteip or -r."
                   << std::endl;
         return 1;
     }
-
-    std::string remoteip = vm["remoteip"].as<std::string>();
-    std::vector<std::string> remoteips;
+    std::string remoteip = vm["remoteip"].as<std::string>();        
     boost::algorithm::split(remoteips, remoteip, boost::algorithm::is_any_of(","));
+
+    if (vm.count("bind_device")) {
+        bind_device = vm["bind_device"].as<std::string>();
+    }
+#else
+    if (vm.count("proto-config")) {
+        std::string proto_config_json_str = vm["proto-config"].as<std::string>();
+        get_port_mirror_config_param(proto_config_json_str, remoteips, bind_device, pmtudisc);
+        if (remoteips.size() == 0) {
+            std::cerr << StatisLogContext::getTimeString() << "Please set port mirror extension remote ip in json. "
+                      << std::endl;
+            return 1;
+        }
+
+    } else {
+        if (!vm.count("remoteip")) {
+            std::cerr << StatisLogContext::getTimeString() << "Please set gre remote ip with --remoteip or -r."
+                      << std::endl;
+            return 1;
+        }
+        std::string remoteip = vm["remoteip"].as<std::string>();        
+        boost::algorithm::split(remoteips, remoteip, boost::algorithm::is_any_of(","));
+
+        if (vm.count("bind_device")) {
+            bind_device = vm["bind_device"].as<std::string>();
+        }
+
+        if (vm.count("pmtudisc_option")) {
+            const auto pmtudisc_option = vm["pmtudisc_option"].as<std::string>();
+            if (pmtudisc_option == "do") {
+                pmtudisc = IP_PMTUDISC_DO;
+            } else if (pmtudisc_option == "dont") {
+                pmtudisc = IP_PMTUDISC_DONT;
+            } else if (pmtudisc_option == "want") {
+                pmtudisc = IP_PMTUDISC_WANT;
+            } else {
+                std::cerr << StatisLogContext::getTimeString()
+                          << "Wrong value for -M: do, dont, want are valid ones." << std::endl;
+                return 1;
+            }
+        }
+    }
+    if (vm.count("monitor-config")) {
+        std::string monitor_config = vm["monitor-config"].as<std::string>();
+        get_traffic_monitor_config_param(monitor_config, collectorips);
+    }
+#endif // WIN32
 
     int keybit = vm["keybit"].as<int>();
 
+
+
+    // pcap params:
+    // filter option
     std::string filter = "";
     if (vm.count("expression")) {
         auto expressions = vm["expression"].as<std::vector<std::string>>();
@@ -165,6 +211,14 @@ int main(int argc, const char* argv[]) {
                 filter = "not host " + remoteips[i];
             }
         }
+        
+        for (size_t i = 0; i < collectorips.size(); ++i) {
+            if (filter.length() > 0) {
+                filter = filter + " and not host " + collectorips[i];
+            } else {
+                filter = "not host " + collectorips[i];
+            }
+        }
     }
 
     // dump option
@@ -184,6 +238,9 @@ int main(int argc, const char* argv[]) {
         nCount = 0;
     }
 
+
+
+    // system params:
     // priority option
     if (vm.count("priority")) {
         set_high_setpriority();
@@ -202,6 +259,9 @@ int main(int argc, const char* argv[]) {
         }
     }
 
+
+
+    // init handler
     if (vm.count("pcapfile")) {
         // offline
         std::string path = vm["pcapfile"].as<std::string>();
@@ -225,7 +285,7 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    // signal
+    // init signal
     std::signal(SIGINT, [](int) {
         if (handler != nullptr) {
             handler->stopPcapLoop();
@@ -237,12 +297,16 @@ int main(int argc, const char* argv[]) {
         }
     });
 
+    // init exporter
     std::shared_ptr<PcapExportBase> exporter;
 #ifdef WIN32
-    // export gre
-    if (vm.count("proto_config")) {
+    if (vm.count("proto-config")) {
         std::cerr << StatisLogContext::getTimeString()
-                  << "Not support --proto_config on Windows platform. Run as classic mode(Gre with key)" << std::endl;
+                  << "Not support --proto-config on Windows platform. Run as classic mode(Gre with key)" << std::endl;
+    }
+    if (vm.count("monitor-config")) {
+        std::cerr << StatisLogContext::getTimeString()
+                  << "Not support --monitor-config on Windows platform. " << std::endl;
     }
     exporter = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
     int err = exporter->initExport();
@@ -253,15 +317,14 @@ int main(int argc, const char* argv[]) {
     }
     handler->addExport(exporter);
 #else
-    if (vm.count("proto_config")) {
+    if (vm.count("proto-config")) {
         // export gre/erspan type1/2/3/vxlan...
-        std::string proto_config_json_str = vm["proto_config"].as<std::string>();
-        // exporter = std::make_shared<PcapExportPlugin>(remoteips, proto_config_json_str, bind_device, pmtudisc);
-        exporter = std::make_shared<PcapExportExtension>(remoteips, proto_config_json_str, bind_device, pmtudisc);
+        std::string proto_config_json_str = vm["proto-config"].as<std::string>();
+        exporter = std::make_shared<PcapExportExtension>(PcapExportExtension::EXT_TYPE_PORT_MIRROR, proto_config_json_str);
         int err = exporter->initExport();
         if (err != 0) {
             std::cerr << StatisLogContext::getTimeString()
-            << "PcapExportPlugin initExport failed." << std::endl;
+            << "PcapExportExtension proto-config initExport failed." << std::endl;
             return err;
         }
         handler->addExport(exporter);
@@ -276,6 +339,18 @@ int main(int argc, const char* argv[]) {
         }
         handler->addExport(exporter);
     }
+
+    if (vm.count("monitor-config")) {
+        std::string monitor_config_json_str = vm["monitor-config"].as<std::string>();
+        exporter = std::make_shared<PcapExportExtension>(PcapExportExtension::EXT_TYPE_TRAFFIC_MONITOR, monitor_config_json_str);
+        int err = exporter->initExport();
+        if (err != 0) {
+            std::cerr << StatisLogContext::getTimeString()
+            << "PcapExportExtension monitor-config initExport failed." << std::endl;
+            return err;
+        }
+        handler->addExport(exporter);
+    }
 #endif
 
     // begin pcap snoop
@@ -285,5 +360,90 @@ int main(int argc, const char* argv[]) {
 
     // end
     exporter->closeExport();
+    return 0;
+}
+
+
+
+
+int get_port_mirror_config_param(std::string& proto_config, std::vector<std::string>& extension_remoteips,
+            std::string& extension_bind_device, int& extension_pmtudisc) {
+    std::stringstream ss(proto_config);
+    boost::property_tree::ptree proto_config_tree;
+
+    extension_remoteips.clear();
+    extension_bind_device = "";
+    extension_pmtudisc = -1;
+
+    try {
+        boost::property_tree::read_json(ss, proto_config_tree);
+    } catch (boost::property_tree::ptree_error & e) {
+        std::cerr << "pktminerg: " << "Parse proto_config json string failed!" << std::endl;
+        return -1;
+    }
+
+    if (proto_config_tree.get_child_optional("ext_params")) {
+        boost::property_tree::ptree& config_items = proto_config_tree.get_child("ext_params");
+
+        // ext_params.remoteips[]
+        if (config_items.get_child_optional("remoteips")) {
+            boost::property_tree::ptree& remote_ip_tree = config_items.get_child("remoteips");
+
+            for (auto it = remote_ip_tree.begin(); it != remote_ip_tree.end(); it++) {
+                extension_remoteips.push_back(it->second.get_value<std::string>());
+            }
+        }
+
+        // ext_params.bind_device
+        if (config_items.get_child_optional("bind_device")) {
+            extension_bind_device = config_items.get<std::string>("bind_device");
+        }
+
+        // ext_params.pmtudisc
+        if (config_items.get_child_optional("pmtudisc_option")) {
+            std::string pmtudisc_option = config_items.get<std::string>("pmtudisc_option");
+            if (pmtudisc_option == "do") {
+                extension_pmtudisc = IP_PMTUDISC_DO;
+            } else if (pmtudisc_option == "dont") {
+                extension_pmtudisc = IP_PMTUDISC_DONT;
+            } else if (pmtudisc_option == "want") {
+                extension_pmtudisc = IP_PMTUDISC_WANT;
+            } else {
+                std::cerr << "pktminerg: " << "pmtudisc_option config invalid. Reset to -1." << std::endl;
+                extension_pmtudisc = -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int get_traffic_monitor_config_param(std::string& monitor_config, std::vector<std::string>& collectorips) {
+    std::stringstream ss(monitor_config);
+    boost::property_tree::ptree monitor_config_tree;
+
+    collectorips.clear();
+
+    try {
+        boost::property_tree::read_json(ss, monitor_config_tree);
+    } catch (boost::property_tree::ptree_error & e) {
+        std::cerr << "pktminerg: " << "Parse monitor_config json string failed!" << std::endl;
+        return -1;
+    }
+
+    // ext_params
+    if (monitor_config_tree.get_child_optional("ext_params")) {
+        boost::property_tree::ptree& config_items = monitor_config_tree.get_child("ext_params");
+
+        // ext_params.collectors_ipport[]
+        if (config_items.get_child_optional("collectors_ipport")) {
+            boost::property_tree::ptree& collectors_ipport = config_items.get_child("collectors_ipport");
+            for (auto it = collectors_ipport.begin(); it != collectors_ipport.end(); it++) {
+                // ext_params.collectors_ipport[].ip
+                if (it->second.get_child_optional("ip")) {
+                    collectorips.push_back(it->second.get<std::string>("ip"));
+                }
+            }
+        }
+    }
     return 0;
 }

@@ -9,27 +9,26 @@
 #include "pcapexport.h"
 #include "packet_agent_extension.h"
 
-
 class PcapExportExtension : public PcapExportBase {
-protected:
-    // sockets
-    std::vector<std::string> _remoteips;
-    std::string _proto_config;
-    std::string _bind_device;
-    int _pmtudisc;
+public:
+    typedef enum _ext_type {
+        EXT_TYPE_PORT_MIRROR = 0,
+        EXT_TYPE_TRAFFIC_MONITOR
+    } ext_type_t;
 
-    PacketAgentProtoExtension _proto_extension;
-    std::string _remoteips_config;
-    std::string _socket_config;
+private:
+    ext_type_t _ext_type;
+    std::string _ext_config;
+    packet_agent_extension_itf_t _extension_itf;
+    void* _handle;
 
 private:
     int loadLibrary();
-    int initConfigString();
 
 public:
-    PcapExportExtension(const std::vector<std::string>& remoteips, const std::string& proto_config,
-                     const std::string& bind_device, const int pmtudisc);
+    PcapExportExtension(const ext_type_t ext_type, const std::string& ext_config);
     ~PcapExportExtension();
+    
     int initExport();
     int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data);
     int closeExport();
