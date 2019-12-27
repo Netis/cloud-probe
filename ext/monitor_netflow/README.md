@@ -1,7 +1,7 @@
 
 # Netflow Monitor Plugin 0.1.0
 
-[![Stable release](https://img.shields.io/badge/version-0.0.1-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.5)
+[![Stable release](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.4.0)
 [![Software License](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](./COPYING)
 
 

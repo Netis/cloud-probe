@@ -3,30 +3,30 @@ case $facts['os']['family'] {
   'Suse':     {
                   $lib_pcap = 'libpcap';
                   $cur_dir = '/tmp/';
-                  $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm';
+                  $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.4.0/netis-packet-agent-0.4.0.el6.x86_64.rpm';
                   $package_provider = 'rpm'; 
-                  $install_file = '/tmp/netis-packet-agent-0.3.5.el6.x86_64.rpm'
+                  $install_file = '/tmp/netis-packet-agent-0.4.0.el6.x86_64.rpm'
               }
   'RedHat':   { 
                   $lib_pcap = 'libpcap';
                   $cur_dir = '/tmp/';
-                  $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm';
+                  $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.4.0/netis-packet-agent-0.4.0.el6.x86_64.rpm';
                   $package_provider = 'rpm'; 
-                  $install_file = '/tmp/netis-packet-agent-0.3.5.el6.x86_64.rpm'
+                  $install_file = '/tmp/netis-packet-agent-0.4.0.el6.x86_64.rpm'
               }
   'Debian':   {
                   $lib_pcap = 'libpcap-dev';
                   $cur_dir = '/tmp/';
-                  $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5_amd64.deb';
+                  $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.4.0/netis-packet-agent-0.4.0_amd64.deb';
                   $package_provider = 'dpkg'; 
-                  $install_file = '/tmp/netis-packet-agent-0.3.5_amd64.deb' 
+                  $install_file = '/tmp/netis-packet-agent-0.4.0_amd64.deb' 
               }
   default:    {
                   $lib_pcap = 'libpcap';
                   $cur_dir = '/tmp/';
-                  $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm';
+                  $download_link = 'https://github.com/Netis/packet-agent/releases/download/v0.4.0/netis-packet-agent-0.4.0.el6.x86_64.rpm';
                   $package_provider = 'rpm'; 
-                  $install_file = '/tmp/netis-packet-agent-0.3.5.el6.x86_64.rpm'
+                  $install_file = '/tmp/netis-packet-agent-0.4.0.el6.x86_64.rpm'
               }
 }
 
