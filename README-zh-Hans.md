@@ -112,6 +112,14 @@ pktminerg -i eth0 -r 172.16.1.201 -M dont
 
 完整的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文版）.
 
+关于端口镜像插件，及流量监控插件的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文版），以及各插件项目的README文档（仅英文版）。
+* [Netflow Monitor Plugin](./ext/monitor_netflow/README.md)
+* [Protocol VxLAN Plugin](./ext/proto_vxlan/README.md)
+* [Protocol GRE Plugin](./ext/proto_gre/README.md)
+* [Protocol ERSPAN Type III Plugin](./ext/proto_erspan_type3/README.md)
+* [Protocol ERSPAN Type II Plugin](./ext/proto_erspan_type2/README.md)
+* [Protocol ERSPAN Type I Plugin](./ext/proto_erspan_type1/README.md)
+
 在Docker中使用packet-agent，请参阅[这篇文档](./DOCKER.md)（仅英文版）.
 
 ### 从源代码安装
@@ -127,7 +135,7 @@ pktminerg -i eth0 -r 172.16.1.201 -M dont
 您可以fork本项目并提交Pull Request。我们欢迎所有开源社区的同学提交自己的贡献。
 
 ## 许可证
-Copyright (c) 2015 - 2020 Netis.<br/>
+Copyright (c) 2018 - 2020 Netis.<br/>
 本项目库遵循下列许可证：
 - [BSD-3-Clause](./LICENSE.md).
 

@@ -1,48 +1,48 @@
 
-# Netflow Monitor Plugin 0.1.0
+# Protocol ERSPAN Type III Plugin 0.1.0
 
 [![Stable release](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.4.0)
-[![Software License](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](./COPYING)
+[![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 
 ## Introduce
-Netflow Monitor Plugin( or extension) is a dynamic library for interface traffic monitor along with Netis Packet Agent. It based on fprobe and can support Netflow V1/5/7 protocols.
+Protocol ERSPAN Type III Plugin(or extension) is a dynamic library for port mirror export tunnel protocol along with Netis Packet Agent. 
 
 ## Getting Started
 ### Installation
 ```bash
-cd ./packet-agent/ext/monitor_netflow
+cd ./packet-agent/ext/proto_erspan_type3
 cmake .
 make -j 4
-# Then the libmonitor_netflow.so binary will be generated at "./packet-agent/bin/".
+# Then the libproto_erspan_type3.so binary will be generated at "./packet-agent/bin/".
 ```
 
 
 ### Usage Explanation and Example
 ```bash
-# The traffic monitor extension's configuration field explanations:
+# The port mirror extension's configuration field explanations:
 # ext_file_path(mandatory): .so file with absolute path, or relative path from pwd. This field is mandatory.
 # ext_params(mandatory): the configuration for particular extension(plugin or dynamic library). Any field in ext_params can be absent for default config(false / 0).
-#     collectors_ipport(mandatory): the list of collectors. 
-#         ip: collector ip.
-#         port: netflow packet send port.
-#     netflow_version: (optional, default=5) Netflow protocol version. Now only support v1/5/7.
+#     remoteips(mandatory): the list of remote ips. 
+#     bind_device/pmtudisc_option: export socket options
+#     use_default_header: Use default value for all field. if set to true, another field in ext_params has no effect.
+#     enable_spanid/spani/enable_sequence/sequence_begin/enable_timestamp/timestamp_type/enable_key/key/vni: as name said.
 
 
 # Examples: 
 #  - these examples list all available field.
 
-# monitor_netflow 
-# combination of 2 type extention
+# proto_erspan_type3 
 JSON_STR=$(cat << EOF
 {
     "ext_file_path": "libproto_erspan_type3.so",
     "ext_params": {
         "remoteips": [
-            "10.1.1.37"
+            "10.1.1.37",
+            "10.1.1.38"
         ],
         "bind_device": "eno16777984",
-        "pmtudisc_option": "dont",
+        "pmtudisc_option": "dont",      
         "use_default_header": false,
         "enable_spanid": true,
         "spanid": 1020,
@@ -58,27 +58,7 @@ JSON_STR=$(cat << EOF
 }
 EOF
 )
-
-MON_STR=$(cat << EOF
-{
-    "ext_file_path": "libmonitor_netflow.so",
-    "ext_params": {
-        "collectors_ipport": [
-            {
-                "ip": "10.1.1.37",
-                "port": 2055
-            },
-            {
-                "ip": "10.1.1.38",
-                "port": 2055
-            }
-        ],
-        "netflow_version": 5
-    }
-}
-EOF
-)
-./pktminerg -i eth0 --proto-config "${JSON_STR}" --monitor-config "${MON_STR}"
+./pktminerg -i eth0 --proto-config "${JSON_STR}"
 
 ```
 ## Platform
@@ -89,7 +69,7 @@ Fork the project and send pull requests. We welcome pull requests from members o
 
 ## License
 Copyright (c) 2019 - 2020 Netis.<br/>
-- This plugin source code is licensed under the [GPL v2](./COPYING).
+- This plugin source code is licensed under the [BSD-3-Clause](./LICENSE.md).
 
 ## Contact info
 * You can E-mail to [developer@netis.com](mailto:developer@netis.com).

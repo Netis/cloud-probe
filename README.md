@@ -118,6 +118,14 @@ pktminerg -i eth0 -r 172.16.1.201 -M dont
 
 For more information on using these tools, please refer to this [document](./USAGE.md).
 
+For more information on using port mirror and traffic monitor plugin , please refer to this [document](./USAGE.md), and the README document of each plugins:
+* [Netflow Monitor Plugin](./ext/monitor_netflow/README.md)
+* [Protocol VxLAN Plugin](./ext/proto_vxlan/README.md)
+* [Protocol GRE Plugin](./ext/proto_gre/README.md)
+* [Protocol ERSPAN Type III Plugin](./ext/proto_erspan_type3/README.md)
+* [Protocol ERSPAN Type II Plugin](./ext/proto_erspan_type2/README.md)
+* [Protocol ERSPAN Type I Plugin](./ext/proto_erspan_type1/README.md)
+
 For docker usage, please refer to this [document](./DOCKER.md).
 
 ### Build from source.
@@ -134,7 +142,7 @@ For build precondition and steps, please refer to this [document](./BUILD.md).
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.
 
 ## License
-Copyright (c) 2018 Netis.<br/>
+Copyright (c) 2018-2020 Netis.<br/>
 The content of this repository bound by the following licenses:
 - The computer software is licensed under the [BSD-3-Clause](./LICENSE.md).
 
