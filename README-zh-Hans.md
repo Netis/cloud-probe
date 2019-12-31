@@ -24,6 +24,8 @@ Netis Packet Agent是一个用于解决如下问题的开源项目：设备A上�
 - **gredump**根据特定的过滤规则抓取GRE数据包，并存储为pcap文件。
 - **gredemo**是一个demo应用程序，可以从pcap文件读取数据包，然后把它们发送到远端网卡。这个程序只能通过源代码编译生成。
 
+同时支持若干端口镜像隧道协议及流量监控协议的插件（参见插件章节）。
+
 ## 开始
 ### 安装
 
@@ -112,19 +114,21 @@ pktminerg -i eth0 -r 172.16.1.201 -M dont
 
 完整的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文版）.
 
-关于端口镜像插件，及流量监控插件的使用说明，请参阅[这篇文档](./USAGE.md)（仅英文版），以及各插件项目的README文档（仅英文版）。
-* [Netflow Monitor Plugin](./ext/monitor_netflow/README.md)
+在Docker中使用packet-agent，请参阅[这篇文档](./DOCKER.md)（仅英文版）.
+
+### 从源代码安装
+您可以从Github上克隆本项目的源代码进行编译，之后到"/path/to/packet-agent/bin"下查看所有的binary.<br/>
+完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md)（仅英文版）.
+
+### 插件的构建及使用
+端口镜像及流量分析插件目前属于实验性质的特性，并未打包在安装包中。如果您想尝试，可手动编译源代码，并将生成的二进制文件放到自己指定的目录下。更多构建及使用信息请参阅各插件项目的README文档（仅英文版）：
+* [Netflow Monitor Plugin](https://github.com/Netis/packet-agent-netflow-plugin/blob/master/README.md)
 * [Protocol VxLAN Plugin](./ext/proto_vxlan/README.md)
 * [Protocol GRE Plugin](./ext/proto_gre/README.md)
 * [Protocol ERSPAN Type III Plugin](./ext/proto_erspan_type3/README.md)
 * [Protocol ERSPAN Type II Plugin](./ext/proto_erspan_type2/README.md)
 * [Protocol ERSPAN Type I Plugin](./ext/proto_erspan_type1/README.md)
 
-在Docker中使用packet-agent，请参阅[这篇文档](./DOCKER.md)（仅英文版）.
-
-### 从源代码安装
-您可以从Github上克隆本项目的源代码进行编译，之后到"/path/to/packet-agent/bin"下查看所有的binary.<br/>
-完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md)（仅英文版）.
 
 ## 文档/ 链接
 * [安装](./INSTALL.md)和[使用](./USAGE.md)（仅英文版）。

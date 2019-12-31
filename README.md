@@ -23,6 +23,8 @@ With 3 utilities:
 - **gredump** is used for capturing GRE packet with filter, and save them to pcap file.
 - **gredemo** is a demo app which is used to read packet from a pcap file and send them all to remote NIC. This can be only used when built from source code.
 
+With several extensions(plugin) for different port mirror tunnel protocols, and traffic monitor (See Plugin Section).
+
 
 ## Getting Started
 ### Installation
@@ -91,8 +93,7 @@ Use example:
     C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
 ```
 
-
-<br>
+<br/>
 
 ### Usage
 Remarks: Make sure the firewall allows GRE packets to be sent to the target.
@@ -118,20 +119,27 @@ pktminerg -i eth0 -r 172.16.1.201 -M dont
 
 For more information on using these tools, please refer to this [document](./USAGE.md).
 
-For more information on using port mirror and traffic monitor plugin , please refer to this [document](./USAGE.md), and the README document of each plugins:
-* [Netflow Monitor Plugin](./ext/monitor_netflow/README.md)
+For docker usage, please refer to this [document](./DOCKER.md).
+
+<br/>
+
+### Build from source.
+You can also clone source from Github and build Netis Packet Agent in local, then check"/path/to/packet-agent/bin" to find all binary.
+<br/>
+For build precondition and steps, please refer to this [document](./BUILD.md).
+
+<br/>
+
+### Plugins build and usage
+The port mirror and traffic monitor plugins are experimental features, and have not included in installation package now. If you want to use our plugins features, please build from source code and put binary to the directory you want to use. For more information on build and usage, please refer to README document of each plugins:
+* [Netflow Monitor Plugin](https://github.com/Netis/packet-agent-netflow-plugin/blob/master/README.md)
 * [Protocol VxLAN Plugin](./ext/proto_vxlan/README.md)
 * [Protocol GRE Plugin](./ext/proto_gre/README.md)
 * [Protocol ERSPAN Type III Plugin](./ext/proto_erspan_type3/README.md)
 * [Protocol ERSPAN Type II Plugin](./ext/proto_erspan_type2/README.md)
 * [Protocol ERSPAN Type I Plugin](./ext/proto_erspan_type1/README.md)
 
-For docker usage, please refer to this [document](./DOCKER.md).
-
-### Build from source.
-You can also clone source from Github and build Netis Packet Agent in local, then check"/path/to/packet-agent/bin" to find all binary.
 <br/>
-For build precondition and steps, please refer to this [document](./BUILD.md).
 
 ## Documentation / Useful link
 * [Installation](./INSTALL.md) and [Usage](./USAGE.md).

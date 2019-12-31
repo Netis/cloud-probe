@@ -1,7 +1,7 @@
 
 # Protocol ERSPAN Type I Plugin 0.1.0
 
-[![Stable release](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.4.0)
+[![Stable release](https://img.shields.io/badge/version-0.1.0-green.svg)](./README.md)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 
@@ -9,10 +9,12 @@
 Protocol ERSPAN Type I Plugin(or extension) is a dynamic library for port mirror export tunnel protocol along with Netis Packet Agent. 
 
 ## Getting Started
-### Installation
+### Build
 ```bash
 cd ./packet-agent/ext/proto_erspan_type1
-cmake .
+mkdir build
+cd build
+cmake ../
 make -j 4
 # Then the libproto_erspan_type1.so binary will be generated at "./packet-agent/bin/".
 ```
