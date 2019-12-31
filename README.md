@@ -131,7 +131,7 @@ For build precondition and steps, please refer to this [document](./BUILD.md).
 <br/>
 
 ### Plugins build and usage
-The port mirror and traffic monitor plugins are experimental features, and have not included in installation package now. If you want to use our plugins features, please build from source code and put binary to the directory you want to use. For more information on build and usage, please refer to README document of each plugins:
+The port mirror and traffic monitor plugins are experimental features, and have not included in installation package now. If you want to use our plugins features, please build from source code and put binary to the directory you want to use. For more information on build and usage, please refer to [USAGE](./USAGE.md), or README document of each plugins:
 * [Netflow Monitor Plugin](https://github.com/Netis/packet-agent-netflow-plugin/blob/master/README.md)
 * [Protocol VxLAN Plugin](./ext/proto_vxlan/README.md)
 * [Protocol GRE Plugin](./ext/proto_gre/README.md)

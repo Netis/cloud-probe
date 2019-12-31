@@ -132,15 +132,19 @@ pktminerg -i eth0 -r 172.16.1.201 --nofilter
 
 <br>
 
-### Extensions
-Supported extensions and parameters now :<br/>
-* proto_erspan_type1<br/>
-* proto_erspan_type2 : Sequence No. / Spanid(Session ID)<br/>
-* proto_erspan_type3 : Sequence No. / Spanid(Session ID) / Timestamp(GRA_100_MICROSECONDS type only) / Security Group Tag / Hw ID<br/>
-* proto_gre : Sequence No. / Key<br/>
-* proto_vxlan : VxLAN Network Indetifier(VNI)<br/>
+## Usage for pktminerg with plugins(Experimental Feature)
+### Plugin List
+Supported tunnel protocol extensions(plugins) for port mirror, and json configuration parameters: <br/>
+* proto_erspan_type1 <br/>
+* proto_erspan_type2 : Sequence No. / Spanid(Session ID) <br/>
+* proto_erspan_type3 : Sequence No. / Spanid(Session ID) / Timestamp(GRA_100_MICROSECONDS type only, value 0) / Security Group Tag / Hw ID <br/>
+* proto_gre : Sequence No. / Key <br/>
+* proto_vxlan : VxLAN Network Indetifier(VNI) <br/><br/>
+
+Supported traffic monitor protocol extensions(plugins) and json configuration parameters:
 * monitor_netflow : Collectors ip and port / Interface / Netflow Ver. <br/><br/>
 
+### Examples
 The configuration field explaination and usage examples as following:<br/>
 ```
 # The port mirror extension's configuration field explanations:

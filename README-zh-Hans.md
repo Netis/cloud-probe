@@ -121,7 +121,7 @@ pktminerg -i eth0 -r 172.16.1.201 -M dont
 完整的构建条件及步骤，请参阅[这篇文档](./BUILD.md)（仅英文版）.
 
 ### 插件的构建及使用
-端口镜像及流量分析插件目前属于实验性质的特性，并未打包在安装包中。如果您想尝试，可手动编译源代码，并将生成的二进制文件放到自己指定的目录下。更多构建及使用信息请参阅各插件项目的README文档（仅英文版）：
+端口镜像及流量分析插件目前属于实验性质的特性，并未打包在安装包中。如果您想尝试，可手动编译源代码，并将生成的二进制文件放到自己指定的目录下。更多构建及使用信息请参阅[这篇文档](./USAGE.md)（仅英文版），或者各插件项目的README文档（仅英文版）：
 * [Netflow Monitor Plugin](https://github.com/Netis/packet-agent-netflow-plugin/blob/master/README.md)
 * [Protocol VxLAN Plugin](./ext/proto_vxlan/README.md)
 * [Protocol GRE Plugin](./ext/proto_gre/README.md)
