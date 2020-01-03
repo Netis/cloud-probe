@@ -6,13 +6,19 @@ The list of the most significant changes made in Netis Packet Agent over time.
 ## Netis Packet Agent 0.4.0
 
 ### Features
-* Support following plugin for export tunnel protocol and monitor protocol:
-** proto_gre
-** proto_erspan_type1
-** proto_erspan_type2
-** proto_erspan_type3
-** proto_vxlan
-** monitor_netflow
+* (Experimental) Support following plugin for port mirror export tunnel protocol: 
+    - proto_gre
+    - proto_erspan_type1
+    - proto_erspan_type2
+    - proto_erspan_type3
+    - proto_vxlan
+* (Experimental) Support following plugin for traffic monitor protocol: 
+    - monitor_netflow
+
+### Note
+* Plugin feature only support Linux platform.
+* Plugin released in source code only.
+* For more information on plugin build and usage, pls refre to [USAGE](USAGE.md) and README of each plugin sub project.
 
 ## Netis Packet Agent 0.3.5
 
