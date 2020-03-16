@@ -89,6 +89,8 @@ if(UNIX)
 	set(Boost_USE_STATIC_LIBS ON)
 	find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
 
+    find_package(cppzmq)
+
 	message("Boost_INCLUDE_DIRS: " ${Boost_INCLUDE_DIRS})
 	message("Boost_LIBRARY_DIRS: " ${Boost_LIBRARY_DIRS})
 	# include dir
@@ -209,6 +211,7 @@ set(SOURCE_FILES_PKTMINERG_BASE
         ${SOURCE_FILES_SYSHELP}
 		${SOURCE_FILES_PCAP}
         ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
+        ${PROJECT_SOURCE_DIR}/src/socketzmq.cpp
         ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
         ${PROJECT_SOURCE_DIR}/src/statislog.cpp
         )
@@ -257,7 +260,7 @@ add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
 if(WIN32)
 	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 endif()
-target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
+target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} cppzmq)
 
 if(UNIX AND NOT APPLE)
     # test
