@@ -260,7 +260,7 @@ add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
 if(WIN32)
 	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 endif()
-target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} cppzmq)
+target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} cppzmq-static)
 
 if(UNIX AND NOT APPLE)
     # test
@@ -278,7 +278,7 @@ if(UNIX AND NOT APPLE)
                               ${TEST_DIR}/src/gtest-test-part.cc
                               ${TEST_DIR}/src/gtest-typed-test.cc)
     add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
-    target_link_libraries(unittest ${BOOST_LIB} pcap pthread)
+    target_link_libraries(unittest ${BOOST_LIB} pcap pthread cppzmq-static)
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
 endif()
 
