@@ -35,13 +35,6 @@ def gre_header(keybit):
     return struct.pack(">HHI", 0x2000, 0x6558, keybit)
 
 
-def writeByteStringToFile(filename):
-    bytelist = bytestring.split()
-    bytes = binascii.a2b_hex(''.join(bytelist))
-    pcapfile = open(filename, 'a+b')
-    pcapfile.write(bytes)
-
-
 def construct_pkt_bytes(ts_sec, ts_usec, caplen, length, keybit, pkt_data_len, pkt_data):
     gre_eth_hdr_len = 14
     gre_ip_hdr_len = 20
