@@ -15,7 +15,7 @@ endif ()
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
 set(PKTMINERG_MAJOR_VERSION "0")
 set(PKTMINERG_MINOR_VERSION "3")
-set(PKTMINERG_PATCH_VERSION "5")
+set(PKTMINERG_PATCH_VERSION "6")
 set(PKTMINERG_VERSION_STRING "${PKTMINERG_MAJOR_VERSION}.${PKTMINERG_MINOR_VERSION}.${PKTMINERG_PATCH_VERSION}")
 
 if(WIN32)
@@ -88,6 +88,8 @@ if(UNIX)
 	INCLUDE(FindBoost)
 	set(Boost_USE_STATIC_LIBS ON)
 	find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
+
+    find_package(cppzmq)
 
 	message("Boost_INCLUDE_DIRS: " ${Boost_INCLUDE_DIRS})
 	message("Boost_LIBRARY_DIRS: " ${Boost_LIBRARY_DIRS})
@@ -209,6 +211,7 @@ set(SOURCE_FILES_PKTMINERG_BASE
         ${SOURCE_FILES_SYSHELP}
 		${SOURCE_FILES_PCAP}
         ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
+        ${PROJECT_SOURCE_DIR}/src/socketzmq.cpp
         ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
         ${PROJECT_SOURCE_DIR}/src/statislog.cpp
         )
@@ -257,7 +260,7 @@ add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
 if(WIN32)
 	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 endif()
-target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
+target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} cppzmq-static)
 
 if(UNIX AND NOT APPLE)
     # test
@@ -275,7 +278,7 @@ if(UNIX AND NOT APPLE)
                               ${TEST_DIR}/src/gtest-test-part.cc
                               ${TEST_DIR}/src/gtest-typed-test.cc)
     add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
-    target_link_libraries(unittest ${BOOST_LIB} pcap pthread)
+    target_link_libraries(unittest ${BOOST_LIB} pcap pthread cppzmq-static)
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
 endif()
 
