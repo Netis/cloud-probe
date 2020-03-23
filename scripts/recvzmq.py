@@ -81,7 +81,7 @@ def get_pcapfile(config, keybit, ts_sec):
             pcap_file = create_pcap(config, keybit, ts_sec, suffix_id)
             grekey_file_dict[keybit] = (suffix_id, ts_sec, pcap_file)
     else:
-        suffix_id = len(grekey_file_dict)
+        suffix_id = len(grekey_file_dict) + config["base_suffixid"]
         pcap_file = create_pcap(config, keybit, ts_sec, suffix_id)
         grekey_file_dict[keybit] = (suffix_id, ts_sec, pcap_file)
     return pcap_file
@@ -116,8 +116,9 @@ def usage():
 """Usage:
 python recvzmq.py [--span_time seconds] -z port_num -t /path/file_template
 -z or --zmq_port:\tzmq bind port
--t or --file_template:\tfile template. Examle: /opt/smartprobe/var/store/pcap/nic0/%Y%m%d/%Y%m%d%H/%Y%m%d%H%M%S
+-t or --file_template:\tfile template. Examle: /opt/pcap_cache/nic0/%Y%m%d%H%M%S
 -s or --span_time:\tpcap span time interval. Default: 10, Unit: seconds.
+-b or --base_suffixid:\tpcap file name suffix id will start from this base id. Default 0. Example: 100
 -v or --version:\tversion info
 -h or --help:\t\thelp message
 """)
@@ -128,8 +129,8 @@ def parse_args(cfg_dict):
         usage()
         sys.exit()
     try:
-        options, args = getopt.getopt(sys.argv[1:], "hvz:t:s:",
-                                      ["help", "version", "zmq_port=", "file_template=", "span_time="])
+        options, args = getopt.getopt(sys.argv[1:], "hvz:t:s:b:",
+                                      ["help", "version", "zmq_port=", "file_template=", "span_time=", "base_suffixid="])
     except getopt.GetoptError as e:
         eprint(e)
         sys.exit(-1)
@@ -147,6 +148,8 @@ def parse_args(cfg_dict):
             cfg_dict["file_template"] = value
         elif name in ("-s", "--span_time"):
             cfg_dict["span_time"] = int(value)
+        elif name in ("-b", "--base_suffixid"):
+            cfg_dict["base_suffixid"] = int(value)
     if "zmq_port" not in cfg_dict:
         eprint("require param: -z zmq_port")
         sys.exit(-1)
@@ -154,7 +157,7 @@ def parse_args(cfg_dict):
         eprint("require param: -t /path/file_template/%Y%m%d/%Y%m%d%H/%Y%m%d%H%M%S")
         sys.exit(-1)
 
-config = {"span_time": 10}
+config = {"span_time": 10, "base_suffixid": 0}
 parse_args(config)
 server_loop(config)
 
