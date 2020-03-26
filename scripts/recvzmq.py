@@ -60,6 +60,8 @@ def create_pcap(config, keybit, ts_sec, suffix_id):
     directory = os.path.dirname(file_path)
     if not os.path.exists(directory):
         os.makedirs(directory)
+    if os.path.exists(file_path):
+        os.remove(file_path)
     print("Open new file:  %s"%file_path)
     pcap_file = open(file_path, 'a+b')
     pcap_file.write(pcap_global_header())
@@ -147,7 +149,7 @@ def parse_args(cfg_dict):
             usage()
             sys.exit()
         elif name in ("-v", "--version"):
-            print('recvzmq version 1.0.0')
+            print('recvzmq version 1.1.0')
             sys.exit()
         elif name in ("-z", "--zmq_port"):
             cfg_dict["zmq_port"] = int(value)
