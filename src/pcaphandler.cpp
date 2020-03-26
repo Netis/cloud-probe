@@ -59,12 +59,6 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
                           } else {
                               this->_gre_drop_count++;
                           }
-                      } else if (pcapExport->getExportType() == exporttype::zmq) {
-                          if (ret == 0) {
-                              this->_gre_count++; //TODO: support zmq batch packets
-                          } else {
-                              this->_gre_drop_count += ret;
-                          }
                       }
                   });
     if (_pcap_dumpter) {
