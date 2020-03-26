@@ -4,7 +4,6 @@
 #include <boost/algorithm/string.hpp>
 #include "pcaphandler.h"
 #include "socketgre.h"
-#include "socketzmq.h"
 #include "versioninfo.h"
 #include "syshelp.h"
 
@@ -28,8 +27,6 @@ int main(int argc, const char* argv[]) {
              "specify pcap file for offline mode, mostly for test")
             ("remoteip,r", boost::program_options::value<std::string>()->value_name("IPs"),
              "set gre remote IPs, seperate by ',' Example: -r 8.8.4.4,8.8.8.8")
-            ("zmq_port,z", boost::program_options::value<int>()->default_value(0)->value_name("ZMQ_PORT"),
-             "set remote zeromq server port to receive packets reliably; ZMQ_PORT default value 0 means disable.")
             ("keybit,k", boost::program_options::value<int>()->default_value(1)->value_name("BIT"),
              "set gre key bit; BIT defaults 1")
             ("snaplen,s", boost::program_options::value<int>()->default_value(2048)->value_name("LENGTH"),
@@ -120,8 +117,6 @@ int main(int argc, const char* argv[]) {
     std::string remoteip = vm["remoteip"].as<std::string>();
     std::vector<std::string> remoteips;
     boost::algorithm::split(remoteips, remoteip, boost::algorithm::is_any_of(","));
-
-    int zmq_port = vm["zmq_port"].as<int>();
 
     int keybit = vm["keybit"].as<int>();
 
@@ -235,27 +230,15 @@ int main(int argc, const char* argv[]) {
         }
     });
 
-    std::shared_ptr<PcapExportBase> exportPtr = nullptr;
-    if (zmq_port != 0) {
-        exportPtr = std::make_shared<PcapExportZMQ>(remoteips, zmq_port, keybit, bind_device, param.buffer_size);
-        int err = exportPtr->initExport();
-        if (err != 0) {
-            std::cerr << StatisLogContext::getTimeString()
-                      << "zmqExport initExport failed." << std::endl;
-            return err;
-        }
-    } else {
-        // export gre
-        exportPtr = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
-        int err = exportPtr->initExport();
-        if (err != 0) {
-            std::cerr << StatisLogContext::getTimeString()
-                      << "greExport initExport failed." << std::endl;
-            return err;
-        }
+    // export gre
+    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
+    int err = greExport->initExport();
+    if (err != 0) {
+        std::cerr << StatisLogContext::getTimeString()
+                  << "greExport initExport failed." << std::endl;
+        return err;
     }
-    handler->addExport(exportPtr);
-
+    handler->addExport(greExport);
 
     // begin pcap snoop
 
@@ -264,6 +247,6 @@ int main(int argc, const char* argv[]) {
     std::cout << StatisLogContext::getTimeString() << "End pcap snoop." << std::endl;
 
     // end
-    exportPtr->closeExport();
+    greExport->closeExport();
     return 0;
 }
