@@ -56,7 +56,7 @@ def construct_pkt_bytes(ts_sec, ts_usec, caplen, length, keybit, pkt_data_len, p
 def create_pcap(config, keybit, ts_sec, suffix_id):
     cur_time = time.localtime(ts_sec)
     file_path_str = time.strftime(config["file_template"], cur_time)
-    file_path = "%s_%d"%(file_path_str, suffix_id)
+    file_path = "%s_%d_%d"%(file_path_str, config["total_clients"], suffix_id)
     directory = os.path.dirname(file_path)
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -66,24 +66,28 @@ def create_pcap(config, keybit, ts_sec, suffix_id):
     return pcap_file
 
 
+def get_base_ts(ts_sec, span_time):
+    return (ts_sec // span_time) * span_time
+
+
 def get_pcapfile(config, keybit, ts_sec):
     pcap_file = None
+    span_time = config["span_time"]
     global grekey_file_dict
     if keybit in grekey_file_dict:
         suffix_id, pcap_ts, pcap_file = grekey_file_dict[keybit]
-        span_time = config["span_time"]
         if (ts_sec // span_time) != (pcap_ts // span_time):
             pcap_file.close()
             file_path = os.path.abspath(pcap_file.name)
             target_path = file_path + ".pcap"
             print("Rename file to: %s"%target_path)
             os.rename(file_path, target_path)
-            pcap_file = create_pcap(config, keybit, ts_sec, suffix_id)
-            grekey_file_dict[keybit] = (suffix_id, ts_sec, pcap_file)
+            pcap_file = create_pcap(config, keybit, get_base_ts(ts_sec, span_time), suffix_id)
+            grekey_file_dict[keybit] = (suffix_id, get_base_ts(ts_sec, span_time), pcap_file)
     else:
         suffix_id = len(grekey_file_dict) + config["base_suffixid"]
-        pcap_file = create_pcap(config, keybit, ts_sec, suffix_id)
-        grekey_file_dict[keybit] = (suffix_id, ts_sec, pcap_file)
+        pcap_file = create_pcap(config, keybit, get_base_ts(ts_sec, span_time), suffix_id)
+        grekey_file_dict[keybit] = (suffix_id, get_base_ts(ts_sec, span_time), pcap_file)
     return pcap_file
 
 
@@ -118,7 +122,10 @@ python recvzmq.py [--span_time seconds] -z port_num -t /path/file_template
 -z or --zmq_port:\tzmq bind port
 -t or --file_template:\tfile template. Examle: /opt/pcap_cache/nic0/%Y%m%d%H%M%S
 -s or --span_time:\tpcap span time interval. Default: 10, Unit: seconds.
--b or --base_suffixid:\tpcap file name suffix id will start from this base id. Default 0. Example: 100
+-a or --total_clients:\ttotal clients count of all recvzmq processes. Default 1.
+-b or --base_suffixid:\tpcap file name suffix id will start from this base id. Default 0. Example: 0
+\t\t\twhen start multi-process of recvzmq. Their [total_clients, base_suffixid] params should be arranged properly.
+\t\t\tFor example, total_clients: 8, with 4 recvzmq processes, each of the above process param should be [8, 0], [8, 2], [8, 4], [8, 6]
 -v or --version:\tversion info
 -h or --help:\t\thelp message
 """)
@@ -129,8 +136,8 @@ def parse_args(cfg_dict):
         usage()
         sys.exit()
     try:
-        options, args = getopt.getopt(sys.argv[1:], "hvz:t:s:b:",
-                                      ["help", "version", "zmq_port=", "file_template=", "span_time=", "base_suffixid="])
+        options, args = getopt.getopt(sys.argv[1:], "hvz:t:s:a:b:",
+                                      ["help", "version", "zmq_port=", "file_template=", "span_time=", "total_clients=", "base_suffixid="])
     except getopt.GetoptError as e:
         eprint(e)
         sys.exit(-1)
@@ -148,6 +155,8 @@ def parse_args(cfg_dict):
             cfg_dict["file_template"] = value
         elif name in ("-s", "--span_time"):
             cfg_dict["span_time"] = int(value)
+        elif name in ("-a", "--total_clients"):
+            cfg_dict["total_clients"] = int(value)
         elif name in ("-b", "--base_suffixid"):
             cfg_dict["base_suffixid"] = int(value)
     if "zmq_port" not in cfg_dict:
@@ -157,7 +166,7 @@ def parse_args(cfg_dict):
         eprint("require param: -t /path/file_template/%Y%m%d/%Y%m%d%H/%Y%m%d%H%M%S")
         sys.exit(-1)
 
-config = {"span_time": 10, "base_suffixid": 0}
+config = {"span_time": 10, "total_clients": 1, "base_suffixid": 0}
 parse_args(config)
 server_loop(config)
 
