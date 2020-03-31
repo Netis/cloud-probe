@@ -11,8 +11,17 @@
 # 方法2
 使用 scripts 目录下的脚本 limit_cpu_mem.sh 对 pktminerg 的 cpu 和内存做限制。</br>
 该脚本使用了 Linux 的 cgroup 机制，对 pktminerg 进程运行的 cpu 和内存进行了控制。</br>
-示例：```sh limit_cpu_mem.sh 2 10000 800M # 运行在CPU core 2上，10%CPU用量，800M内存限制```</br>
-这种方法在 pktminerg 进程重启时，需要重新运行脚本设置。</br></br>
+示例：
+```
+# sh limit_cpu_mem.sh  $CPU_SET_ID  $CFS_QUOTA_US  $MEM_LIMIT
+# CPU_SET_ID : 逗号分隔的cpu cores，指定pktminerg运行的核。
+# CFS_QUOTA_US ： 每100ms的cpu时间中，分配给pktminerg的时长，单位微秒。
+# MEM_LIMIT： 限制内存用量，可采用M/K/G等单位。无单位则为字节。
+sh limit_cpu_mem.sh 2 10000 800M # 运行在CPU core 2上，10%CPU用量，800M内存限制
+```
+* MEM_LIMIT 对 pcap 缓存无效。pcap 缓存自定义需使用-b参数指定。
+* MEM_LIMIT 仅对第一次配置后新增部分的内存开销有效。
+* 这种方法在 pktminerg 进程重启时，需要重新运行脚本设置。
 
 虽然这种方法同时对 cpu 和内存进行了限制，比上面第一种方法多了对内存的控制，但 pktminerg 程序本身一般占用内存比较固定（大约500M），所以没有特殊需求的情况下，一般推荐第一种方法。</br>
 
