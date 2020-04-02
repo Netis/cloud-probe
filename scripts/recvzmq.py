@@ -7,6 +7,7 @@ import struct
 import sys
 import os
 import getopt
+import traceback
 
 grekey_file_dict = {}
 
@@ -111,10 +112,18 @@ def parse_message(config, message):
 def server_loop(config):
     context = zmq.Context()
     socket = context.socket(zmq.PULL)
+    socket.setsockopt(zmq.SNDHWM, 2000)
     socket.bind("tcp://*:%d"%(config["zmq_port"]))
     while True:
-        message = socket.recv()
-        parse_message(config, message)
+        try:
+            message = socket.recv()
+            parse_message(config, message)
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            eprint(e)
+            track = traceback.format_exc()
+            eprint(track)
 
 
 def usage():
