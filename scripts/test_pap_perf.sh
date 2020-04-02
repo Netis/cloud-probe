@@ -59,14 +59,15 @@ replay() {
 	echo "------------------------------------" >> stats.txt
 	echo "`date`" >> stats.txt
 	echo "Send to $IPERF_IP:$IPERF_PORT $BPS Mbps, $DURATION_S seconds"  >> stats.txt
-    echo "iperf -c $IPERF_IP -p $IPERF_PORT -i 10 -t $DURATION_S -w 20K -m -b ${BPS}M -l 800 -M 800 -N" >> stats.txt
+    echo "iperf -c $IPERF_IP -p $IPERF_PORT -i 10 -t $DURATION_S -w 20K -m -b ${BPS}M -l 1406 -M 1406 -N" >> stats.txt
 
 	echo "------------------------------------" >> $STATS_TXT
 	echo "`date`" >> $STATS_TXT
 	echo "Send to $IPERF_IP:$IPERF_PORT $BPS Mbps, $DURATION_S seconds"  >> $STATS_TXT
-    echo "iperf -c $IPERF_IP -p $IPERF_PORT -i 10 -t $DURATION_S -w 20K -m -b ${BPS}M -l 800 -M 800 -N" >> $STATS_TXT
+    echo "iperf -c $IPERF_IP -p $IPERF_PORT -i 10 -t $DURATION_S -w 20K -m -b ${BPS}M -l 1406 -M 1406 -N" >> $STATS_TXT
 
-	iperf -c $IPERF_IP -p $IPERF_PORT -i 60 -t $DURATION_S -w 20K -m -b ${BPS}M -l 800 -M 800 -N >> $STATS_TXT &
+	#python /root/fake_iperf.py $DURATION_S &
+	iperf -c $IPERF_IP -p $IPERF_PORT -i 60 -t $DURATION_S -w 20K -m -b ${BPS}M -l 1406 -M 1406 -N >> $STATS_TXT &
 }
 
 run_pktg() {
@@ -90,6 +91,7 @@ stats() {
 	for (( j=1; j<=10000000; j++ ))
 	do
 		echo "`ps aux  | grep pktminerg | grep -v grep`" >> stats.txt
+		echo "`sar -n DEV 5 1 | grep Average.*eth | grep -v grep`" >> stats.txt
 		sleep 10
 		COUNT=`ps aux | grep iperf | grep -v grep | wc -l`
 		if [ "$COUNT" -ge "1" ]
