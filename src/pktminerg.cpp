@@ -30,6 +30,8 @@ int main(int argc, const char* argv[]) {
              "set gre remote IPs, seperate by ',' Example: -r 8.8.4.4,8.8.8.8")
             ("zmq_port,z", boost::program_options::value<int>()->default_value(0)->value_name("ZMQ_PORT"),
              "set remote zeromq server port to receive packets reliably; ZMQ_PORT default value 0 means disable.")
+            ("zmq_hwm,m", boost::program_options::value<int>()->default_value(100)->value_name("ZMQ_HWM"),
+             "set zeromq queue high watermark; ZMQ_HWM default value 100.")
             ("keybit,k", boost::program_options::value<int>()->default_value(1)->value_name("BIT"),
              "set gre key bit; BIT defaults 1")
             ("snaplen,s", boost::program_options::value<int>()->default_value(2048)->value_name("LENGTH"),
@@ -122,6 +124,7 @@ int main(int argc, const char* argv[]) {
     boost::algorithm::split(remoteips, remoteip, boost::algorithm::is_any_of(","));
 
     int zmq_port = vm["zmq_port"].as<int>();
+    int zmq_hwm = vm["zmq_hwm"].as<int>();
 
     int keybit = vm["keybit"].as<int>();
 
@@ -237,7 +240,7 @@ int main(int argc, const char* argv[]) {
 
     std::shared_ptr<PcapExportBase> exportPtr = nullptr;
     if (zmq_port != 0) {
-        exportPtr = std::make_shared<PcapExportZMQ>(remoteips, zmq_port, keybit, bind_device, param.buffer_size);
+        exportPtr = std::make_shared<PcapExportZMQ>(remoteips, zmq_port, zmq_hwm, keybit, bind_device, param.buffer_size);
         int err = exportPtr->initExport();
         if (err != 0) {
             std::cerr << StatisLogContext::getTimeString()

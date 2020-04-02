@@ -38,6 +38,7 @@ class PcapExportZMQ : public PcapExportBase {
 protected:
     std::vector<std::string> _remoteips;
 	int _zmq_port;
+	int _zmq_hwm;
     uint32_t _keybit;
     std::string _bind_device;
     int _send_buf_size;
@@ -54,7 +55,7 @@ private:
 	void adjustZmqHwm(uint32_t send_size);
 
 public:
-    PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_port, uint32_t keybit,
+    PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_port, int zmq_hwm, uint32_t keybit,
 				  const std::string& bind_device, const int send_buf_size);
     ~PcapExportZMQ();
     int initExport();

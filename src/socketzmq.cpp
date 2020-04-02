@@ -17,10 +17,11 @@
 #include "statislog.h"
 
 
-PcapExportZMQ::PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_port, uint32_t keybit,
+PcapExportZMQ::PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_port, int zmq_hwm, uint32_t keybit,
                              const std::string& bind_device, const int send_buf_size) :
         _remoteips(remoteips),
         _zmq_port(zmq_port),
+        _zmq_hwm(zmq_hwm),
         _keybit(keybit),
         _bind_device(bind_device),
         _send_buf_size(send_buf_size),
@@ -43,13 +44,14 @@ int PcapExportZMQ::initSockets(size_t index, uint32_t keybit) {
     _zmq_sockets.emplace_back(_zmq_contexts[index], ZMQ_PUSH);
     zmq::socket_t& socket = _zmq_sockets[index];
     std::string connect_addr = "tcp://" + _remoteips[index] + ":" + std::to_string(_zmq_port);
-    socket.connect(connect_addr);
 
     uint32_t linger_ms = 10 * 1000;
     for (size_t i = 0; i < _remoteips.size(); ++i) {
         _zmq_sockets[i].setsockopt(ZMQ_LINGER, linger_ms);
+        _zmq_sockets[i].setsockopt(ZMQ_SNDHWM, _zmq_hwm);
     }
 
+    socket.connect(connect_addr);
     return 0;
 }
 
@@ -143,7 +145,7 @@ int PcapExportZMQ::exportPacket(size_t index, const struct pcap_pkthdr* header, 
 
         drop_pkts_num = flushBatchBuf(index);
 
-        adjustZmqHwm(pkts_buf.batch_bufpos);
+        //adjustZmqHwm(pkts_buf.batch_bufpos);
 
         pkts_buf.first_pktsec = header->ts.tv_sec;
         pkts_buf.batch_bufpos = sizeof(pkts_buf.batch_hdr);
