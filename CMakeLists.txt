@@ -6,10 +6,10 @@ option(PROJECT_WITH_PROF "Enable profiling and coverage report analysis" OFF)
 message("\${PROJECT_WITH_PROF}: ${PROJECT_WITH_PROF}")
 # cmake cxx flags
 if (${PROJECT_WITH_PROF})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -fprofile-arcs -ftest-coverage")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt -fprofile-arcs -ftest-coverage")
     set(LINK_FLAGS "${LINK_FLAGS} -fprofile-arcs")
 else ()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt")
 endif ()
 
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
