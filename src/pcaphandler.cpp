@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <boost/filesystem.hpp>
 #include "scopeguard.h"
+#include "agent_status.h"
 
 PcapHandler::PcapHandler() {
     _gre_count = 0;
@@ -70,6 +71,9 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
     }
     _statislog->logSendStatis((uint64_t) (header->ts.tv_sec), header->caplen, _gre_count, _gre_drop_count, 0,
                               _pcap_handle);
+
+    AgentStatus::get_instance()->update_status((uint64_t) (header->ts.tv_sec), header->caplen, 
+                              _gre_count, _gre_drop_count, _pcap_handle);
 }
 
 void PcapHandler::addExport(std::shared_ptr<PcapExportBase> pcapExport) {

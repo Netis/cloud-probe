@@ -12,8 +12,8 @@ Note: The default libpcap with TPACKET_V3 enabled has some performance issue. If
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 
 ```shell
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.5.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 
@@ -26,8 +26,8 @@ sudo apt-get install libpcap-dev wget
 
 2. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5_amd64.deb
-sudo dpkg -i netis-packet-agent-0.3.5_amd64.deb
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.6_amd64.deb
 ```
 
 3. If libpcap.so.1 not found when running pktminerg, create softlink for libpcap.so.1 in suitable directory.
@@ -49,8 +49,8 @@ yum install libpcap wget
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 
 ```shell
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.5.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 
