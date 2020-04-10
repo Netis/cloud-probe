@@ -134,7 +134,7 @@ For build precondition and steps, please refer to this [document](./BUILD.md).
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.
 
 ## License
-Copyright (c) 2020 Netis.<br/>
+Copyright (c) 2018 - 2020 Netis.<br/>
 The content of this repository bound by the following licenses:
 - The computer software is licensed under the [BSD-3-Clause](./LICENSE.md).
 
