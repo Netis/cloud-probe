@@ -95,6 +95,7 @@ int main(int argc, const char* argv[]) {
     }
 
     int pmtudisc = -1;
+    int update_status = 0;
 #ifdef WIN32
     //TODO: support pmtudisc_option on WIN32
 #else
@@ -112,12 +113,12 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
     }
-
     std::shared_ptr<AgentControlPlane> agent_control_plane;
     if (vm.count("control")) {
         const auto daemon_zmq_port = vm["control"].as<int>();
         agent_control_plane = std::make_shared<AgentControlPlane>(daemon_zmq_port);
-        agent_control_plane->init_msg_server();        
+        agent_control_plane->init_msg_server();
+        update_status = 1;    
     }
 #endif // WIN32
 
@@ -186,6 +187,7 @@ int main(int argc, const char* argv[]) {
     param.snaplen = vm["snaplen"].as<int>();
     param.promisc = 0;
     param.timeout = vm["timeout"].as<int>() * 1000;
+    param.need_update_status = update_status;
     int nCount = vm["count"].as<int>();
     if (nCount < 0) {
         nCount = 0;

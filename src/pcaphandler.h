@@ -12,6 +12,7 @@ typedef struct PcapInit {
     int timeout;
     int promisc;
     int buffer_size;
+    int need_update_status;
 } pcap_init_t;
 
 class PcapHandler {
@@ -23,6 +24,7 @@ protected:
     std::shared_ptr<GreSendStatisLog> _statislog;
     uint64_t _gre_count;
     uint64_t _gre_drop_count;
+    int _need_update_status;
 protected:
     int openPcapDumper(pcap_t *pcap_handle);
     void closePcapDumper();
