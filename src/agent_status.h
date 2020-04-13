@@ -20,9 +20,12 @@ public:
     }
 
 public:
-    int update_status(uint64_t cur_pkt_time, uint32_t cur_pkt_caplen,
+    int update_capture_status(uint64_t cur_pkt_time, uint32_t cur_pkt_caplen,
             uint64_t total_fwd_count, uint64_t total_fwd_drop_count, pcap_t* handle = NULL);
+    int reset_agent_status();
 
+
+public:
     uint64_t first_packet_time() { return _first_packet_time; }
     uint64_t last_packet_time() { return _last_packet_time; }
     uint64_t total_cap_bytes() { return _total_cap_bytes; }
@@ -33,7 +36,8 @@ public:
 
 
 private:
-    
+
+    // packet agent metrics
     uint64_t _drop_count_at_beginning;
 
     std::atomic<uint64_t> _first_packet_time;
@@ -44,12 +48,6 @@ private:
     std::atomic<uint64_t> _total_filter_drop_count;
     std::atomic<uint64_t> _total_fwd_drop_count;
 };
-
-
-
-
-
-
 
 #endif
 

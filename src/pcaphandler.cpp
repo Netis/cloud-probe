@@ -72,7 +72,7 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
     _statislog->logSendStatis((uint64_t) (header->ts.tv_sec), header->caplen, _gre_count, _gre_drop_count, 0,
                               _pcap_handle);
 
-    AgentStatus::get_instance()->update_status((uint64_t) (header->ts.tv_sec), header->caplen, 
+    AgentStatus::get_instance()->update_capture_status((uint64_t) (header->ts.tv_sec), header->caplen, 
                               _gre_count, _gre_drop_count, _pcap_handle);
 }
 
