@@ -2,9 +2,9 @@
 English  ∙  [简体中文](README-zh-Hans.md) 
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.3.5
+# Netis Packet Agent 0.3.6
 
-[![Stable release](https://img.shields.io/badge/version-0.3.5-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.5)
+[![Stable release](https://img.shields.io/badge/version-0.3.6-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.6)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 ## What is Netis Packet Agent?
@@ -30,20 +30,20 @@ With 3 utilities:
 #### CentOS 6/7 and RedHat 7
 1. Install libpcap and wget
 ```bash
-yum install libpcap wget
+yum install libpcap wget zeromq
 ```
 
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.5.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 #### SUSE 12
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.5.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 
@@ -55,8 +55,8 @@ sudo apt-get install libpcap-dev wget
 
 2. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5_amd64.deb
-sudo dpkg -i netis-packet-agent-0.3.5_amd64.deb
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.6_amd64.deb
 ```
 
 3. If libpcap.so.1 not found when running pktminerg, create softlink for libpcap.so.1 in suitable directory.
@@ -134,7 +134,7 @@ For build precondition and steps, please refer to this [document](./BUILD.md).
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.
 
 ## License
-Copyright (c) 2018 Netis.<br/>
+Copyright (c) 2018 - 2020 Netis.<br/>
 The content of this repository bound by the following licenses:
 - The computer software is licensed under the [BSD-3-Clause](./LICENSE.md).
 
