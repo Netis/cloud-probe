@@ -60,7 +60,7 @@ def construct_pkt_bytes(ts_sec, ts_usec, caplen, length, keybit, pkt_data_len, p
 def create_pcap(config, ts_sec, suffix_id):
     cur_time = time.localtime(ts_sec)
     file_path_str = time.strftime(config["file_template"], cur_time)
-    file_path = "%s_%d_%d"%(file_path_str, config["total_clients"], suffix_id)
+    file_path = "%s_%d_%d"%(file_path_str, config["total_workers"], suffix_id)
     directory = os.path.dirname(file_path)
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -96,6 +96,8 @@ def get_pcapfile(config, ts_sec):
         grekey_file_info = (suffix_id, get_base_ts(ts_sec, span_time), pcap_file)
     return pcap_file
 
+def takeFirst(elem):
+    return elem[0]
 
 class BatchPktsHandler(threading.Thread):
 
@@ -186,35 +188,51 @@ class BatchPktsHandler(threading.Thread):
         self.export_cond.notify()
         self.export_cond.release()
 
+
     def run(self):
         while not self.exitFlag:
-            pkts_list = []
-            self.export_cond.acquire()
+            try:
+                self.process_data()
+            except Exception as e:
+                eprint("id: %d, %s"%(self.config["base_suffixid"], e))
+                track = traceback.format_exc()
+                eprint(track)
+                sys.exit(-1)
+            except:
+                eprint("id: %d, thread unexpected error"%(self.config["base_suffixid"]))
+                sys.exit(-1)
+
+
+    def process_data(self):
+        pkts_list = []
+        self.export_cond.acquire()
+        try:
             while len(self.export_queue) == 0:  # q is empty
                 self.export_cond.wait()
                 if self.exitFlag:
                     return
             pkts_list = self.export_queue.popleft()
+        finally:
             self.export_cond.release()
 
-            span_time = self.config["span_time"]
-            global grekey_file_info
-            # export to pcap
-            for p in pkts_list:
-                (ts_sec_and_usec,  caplen, length, keybit, pkt_data_len, pkt_data) = p
-                ts_sec = ts_sec_and_usec / 1000000
-                ts_usec = ts_sec_and_usec % 1000000
-                if grekey_file_info != None:
-                    suffix_id, pcap_ts, pcapfile = grekey_file_info
-                    if (ts_sec // span_time) != (pcap_ts // span_time):  # need to rotate to new pcap file
-                        self.write_buf_to_pcap(pcapfile)
-                        pcapfile = get_pcapfile(self.config, ts_sec)
-                else:
-                    pcapfile = get_pcapfile(self.config, ts_sec)
-                buff_is_full = self.construct_pkt_bytes(ts_sec, ts_usec, caplen, length, keybit, pkt_data_len, pkt_data)
-                if buff_is_full:
-                    pcapfile = get_pcapfile(self.config, ts_sec)
+        span_time = self.config["span_time"]
+        global grekey_file_info
+        # export to pcap
+        for p in pkts_list:
+            (ts_sec_and_usec,  caplen, length, keybit, pkt_data_len, pkt_data) = p
+            ts_sec = ts_sec_and_usec / 1000000
+            ts_usec = ts_sec_and_usec % 1000000
+            if grekey_file_info != None:
+                suffix_id, pcap_ts, pcapfile = grekey_file_info
+                if (ts_sec // span_time) != (pcap_ts // span_time):  # need to rotate to new pcap file
                     self.write_buf_to_pcap(pcapfile)
+                    pcapfile = get_pcapfile(self.config, ts_sec)
+            else:
+                pcapfile = get_pcapfile(self.config, ts_sec)
+            buff_is_full = self.construct_pkt_bytes(ts_sec, ts_usec, caplen, length, keybit, pkt_data_len, pkt_data)
+            if buff_is_full:
+                pcapfile = get_pcapfile(self.config, ts_sec)
+                self.write_buf_to_pcap(pcapfile)
 
 
     def producer_fillqueue_sync(self, pkts_list):
@@ -231,8 +249,9 @@ class BatchPktsHandler(threading.Thread):
 
         return qfull_drop_pkts
 
+
     def sort_and_export_pkts(self):
-        self.evict_pkts_list.sort(key=lambda x: x[0])
+        self.evict_pkts_list.sort(key=takeFirst)
         if self.pkt_evict_ts_checkpoint == 0:
             self.pkt_evict_ts_checkpoint = self.first_pkt_ts_time + self.PKT_EVICT_INTERVAL - self.PKT_EVICT_TS_TIMEOUT
         else:
@@ -259,7 +278,7 @@ class BatchPktsHandler(threading.Thread):
         return qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len
 
 
-    def evict_pkts(self):
+    def evict_pkts(self, realworld_time_sec_and_usec):
         self.evict_num += 1
         if self.first_pkt_ts_time == 0:
             return
@@ -277,9 +296,11 @@ class BatchPktsHandler(threading.Thread):
         for ts in to_del_ts:
             del self.msg_dict[ts]
         qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len = self.sort_and_export_pkts()
-        print("Msg %d/%d evicted, exportPkts/leftPkts: %d/%d, timeout/qfull/totalDropPkts: %d/%d/%d, queueLen: %d"%(
-            evicted_msg_count, total_msg_count, export_pkts_count, left_pkts_count,
-            timeout_drop_pkts, qfull_drop_pkts, self.total_drop_pkts, export_queue_len))
+        now = time.time()
+        nowstr = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
+        print("[%s] id: %d, used: %.2fs, msg %d/%d evicted, exportPkts/leftPkts: %d/%d, timeout/qfull/totalDropPkts: %d/%d/%d, queueLen: %d"%(
+            nowstr, self.config["base_suffixid"], now - realworld_time_sec_and_usec, evicted_msg_count, total_msg_count,
+            export_pkts_count, left_pkts_count, timeout_drop_pkts, qfull_drop_pkts, self.total_drop_pkts, export_queue_len))
 
 
     def gen_heartbeat(self, realworld_time):
@@ -297,8 +318,8 @@ class BatchPktsHandler(threading.Thread):
 
     def parse_message(self, message):
         header_size = 8
-        realworld_time_sec_and_usec = int(round(time.time()*1000000))
-        realworld_time = realworld_time_sec_and_usec / 1000000
+        realworld_time_sec_and_usec = time.time()
+        realworld_time = int(realworld_time_sec_and_usec)
         if self.first_msg_realworld_time == 0:
             self.first_msg_realworld_time = realworld_time
         if message is not None:
@@ -318,7 +339,7 @@ class BatchPktsHandler(threading.Thread):
                     self.msg_dict[pkt_ts_time] = [message]
         self.gen_heartbeat(realworld_time)
         if realworld_time >= self.first_msg_realworld_time + self.PKT_EVICT_INTERVAL * (self.evict_num + 1):
-            self.evict_pkts()
+            self.evict_pkts(realworld_time_sec_and_usec)
 
 
 def recv_msg_to_parse(batch_pkts_handler, socket):
@@ -333,13 +354,18 @@ def server_loop_imp(config):
     context = zmq.Context()
     socket = context.socket(zmq.PULL)
     socket.setsockopt(zmq.RCVTIMEO, 1000)
-    socket.bind("tcp://*:%d"%(config["zmq_port"]))
-    #socket.connect("tcp://127.0.0.1:%d"%(config["zmq_port"]))
+    if config["total_workers"] == 1:
+        socket.bind("tcp://*:%d"%(config["zmq_port"]))
+    else:
+        socket.connect("tcp://127.0.0.1:%d"%(config["zmq_port"]))
     batch_pkts_handler = BatchPktsHandler(config)
     batch_pkts_handler.start()
     while True:
         try:
             recv_msg_to_parse(batch_pkts_handler, socket)
+            if not batch_pkts_handler.isAlive():
+                eprint('id: ' + str(config['base_suffixid']) + ' Fatal error: child thread exited')
+                sys.exit(-1)
         except KeyboardInterrupt:
             eprint("KeyboardInterrupt")
             batch_pkts_handler.stop_running()
@@ -349,33 +375,64 @@ def server_loop_imp(config):
             eprint(e)
             track = traceback.format_exc()
             eprint(track)
+            raise
         except struct.error as se:
             eprint(se)
         except:
             eprint("Unexpected error")
+            raise
 
 
-def server_loop(port, file_template, span_time, total_clients, base_suffixid):
+def server_loop(port, file_template, span_time, total_workers, base_suffixid):
     config = { "zmq_port": port, "file_template": file_template, "span_time": span_time,
-               "total_clients": total_clients, "base_suffixid": base_suffixid }
+               "total_workers": total_workers, "base_suffixid": base_suffixid }
     server_loop_imp(config)
+
+
+def check_need_terminate(workers):
+    need_term = False
+    for w in workers:
+        if not w.is_alive():
+            need_term = True
+    if need_term:
+        eprint("Fatal error: at least one worker process exited")
+        for w in workers:
+            if w.is_alive():
+                w.terminate()
+        sys.exit(-1)
 
 
 def dispatch_loop(config):
     context = zmq.Context()
     front_socket = context.socket(zmq.PULL)
+    front_socket.setsockopt(zmq.RCVTIMEO, 2000)
     front_socket.bind("tcp://*:%d"%(config["zmq_port"]))
 
     backend_port = config["zmq_port"] + 1
     backend_socket = context.socket(zmq.PUSH)
+    backend_socket.setsockopt(zmq.SNDTIMEO, 2000)
     backend_socket.bind("tcp://127.0.0.1:%d"%(backend_port))
-    for i in range(config["total_clients"]):
-        Process(target=server_loop, args=(backend_port, config["file_template"], config["span_time"], config["total_clients"], i)).start()
+    workers = []
+    for i in range(config["total_workers"]):
+        w = Process(target=server_loop, args=(backend_port, config["file_template"], config["span_time"], config["total_workers"], i))
+        workers.append(w)
+        w.start()
 
     while True:
         try:
-            message = front_socket.recv()
-            backend_socket.send(message)
+            message = None
+            try:
+                message = front_socket.recv()
+            except zmq.error.Again:
+                check_need_terminate(workers)
+            if message is None:
+                continue
+            while True:
+                try:
+                    backend_socket.send(message)
+                except zmq.error.Again as _e:
+                    check_need_terminate(workers)
+                break
         except KeyboardInterrupt:
             eprint("KeyboardInterrupt")
             raise
@@ -383,8 +440,10 @@ def dispatch_loop(config):
             eprint(e)
             track = traceback.format_exc()
             eprint(track)
+            raise
         except:
             eprint("Unexpected error")
+            raise
 
 
 def usage():
@@ -393,8 +452,8 @@ def usage():
 python recvzmq.py [--span_time seconds] -z port_num -t /path/file_template
 -z or --zmq_port:\tzmq bind port
 -t or --file_template:\tfile template. Examle: /opt/pcap_cache/nic0/%Y%m%d%H%M%S
--s or --span_time:\tpcap span time interval. Default: 10, Unit: seconds.
--a or --total_clients:\ttotal clients count of all recvzmq processes. Default 1.
+-s or --span_time:\tpcap span time interval. Default: 15, Unit: seconds.
+-a or --total_workers:\ttotal worker process count of recvzmq. Default 1.
 -v or --version:\tversion info
 -h or --help:\t\thelp message
 """)
@@ -406,7 +465,7 @@ def parse_args(cfg_dict):
         sys.exit()
     try:
         options, args = getopt.getopt(sys.argv[1:], "hvz:t:s:a:b:",
-                                      ["help", "version", "zmq_port=", "file_template=", "span_time=", "total_clients=", "base_suffixid="])
+                                      ["help", "version", "zmq_port=", "file_template=", "span_time=", "total_workers=", "base_suffixid="])
     except getopt.GetoptError as e:
         eprint(e)
         sys.exit(-1)
@@ -416,7 +475,7 @@ def parse_args(cfg_dict):
             usage()
             sys.exit()
         elif name in ("-v", "--version"):
-            print('recvzmq version 1.1.0')
+            print('recvzmq version 1.2.0')
             sys.exit()
         elif name in ("-z", "--zmq_port"):
             cfg_dict["zmq_port"] = int(value)
@@ -424,8 +483,8 @@ def parse_args(cfg_dict):
             cfg_dict["file_template"] = value
         elif name in ("-s", "--span_time"):
             cfg_dict["span_time"] = int(value)
-        elif name in ("-a", "--total_clients"):
-            cfg_dict["total_clients"] = int(value)
+        elif name in ("-a", "--total_workers"):
+            cfg_dict["total_workers"] = int(value)
         elif name in ("-b", "--base_suffixid"):
             cfg_dict["base_suffixid"] = int(value)
     if "zmq_port" not in cfg_dict:
@@ -435,8 +494,10 @@ def parse_args(cfg_dict):
         eprint("require param: -t /path/file_template/%Y%m%d/%Y%m%d%H/%Y%m%d%H%M%S")
         sys.exit(-1)
 
-config = {"span_time": 10, "total_clients": 1, "base_suffixid": 0}
+config = {"span_time": 15, "total_workers": 1, "base_suffixid": 0}
 parse_args(config)
-#dispatch_loop(config)
-server_loop_imp(config)
+if config["total_workers"] == 1:
+    server_loop_imp(config)
+else:
+    dispatch_loop(config)
 
