@@ -158,18 +158,26 @@ class BatchPktsHandler(threading.Thread):
         if length > caplen:
             gre_length =  gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + length
 
-        struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
-        self.export_bytearray_pos += 16
-        struct.pack_into(">HIHIBB", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00)
-        self.export_bytearray_pos += gre_eth_hdr_len
-        struct.pack_into(">BBHHBBBBHII", self.export_bytearray, self.export_bytearray_pos, 0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
-                         0, 0x40, 0, 0x40, 0x2f, checksum, 0x7F000001, 0x7F000001)
-        self.export_bytearray_pos += gre_ip_hdr_len
-        struct.pack_into(">HHI", self.export_bytearray, self.export_bytearray_pos, 0x2000, 0x6558, keybit)
-        self.export_bytearray_pos += gre_hdr_len
-        if pkt_data_len > 0:
-            struct.pack_into("!%ds"%(pkt_data_len), self.export_bytearray, self.export_bytearray_pos, pkt_data)
-            self.export_bytearray_pos += pkt_data_len
+        if pkt_data_len == 0 and keybit == 0:
+            heartbeat_data_len = 4
+            struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec,
+                                      gre_eth_hdr_len + heartbeat_data_len, gre_eth_hdr_len + heartbeat_data_len)
+            self.export_bytearray_pos += 16
+            struct.pack_into(">HIHIHI", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0xffff, 0)
+            self.export_bytearray_pos += gre_eth_hdr_len + heartbeat_data_len
+        else:
+            struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
+            self.export_bytearray_pos += 16
+            struct.pack_into(">HIHIBB", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00)
+            self.export_bytearray_pos += gre_eth_hdr_len
+            struct.pack_into(">BBHHBBBBHII", self.export_bytearray, self.export_bytearray_pos, 0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
+                            0, 0x40, 0, 0x40, 0x2f, checksum, 0x7F000001, 0x7F000001)
+            self.export_bytearray_pos += gre_ip_hdr_len
+            struct.pack_into(">HHI", self.export_bytearray, self.export_bytearray_pos, 0x2000, 0x6558, keybit)
+            self.export_bytearray_pos += gre_hdr_len
+            if pkt_data_len > 0:
+                struct.pack_into("!%ds"%(pkt_data_len), self.export_bytearray, self.export_bytearray_pos, pkt_data)
+                self.export_bytearray_pos += pkt_data_len
 
         buff_is_full = False
         if self.export_bytearray_pos >= self.PKT_EVICT_BUFF_SIZE - 65536:
