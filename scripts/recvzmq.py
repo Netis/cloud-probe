@@ -104,7 +104,7 @@ class BatchPktsHandler(threading.Thread):
     def __init__(self, config):
         threading.Thread.__init__(self)
 
-        self.PKT_EVICT_TS_TIMEOUT = 5
+        self.PKT_EVICT_TS_TIMEOUT = 7
         self.PKT_EVICT_INTERVAL = 1
         self.PKT_EVICT_BUFF_SIZE = 1024*1024
 
@@ -113,8 +113,10 @@ class BatchPktsHandler(threading.Thread):
         self.first_pkt_realworld_time = 0
         self.first_pkt_ts_time = 0
         self.last_heartbeat_ts = 0
-        self.evict_num = 0
+        self.min_realworld_ts_pkt_ts_diff = 0
+        self.new_realworld_ts_pkt_ts_diff = 0
         self.pkt_evict_ts_checkpoint = 0
+        self.evict_num = 0
         self.msg_dict = {}
         self.evict_pkts_list = []
         self.export_bytearray = bytearray(self.PKT_EVICT_BUFF_SIZE)
@@ -247,7 +249,7 @@ class BatchPktsHandler(threading.Thread):
         qfull_drop_pkts = 0
 
         self.export_cond.acquire()
-        if len(self.export_queue) >= 30:
+        if len(self.export_queue) >= 20:
             qfull_drop_pkts = len(pkts_list)
             self.total_drop_pkts += qfull_drop_pkts
         else:
@@ -263,7 +265,7 @@ class BatchPktsHandler(threading.Thread):
         if self.pkt_evict_ts_checkpoint == 0:
             self.pkt_evict_ts_checkpoint = self.first_pkt_ts_time + self.PKT_EVICT_INTERVAL - self.PKT_EVICT_TS_TIMEOUT
         else:
-            self.pkt_evict_ts_checkpoint += self.PKT_EVICT_INTERVAL
+            self.update_next_checkpoint()
         pkts_list = []
         pkts_count = len(self.evict_pkts_list)
         lasti = 0
@@ -286,6 +288,20 @@ class BatchPktsHandler(threading.Thread):
         return qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len
 
 
+    def get_next_checkpoint(self):
+        ts_advance = 0
+        if self.new_realworld_ts_pkt_ts_diff < self.min_realworld_ts_pkt_ts_diff:
+            ts_advance = self.min_realworld_ts_pkt_ts_diff - self.new_realworld_ts_pkt_ts_diff
+        return self.pkt_evict_ts_checkpoint + self.PKT_EVICT_INTERVAL + ts_advance
+
+
+    def update_next_checkpoint(self):
+        self.pkt_evict_ts_checkpoint = self.get_next_checkpoint()
+        if self.new_realworld_ts_pkt_ts_diff < self.min_realworld_ts_pkt_ts_diff:
+            print("id: %d, new min realworld pkt ts diff: %ds"%(self.config['base_suffixid'], self.new_realworld_ts_pkt_ts_diff))
+            self.min_realworld_ts_pkt_ts_diff = self.new_realworld_ts_pkt_ts_diff
+
+
     def evict_pkts(self, realworld_time_sec_and_usec):
         self.evict_num += 1
         if self.first_pkt_ts_time == 0:
@@ -294,15 +310,17 @@ class BatchPktsHandler(threading.Thread):
         evicted_msg_count = 0
         total_msg_count = 0
         to_del_ts = []
+        next_checkpoint = self.get_next_checkpoint()
         for ts, msg_list in self.msg_dict.items():
             total_msg_count += len(msg_list)
-            if ts < self.pkt_evict_ts_checkpoint + self.PKT_EVICT_INTERVAL: #TODO: diff
+            if ts < next_checkpoint:
                 evicted_msg_count += len(msg_list)
                 for msg in msg_list:
                     timeout_drop_pkts += self.unpack_msgpkts_to_evict(msg)
                 to_del_ts.append(ts)
         for ts in to_del_ts:
             del self.msg_dict[ts]
+        self.gen_heartbeat()
         qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len = self.sort_and_export_pkts()
         now = time.time()
         nowstr = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
@@ -311,17 +329,15 @@ class BatchPktsHandler(threading.Thread):
             export_pkts_count, left_pkts_count, timeout_drop_pkts, qfull_drop_pkts, self.total_drop_pkts, export_queue_len))
 
 
-    def gen_heartbeat(self, realworld_time):
+    def gen_heartbeat(self):
         if self.first_pkt_ts_time != 0:
             if self.last_heartbeat_ts == 0:
                 self.last_heartbeat_ts = self.first_pkt_ts_time
-            expect_count = realworld_time - self.first_pkt_realworld_time
-            count = self.last_heartbeat_ts - self.first_pkt_ts_time
-            while count < expect_count:
+            next_checkpoint = self.get_next_checkpoint()
+            while self.last_heartbeat_ts < next_checkpoint:
                 self.last_heartbeat_ts += 1
                 pkt_info = (self.last_heartbeat_ts*1000000, 0, 0, 0, 0, [])
                 self.evict_pkts_list.append(pkt_info)
-                count += 1
 
 
     def parse_message(self, message):
@@ -340,12 +356,13 @@ class BatchPktsHandler(threading.Thread):
                 if self.first_pkt_ts_time == 0:
                     self.first_pkt_realworld_time = realworld_time
                     self.first_pkt_ts_time = pkt_ts_time
-                    print("first_pkt_realworld_time: %d, first_pkt_ts_time: %d"%(realworld_time, self.first_pkt_ts_time))
+                    self.min_realworld_ts_pkt_ts_diff = realworld_time - pkt_ts_time
+                    print("first_pkt_realworld_time: %d, first_pkt_ts_time: %d, diff: %ds"%(realworld_time, self.first_pkt_ts_time, self.min_realworld_ts_pkt_ts_diff))
+                self.new_realworld_ts_pkt_ts_diff = realworld_time - pkt_ts_time
                 if pkt_ts_time in self.msg_dict:
                     self.msg_dict[pkt_ts_time].append(message)
                 else:
                     self.msg_dict[pkt_ts_time] = [message]
-        self.gen_heartbeat(realworld_time)
         if realworld_time >= self.first_msg_realworld_time + self.PKT_EVICT_INTERVAL * (self.evict_num + 1):
             self.evict_pkts(realworld_time_sec_and_usec)
 
