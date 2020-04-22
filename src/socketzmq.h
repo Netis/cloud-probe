@@ -32,6 +32,8 @@ struct BatchPktsBuf {
     std::vector<char> buf;
     uint32_t batch_bufpos;
     __time_t first_pktsec;
+public:
+	static constexpr uint16_t BATCH_PKTS_VERSION = 1;
 };
 
 class PcapExportZMQ : public PcapExportBase {
@@ -45,14 +47,13 @@ protected:
 	std::vector<zmq::context_t> _zmq_contexts;
     std::vector<zmq::socket_t> _zmq_sockets;
     std::vector<BatchPktsBuf> _pkts_bufs;
-    constexpr static uint32_t MAX_PKTS_TIMEDIFF_S = 3;
+    constexpr static uint32_t MAX_PKTS_TIMEDIFF_S = 1;
 	constexpr static uint32_t MAX_BATCH_BUF_LENGTH = 1 * 1024 * 1024;
 
 private:
     int initSockets(size_t index, uint32_t keybit);
     int exportPacket(size_t index, const struct pcap_pkthdr *header, const uint8_t *pkt_data);
     int flushBatchBuf(size_t index);
-	void adjustZmqHwm(uint32_t send_size);
 
 public:
     PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_port, int zmq_hwm, uint32_t keybit,

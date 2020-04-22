@@ -30,7 +30,7 @@ PcapExportZMQ::PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_
     for (size_t i = 0; i < remoteips.size(); ++i) {
         _pkts_bufs[i].buf.resize(MAX_BATCH_BUF_LENGTH, '\0');
         _pkts_bufs[i].batch_bufpos = sizeof(batch_pkts_hdr_t);
-        _pkts_bufs[i].batch_hdr = { htons(1), 0, htonl(keybit) };
+        _pkts_bufs[i].batch_hdr = { htons(BatchPktsBuf::BATCH_PKTS_VERSION), 0, htonl(keybit) };
         _pkts_bufs[i].first_pktsec = 0;
    }
 }
@@ -75,27 +75,6 @@ int PcapExportZMQ::closeExport() {
     return 0;
 }
 
-void PcapExportZMQ::adjustZmqHwm(uint32_t send_size) {
-    static uint32_t counter = 0;
-    static uint64_t send_total = 0;
-    constexpr uint32_t ROUND = 50;
-    if (((counter + 1) % ROUND) == 0) {
-        uint32_t avg_size = (uint32_t)(send_total / ROUND);
-        if (avg_size != 0) {
-            uint32_t queue_length = _send_buf_size / avg_size;
-            queue_length = queue_length < 100 ? 100 : queue_length;
-            queue_length = queue_length > 10000 ? 10000 : queue_length;
-            for (size_t i = 0; i < _remoteips.size(); ++i) {
-                _zmq_sockets[i].setsockopt(ZMQ_SNDHWM, queue_length);
-            }
-        }
-        counter = 0;
-        send_total = 0;
-    } else {
-        send_total += send_size;
-        counter++;
-    }
-}
 
 int PcapExportZMQ::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
     int ret = 0;
@@ -144,8 +123,6 @@ int PcapExportZMQ::exportPacket(size_t index, const struct pcap_pkthdr* header, 
         || pkts_buf.batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + length > MAX_BATCH_BUF_LENGTH) {
 
         drop_pkts_num = flushBatchBuf(index);
-
-        //adjustZmqHwm(pkts_buf.batch_bufpos);
 
         pkts_buf.first_pktsec = header->ts.tv_sec;
         pkts_buf.batch_bufpos = sizeof(pkts_buf.batch_hdr);
