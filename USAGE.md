@@ -19,6 +19,11 @@ Allowed options:
                                   for test
   -r [ --remoteip ] IPs           set gre remote IPs, seperate by ',' Example:
                                   -r 8.8.4.4,8.8.8.8
+  -z [ --zmq_port ] ZMQ_PORT (=0)  set remote zeromq server port to receive
+                                   packets reliably; ZMQ_PORT default value 0
+                                   means disable.
+  -m [ --zmq_hwm ] ZMQ_HWM (=100)  set zeromq queue high watermark; ZMQ_HWM
+                                   default value 100.
   -k [ --keybit ] BIT (=1)        set gre key bit; BIT defaults 1
   -s [ --snaplen ] LENGTH (=2048) set snoop packet snaplen; LENGTH defaults 
                                   2048 and units byte
@@ -58,6 +63,12 @@ Send GRE packets from this binded device. Sending will be failed when this devic
 Parameters of GRE channel:
 remoteip：GRE channel remote IP addresss (required)
 keybit：GRE protocol keybit parameter to distinguish the channel to remote IP
+<br>
+
+* zmq_port, zmq_hwm<br>
+Parameters of zeromq:
+zmq_port: set remote zeromq server port to receive packets reliably; ZMQ_PORT default value 0 means disable.
+zmq_hwm: set zeromq queue high watermark; ZMQ_HWM default value 100.
 <br>
 
 * cpu, priority<br>
