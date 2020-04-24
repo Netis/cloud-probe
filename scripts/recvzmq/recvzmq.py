@@ -327,6 +327,7 @@ class BatchPktsHandler(threading.Thread):
         print("[%s] id: %d, used: %.2fs, msg %d/%d evicted, exportPkts/leftPkts: %d/%d, timeout/qfull/totalDropPkts: %d/%d/%d, queueLen: %d"%(
             nowstr, self.config["base_suffixid"], now - realworld_time_sec_and_usec, evicted_msg_count, total_msg_count,
             export_pkts_count, left_pkts_count, timeout_drop_pkts, qfull_drop_pkts, self.total_drop_pkts, export_queue_len))
+        sys.stdout.flush()
 
 
     def gen_heartbeat(self):
