@@ -16,6 +16,8 @@ if [[ -z "$RECV_TAR_GZ" ]]; then
     exit 1
 fi
 
+yum -y install python-zmq
+
 mkdir -p recvzmq_installer
 tar -xvf $RECV_TAR_GZ --strip-components 1 -C recvzmq_installer/
 
