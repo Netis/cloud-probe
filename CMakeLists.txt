@@ -220,6 +220,7 @@ else()
             ${SOURCE_FILES_SYSHELP}
             ${SOURCE_FILES_PCAP}
             ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
+            ${PROJECT_SOURCE_DIR}/src/socketzmq.cpp
             ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
             ${PROJECT_SOURCE_DIR}/src/statislog.cpp
             ${PROJECT_SOURCE_DIR}/src/agent_status.cpp
