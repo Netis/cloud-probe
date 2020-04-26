@@ -3,12 +3,14 @@
 #include <algorithm>
 #include <boost/filesystem.hpp>
 #include "scopeguard.h"
+#include "agent_status.h"
 
 PcapHandler::PcapHandler() {
     _gre_count = 0;
     _gre_drop_count = 0;
     _pcap_handle = NULL;
     _pcap_dumpter = NULL;
+    _need_update_status = 0;
     std::memset(_errbuf, 0, sizeof(_errbuf));
 }
 
@@ -59,12 +61,6 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
                           } else {
                               this->_gre_drop_count++;
                           }
-                      } else if (pcapExport->getExportType() == exporttype::zmq) {
-                          if (ret == 0) {
-                              this->_gre_count++; //TODO: support zmq batch packets
-                          } else {
-                              this->_gre_drop_count += ret;
-                          }
                       }
                   });
     if (_pcap_dumpter) {
@@ -76,6 +72,10 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
     }
     _statislog->logSendStatis((uint64_t) (header->ts.tv_sec), header->caplen, _gre_count, _gre_drop_count, 0,
                               _pcap_handle);
+    if (_need_update_status) {
+        AgentStatus::get_instance()->update_capture_status((uint64_t) (header->ts.tv_sec), header->caplen, 
+                              _gre_count, _gre_drop_count, _pcap_handle);
+    }
 }
 
 void PcapHandler::addExport(std::shared_ptr<PcapExportBase> pcapExport) {
@@ -119,6 +119,7 @@ int PcapOfflineHandler::openPcap(const std::string& dev, const pcap_init_t& para
     auto pcapGuard = MakeGuard([pcap_handle]() {
         pcap_close(pcap_handle);
     });
+    _need_update_status = param.need_update_status;
 
     if (dumpfile) {
         if (openPcapDumper(pcap_handle) != 0) {
@@ -137,6 +138,7 @@ int PcapLiveHandler::openPcap(const std::string& dev, const pcap_init_t& param, 
     struct bpf_program filter;
     bpf_u_int32 mask = 0;
     bpf_u_int32 net = 0;
+    _need_update_status = param.need_update_status;
 
     pcap_t* pcap_handle = pcap_create(dev.c_str(), _errbuf);
     if (!pcap_handle) {

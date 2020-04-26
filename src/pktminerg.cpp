@@ -7,6 +7,9 @@
 #include "socketzmq.h"
 #include "versioninfo.h"
 #include "syshelp.h"
+#ifndef WIN32
+    #include "agent_control_plane.h"
+#endif
 
 std::shared_ptr<PcapHandler> handler = nullptr;
 
@@ -47,6 +50,8 @@ int main(int argc, const char* argv[]) {
             ("expression", boost::program_options::value<std::vector<std::string>>()->value_name("FILTER"),
              R"(filter packets with FILTER; FILTER as same as tcpdump BPF expression syntax)")
             ("dump", "specify dump file, mostly for integrated test")
+            ("control", boost::program_options::value<int>()->value_name("CONTROL_PORT"),
+             "set zmq listen port for agent daemon control. Control server won't be up if this option is not set")
             ("nofilter",
              "force no filter; In online mode, only use when GRE interface "
                  "is set via CLI, AND you confirm that the snoop interface is "
@@ -95,6 +100,7 @@ int main(int argc, const char* argv[]) {
     }
 
     int pmtudisc = -1;
+    int update_status = 0;
 #ifdef WIN32
     //TODO: support pmtudisc_option on WIN32
 #else
@@ -112,7 +118,16 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
     }
+    std::shared_ptr<AgentControlPlane> agent_control_plane;
+    if (vm.count("control")) {
+        const auto daemon_zmq_port = vm["control"].as<int>();
+        agent_control_plane = std::make_shared<AgentControlPlane>(daemon_zmq_port);
+        agent_control_plane->init_msg_server();
+        update_status = 1;    
+    }
 #endif // WIN32
+
+
     if (!vm.count("remoteip")) {
         std::cerr << StatisLogContext::getTimeString() << "Please set gre remote ip with --remoteip or -r."
                   << std::endl;
@@ -180,6 +195,7 @@ int main(int argc, const char* argv[]) {
     param.snaplen = vm["snaplen"].as<int>();
     param.promisc = 0;
     param.timeout = vm["timeout"].as<int>() * 1000;
+    param.need_update_status = update_status;
     int nCount = vm["count"].as<int>();
     if (nCount < 0) {
         nCount = 0;

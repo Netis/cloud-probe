@@ -2,6 +2,12 @@
 
 The list of the most significant changes made in Netis Packet Agent over time.
 
+## Netis Packet Agent 0.3.6
+
+### Features
+* Support agent control plane for agent daemon over zeromq.
+
+
 ## Netis Packet Agent 0.3.5
 
 ### Features

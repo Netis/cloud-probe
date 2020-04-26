@@ -137,4 +137,3 @@ int PcapExportZMQ::exportPacket(size_t index, const struct pcap_pkthdr* header, 
     pkts_buf.batch_hdr.pkts_num++;
     return drop_pkts_num;
 }
-

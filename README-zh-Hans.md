@@ -2,9 +2,9 @@
 [English](README.md)  ∙  简体中文
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.3.5
+# Netis Packet Agent 0.3.6
 
-[![Stable release](https://img.shields.io/badge/version-0.3.5-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.5)
+[![Stable release](https://img.shields.io/badge/version-0.3.6-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.6)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 
@@ -35,14 +35,14 @@ yum install libpcap wget
 
 2. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.5.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 #### SUSE12
 1. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.5.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 #### Ubuntu 18.04LTS
@@ -53,8 +53,8 @@ sudo apt-get install libpcap-dev wget
 
 2. 下载并安装DEB包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.5/netis-packet-agent-0.3.5_amd64.deb
-sudo dpkg -i netis-packet-agent-0.3.5_amd64.deb
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.6_amd64.deb
 ```
 
 3. 如果提示libpcap.so找不到，到libpcap.so所在目录下创建libpcap.so.1软链接。
@@ -121,13 +121,14 @@ pktminerg -i eth0 -r 172.16.1.201 -M dont
 ## 文档/ 链接
 * [安装](./INSTALL.md)和[使用](./USAGE.md)（仅英文版）。
 * [构建条件及步骤](./BUILD.md)（仅英文版）。
-* [发布日志 / 路线图](./CHANGES.md)（仅英文版）。
+* [Packet-Agent 云平台性能评测](./docs/Packet-Agent性能评测.md)（仅中文版）。
+* [Packet-Agent libpcap 缓存与最大支持流量评测](./docs/Packet-Agent-libpcap缓存与最大支持流量评测.md)（仅中文版）。
 
 ## 贡献
 您可以fork本项目并提交Pull Request。我们欢迎所有开源社区的同学提交自己的贡献。
 
 ## 许可证
-Copyright (c) 2018 Netis.<br/>
+Copyright (c) 2018 - 2020 Netis.<br/>
 本项目库遵循下列许可证：
 - [BSD-3-Clause](./LICENSE.md).
 
