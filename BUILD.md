@@ -33,6 +33,22 @@ yum groupinstall "Development Tools"
 yum -y install cmake
 # install more required libraries
 yum -y install libpcap-devel boost-devel boost-static
+
+# build and install libzmq
+wget https://github.com/zeromq/libzmq/archive/v4.3.2.zip
+unzip v4.3.2.zip
+cd /path/to/unziped/dir
+mkdir build && cd build
+cmake ..
+sudo make -j4 install
+
+# build and install cppzmq
+wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip
+unzip v4.6.0.zip
+cd /path/to/unziped/dir
+mkdir build && cd build
+cmake -DCPPZMQ_BUILD_TESTS=OFF ..
+sudo make -j4 install
 ```
 
 2. Clone or download the project.
@@ -63,6 +79,22 @@ apt-get -y install build-essential
 apt-get -y install cmake
 # install more required libraries
 apt-get -y install libpcap-dev libboost-all-dev
+
+# build and install libzmq
+wget https://github.com/zeromq/libzmq/archive/v4.3.2.zip
+unzip v4.3.2.zip
+cd /path/to/unziped/dir
+mkdir build && cd build
+cmake ..
+sudo make -j4 install
+
+# build and install cppzmq
+wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip
+unzip v4.6.0.zip
+cd /path/to/unziped/dir
+mkdir build && cd build
+cmake -DCPPZMQ_BUILD_TESTS=OFF ..
+sudo make -j4 install
 ```
 
 2. Clone or download the project.
@@ -98,6 +130,22 @@ tar --bzip2 -xf boost_1_54_0.tar.bz2
 cd  boost_1_54_0/
 ./bootstrap.sh
 ./b2 install stage 
+
+# build and install libzmq
+wget https://github.com/zeromq/libzmq/archive/v4.3.2.zip
+unzip v4.3.2.zip
+cd /path/to/unziped/dir
+mkdir build && cd build
+cmake ..
+sudo make -j4 install
+
+# build and install cppzmq
+wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip
+unzip v4.6.0.zip
+cd /path/to/unziped/dir
+mkdir build && cd build
+cmake -DCPPZMQ_BUILD_TESTS=OFF ..
+sudo make -j4 install
 ```
 
 2. Clone or download the project.
@@ -129,15 +177,33 @@ make install
 ls /usr/local/lib/libpcap*
 ```
 
-2. *Recommended*: install [brew](https://brew.sh/) for easier package management.
-
+3. *Recommended*: install [brew](https://brew.sh/) for easier package management.
 ```shell
 # install boost
 brew install boost
 ```
 
-2. Clone or download the project.
-3. Build the project.
+4. build and install libzmq and cppzmq
+```shell
+# build and install libzmq
+wget https://github.com/zeromq/libzmq/archive/v4.3.2.zip
+unzip v4.3.2.zip
+cd /path/to/unziped/dir
+mkdir build && cd build
+cmake ..
+sudo make -j4 install
+
+# build and install cppzmq
+wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip
+unzip v4.6.0.zip
+cd /path/to/unziped/dir
+mkdir build && cd build
+cmake -DCPPZMQ_BUILD_TESTS=OFF ..
+sudo make -j4 install
+```
+5. Clone or download the project.
+
+6. Build the project.
 
 ```shell
 cd /path/to/packet-agent
@@ -145,7 +211,7 @@ mkdir build && cd build
 cmake .. && make
 ```
 
-4. Ensure the build is successful. The *bin* folder should contain four binary files.
+7. Ensure the build is successful. The *bin* folder should contain four binary files.
 
 ```shell
 ls ../bin
