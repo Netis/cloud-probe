@@ -249,7 +249,7 @@ class BatchPktsHandler(threading.Thread):
         qfull_drop_pkts = 0
 
         self.export_cond.acquire()
-        if len(self.export_queue) >= 20:
+        if len(self.export_queue) >= 10:
             qfull_drop_pkts = len(pkts_list)
             self.total_drop_pkts += qfull_drop_pkts
         else:
@@ -302,7 +302,7 @@ class BatchPktsHandler(threading.Thread):
             self.min_realworld_ts_pkt_ts_diff = self.new_realworld_ts_pkt_ts_diff
 
 
-    def evict_pkts(self, realworld_time_sec_and_usec):
+    def evict_pkts(self, realworld_time_sec_and_usec, fqueue_full_drop):
         self.evict_num += 1
         if self.first_pkt_ts_time == 0:
             return
@@ -324,9 +324,9 @@ class BatchPktsHandler(threading.Thread):
         qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len = self.sort_and_export_pkts()
         now = time.time()
         nowstr = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
-        print("[%s] id: %d, used: %.2fs, msg %d/%d evicted, exportPkts/leftPkts: %d/%d, timeout/qfull/totalDropPkts: %d/%d/%d, queueLen: %d"%(
-            nowstr, self.config["base_suffixid"], now - realworld_time_sec_and_usec, evicted_msg_count, total_msg_count,
-            export_pkts_count, left_pkts_count, timeout_drop_pkts, qfull_drop_pkts, self.total_drop_pkts, export_queue_len))
+        print("[%s] id: %d, used: %.2fs, msg %d/%d: %d/%d evicted, export/leftPkts: %d/%d, timeout/frontq/backq/totalDropPkts: %d/%d/%d/%d, backqLen: %d"%(
+            nowstr, self.config["base_suffixid"], now - realworld_time_sec_and_usec, evicted_msg_count, total_msg_count, len(to_del_ts), len(to_del_ts) + len(self.msg_dict),
+            export_pkts_count, left_pkts_count, timeout_drop_pkts, fqueue_full_drop, qfull_drop_pkts, self.total_drop_pkts, export_queue_len))
         sys.stdout.flush()
 
 
@@ -341,40 +341,49 @@ class BatchPktsHandler(threading.Thread):
                 self.evict_pkts_list.append(pkt_info)
 
 
-    def parse_message(self, message):
+    def parse_messages(self, messages):
         header_size = 8
         realworld_time_sec_and_usec = time.time()
         realworld_time = int(realworld_time_sec_and_usec)
         if self.first_msg_realworld_time == 0:
             self.first_msg_realworld_time = realworld_time
-        if message is not None:
-            version, pkt_num, keybit = struct.unpack(">HHI", message[:header_size])
-            if version != 1:
-                return
-            pkt_pos = header_size
-            if pkt_num > 0:
-                pkt_data_len, pkt_ts_time = struct.unpack(">HI", message[pkt_pos:pkt_pos+6])
-                if self.first_pkt_ts_time == 0:
-                    self.first_pkt_realworld_time = realworld_time
-                    self.first_pkt_ts_time = pkt_ts_time
-                    self.min_realworld_ts_pkt_ts_diff = realworld_time - pkt_ts_time
-                    print("first_pkt_realworld_time: %d, first_pkt_ts_time: %d, diff: %ds"%(realworld_time, self.first_pkt_ts_time, self.min_realworld_ts_pkt_ts_diff))
-                self.new_realworld_ts_pkt_ts_diff = realworld_time - pkt_ts_time
-                if pkt_ts_time in self.msg_dict:
-                    self.msg_dict[pkt_ts_time].append(message)
-                else:
-                    self.msg_dict[pkt_ts_time] = [message]
+        fqueue_full_drop = 0
+        if messages:
+            for message in messages:
+                version, pkt_num, keybit = struct.unpack(">HHI", message[:header_size])
+                if version != 1:
+                    return
+                pkt_pos = header_size
+                if pkt_num > 0:
+                    pkt_data_len, pkt_ts_time = struct.unpack(">HI", message[pkt_pos:pkt_pos+6])
+                    if self.first_pkt_ts_time == 0:
+                        self.first_pkt_realworld_time = realworld_time
+                        self.first_pkt_ts_time = pkt_ts_time
+                        self.min_realworld_ts_pkt_ts_diff = realworld_time - pkt_ts_time
+                        print("first_pkt_realworld_time: %d, first_pkt_ts_time: %d, diff: %ds"%(realworld_time, self.first_pkt_ts_time, self.min_realworld_ts_pkt_ts_diff))
+                    self.new_realworld_ts_pkt_ts_diff = realworld_time - pkt_ts_time
+                    if pkt_ts_time in self.msg_dict:
+                        self.msg_dict[pkt_ts_time].append(message)
+                    else:
+                        if len(self.msg_dict) > self.PKT_EVICT_TS_TIMEOUT + self.PKT_EVICT_INTERVAL + 10:
+                            fqueue_full_drop += pkt_num
+                            self.total_drop_pkts += pkt_num
+                        else:
+                            self.msg_dict[pkt_ts_time] = [message]
         if realworld_time >= self.first_msg_realworld_time + self.PKT_EVICT_INTERVAL * (self.evict_num + 1):
-            self.evict_pkts(realworld_time_sec_and_usec)
+            self.evict_pkts(realworld_time_sec_and_usec, fqueue_full_drop)
 
 
 def recv_msg_to_parse(batch_pkts_handler, socket):
-    message = None
+    messages = []
     try:
-        message = socket.recv()
+        while True:
+            message = socket.recv(flags=zmq.NOBLOCK)
+            messages.append(message)
     except zmq.error.Again as _e:
-        pass
-    batch_pkts_handler.parse_message(message)
+        if not messages:
+            time.sleep(0.01)
+    batch_pkts_handler.parse_messages(messages)
 
 def server_loop_imp(config):
     context = zmq.Context()
@@ -431,12 +440,12 @@ def check_need_terminate(workers):
 def dispatch_loop(config):
     context = zmq.Context()
     front_socket = context.socket(zmq.PULL)
-    front_socket.setsockopt(zmq.RCVTIMEO, 2000)
+    front_socket.setsockopt(zmq.RCVTIMEO, 1000)
     front_socket.bind("tcp://*:%d"%(config["zmq_port"]))
 
     backend_port = config["zmq_port"] + 1
     backend_socket = context.socket(zmq.PUSH)
-    backend_socket.setsockopt(zmq.SNDTIMEO, 2000)
+    backend_socket.setsockopt(zmq.SNDTIMEO, 1000)
     backend_socket.bind("tcp://127.0.0.1:%d"%(backend_port))
     workers = []
     for i in range(config["total_workers"]):
