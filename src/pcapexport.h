@@ -6,6 +6,7 @@
 enum class exporttype : uint8_t {
     gre = 0,
     file = 1,
+    zmq = 2,
 };
 
 class PcapExportBase {
