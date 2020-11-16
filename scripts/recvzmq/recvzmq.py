@@ -186,7 +186,7 @@ class BatchPktsHandler(threading.Thread):
                                                    keybit, pkt_data_len, pkt_data, is_frag=False)
 
         buff_is_full = False
-        if self.export_bytearray_pos >= self.PKT_EVICT_BUFF_SIZE - 65596:
+        if self.export_bytearray_pos >= self.PKT_EVICT_BUFF_SIZE - 65636:
             buff_is_full = True
         return buff_is_full
 
