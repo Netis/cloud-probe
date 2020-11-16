@@ -127,6 +127,8 @@ class BatchPktsHandler(threading.Thread):
         self.export_queue = deque()
         self.exitFlag = False
 
+        self.keybit_ipid_map = {}
+
 
     def unpack_msgpkts_to_evict(self, message):
         header_size = 8
@@ -163,28 +165,89 @@ class BatchPktsHandler(threading.Thread):
         if pkt_data_len == 0 and keybit == 0:
             heartbeat_data_len = 4
             struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec,
-                                      gre_eth_hdr_len + heartbeat_data_len, gre_eth_hdr_len + heartbeat_data_len)
+                             gre_eth_hdr_len + heartbeat_data_len, gre_eth_hdr_len + heartbeat_data_len)
             self.export_bytearray_pos += 16
             struct.pack_into(">HIHIHI", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0xffff, 0)
             self.export_bytearray_pos += gre_eth_hdr_len + heartbeat_data_len
         else:
-            struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
-            self.export_bytearray_pos += 16
-            struct.pack_into(">HIHIBB", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00)
-            self.export_bytearray_pos += gre_eth_hdr_len
-            struct.pack_into(">BBHHBBBBHII", self.export_bytearray, self.export_bytearray_pos, 0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
-                            0, 0x40, 0, 0x40, 0x2f, checksum, 0x7F000001, 0x7F000001)
-            self.export_bytearray_pos += gre_ip_hdr_len
-            struct.pack_into(">HHI", self.export_bytearray, self.export_bytearray_pos, 0x2000, 0x6558, keybit)
-            self.export_bytearray_pos += gre_hdr_len
-            if pkt_data_len > 0:
-                struct.pack_into("!%ds"%(pkt_data_len), self.export_bytearray, self.export_bytearray_pos, pkt_data)
-                self.export_bytearray_pos += pkt_data_len
+            ipid = self.get_ipid_from_map(keybit)
+            if gre_ip_hdr_len + gre_hdr_len + pkt_data_len > 65535:
+                first_frag_pkt_data_len = 65516 - 20 - 8  # 65532 - 16 - ip 20 bytes - gre 8 bytes
+                first_frag_pkt_data = pkt_data[0:first_frag_pkt_data_len]
+                self.construct_firstfrag_pkt_bytes(ipid, ts_sec, ts_usec, first_frag_pkt_data_len, first_frag_pkt_data_len,
+                                                   keybit, first_frag_pkt_data_len, first_frag_pkt_data, is_frag=True)
+
+                last_frag_pkt_data_len = pkt_data_len - first_frag_pkt_data_len
+                last_frag_pkt_data = pkt_data[first_frag_pkt_data_len:]
+                self.construct_lastfrag_pkt_bytes(ipid, ts_sec, ts_usec, last_frag_pkt_data_len, last_frag_pkt_data_len,
+                                                  keybit, last_frag_pkt_data_len, last_frag_pkt_data)
+            else:
+                self.construct_firstfrag_pkt_bytes(ipid, ts_sec, ts_usec, caplen, length,
+                                                   keybit, pkt_data_len, pkt_data, is_frag=False)
 
         buff_is_full = False
-        if self.export_bytearray_pos >= self.PKT_EVICT_BUFF_SIZE - 65536:
+        if self.export_bytearray_pos >= self.PKT_EVICT_BUFF_SIZE - 65596:
             buff_is_full = True
         return buff_is_full
+
+    def construct_firstfrag_pkt_bytes(self, ipid, ts_sec, ts_usec, caplen, length, keybit, pkt_data_len, pkt_data, is_frag):
+        gre_eth_hdr_len = 14
+        gre_ip_hdr_len = 20
+        gre_hdr_len = 8
+        checksum = 0xffff
+        gre_caplen = gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + pkt_data_len
+        gre_length =  gre_caplen
+        if length > caplen:
+            gre_length =  gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + length
+
+        frag_and_offset = 0x40
+        if is_frag:
+            frag_and_offset = 0x20
+
+        struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
+        self.export_bytearray_pos += 16
+        struct.pack_into(">HIHIBB", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00)
+        self.export_bytearray_pos += gre_eth_hdr_len
+        struct.pack_into(">BBHHBBBBHII", self.export_bytearray, self.export_bytearray_pos, 0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
+                         ipid, frag_and_offset, 0, 0x40, 0x2f, checksum, keybit, 0x7F000001)  #TODO
+        self.export_bytearray_pos += gre_ip_hdr_len
+        struct.pack_into(">HHI", self.export_bytearray, self.export_bytearray_pos, 0x2000, 0x6558, keybit)
+        self.export_bytearray_pos += gre_hdr_len
+        if pkt_data_len > 0:
+            struct.pack_into("!%ds"%(pkt_data_len), self.export_bytearray, self.export_bytearray_pos, pkt_data)
+            self.export_bytearray_pos += pkt_data_len
+
+
+    def construct_lastfrag_pkt_bytes(self, ipid, ts_sec, ts_usec, caplen, length, keybit, pkt_data_len, pkt_data):
+        gre_eth_hdr_len = 14
+        gre_ip_hdr_len = 20
+        checksum = 0xffff
+        gre_caplen = gre_eth_hdr_len + gre_ip_hdr_len + pkt_data_len
+        gre_length =  gre_caplen
+        if length > caplen:
+            gre_length =  gre_eth_hdr_len + gre_ip_hdr_len + length
+
+        frag_and_offset = (65516 - 20) / 8  # 65532 - 16 - ip 20 bytes
+
+        struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
+        self.export_bytearray_pos += 16
+        struct.pack_into(">HIHIBB", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00)
+        self.export_bytearray_pos += gre_eth_hdr_len
+        struct.pack_into(">BBHHHBBHII", self.export_bytearray, self.export_bytearray_pos, 0x45, 0, gre_ip_hdr_len + pkt_data_len,
+                         ipid, frag_and_offset, 0x40, 0x2f, checksum, keybit, 0x7F000001)
+        self.export_bytearray_pos += gre_ip_hdr_len
+        if pkt_data_len > 0:
+            struct.pack_into("!%ds"%(pkt_data_len), self.export_bytearray, self.export_bytearray_pos, pkt_data)
+            self.export_bytearray_pos += pkt_data_len
+
+
+    def get_ipid_from_map(self, keybit):
+        ipid = 0
+        if keybit in self.keybit_ipid_map:
+            ipid = self.keybit_ipid_map[keybit]
+            ipid = (ipid + 1) % 65535
+        self.keybit_ipid_map[keybit] = ipid
+        return ipid
 
 
     def write_buf_to_pcap(self, pcapfile):
