@@ -308,7 +308,7 @@ class BatchPktsHandler(threading.Thread):
         qfull_drop_pkts = 0
 
         self.export_cond.acquire()
-        if len(self.export_queue) >= 10:
+        if len(self.export_queue) >= 20:
             qfull_drop_pkts = len(pkts_list)
             self.total_drop_pkts += qfull_drop_pkts
         else:
