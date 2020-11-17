@@ -156,11 +156,7 @@ class BatchPktsHandler(threading.Thread):
         gre_eth_hdr_len = 14
         gre_ip_hdr_len = 20
         gre_hdr_len = 8
-        checksum = 0xffff
-        gre_caplen = gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + pkt_data_len
-        gre_length =  gre_caplen
-        if length > caplen:
-            gre_length =  gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + length
+        gre_ip_layer_max_len = 65535
 
         if pkt_data_len == 0 and keybit == 0:
             heartbeat_data_len = 4
@@ -171,8 +167,8 @@ class BatchPktsHandler(threading.Thread):
             self.export_bytearray_pos += gre_eth_hdr_len + heartbeat_data_len
         else:
             ipid = self.get_ipid_from_map(keybit)
-            if gre_ip_hdr_len + gre_hdr_len + pkt_data_len > 65535:
-                first_frag_pkt_data_len = 65516 - 20 - 8  # 65532 - 16 - ip 20 bytes - gre 8 bytes
+            if gre_ip_hdr_len + gre_hdr_len + pkt_data_len > gre_ip_layer_max_len - gre_eth_hdr_len:
+                first_frag_pkt_data_len = 65516 - 20 - 8  # 65532 - 16(gre_eth_hdr_len 14 round up) - ip 20 bytes - gre 8 bytes
                 first_frag_pkt_data = pkt_data[0:first_frag_pkt_data_len]
                 self.construct_firstfrag_pkt_bytes(ipid, ts_sec, ts_usec, first_frag_pkt_data_len, first_frag_pkt_data_len,
                                                    keybit, first_frag_pkt_data_len, first_frag_pkt_data, is_frag=True)
@@ -209,7 +205,7 @@ class BatchPktsHandler(threading.Thread):
         struct.pack_into(">HIHIBB", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00)
         self.export_bytearray_pos += gre_eth_hdr_len
         struct.pack_into(">BBHHBBBBHII", self.export_bytearray, self.export_bytearray_pos, 0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
-                         ipid, frag_and_offset, 0, 0x40, 0x2f, checksum, keybit, 0x7F000001)  #TODO
+                         ipid, frag_and_offset, 0, 0x40, 0x2f, checksum, keybit, 0x7F000001)
         self.export_bytearray_pos += gre_ip_hdr_len
         struct.pack_into(">HHI", self.export_bytearray, self.export_bytearray_pos, 0x2000, 0x6558, keybit)
         self.export_bytearray_pos += gre_hdr_len
@@ -227,7 +223,7 @@ class BatchPktsHandler(threading.Thread):
         if length > caplen:
             gre_length =  gre_eth_hdr_len + gre_ip_hdr_len + length
 
-        frag_and_offset = (65516 - 20) / 8  # 65532 - 16 - ip 20 bytes
+        frag_and_offset = (65516 - 20) / 8  # 65532 - 16(gre_eth_hdr_len 14 round up) - ip 20 bytes
 
         struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
         self.export_bytearray_pos += 16
@@ -573,7 +569,7 @@ def parse_args(cfg_dict):
             usage()
             sys.exit()
         elif name in ("-v", "--version"):
-            print('recvzmq version 1.2.0')
+            print('recvzmq version 1.3.0')
             sys.exit()
         elif name in ("-z", "--zmq_port"):
             cfg_dict["zmq_port"] = int(value)
