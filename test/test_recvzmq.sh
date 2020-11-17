@@ -1,9 +1,9 @@
 #!/bin/bash
 
-rm -rf ./nic1
+rm -rf ./nic1/*
 
 python ../scripts/recvzmq/recvzmq.py -z 5555 -t ./nic1/%Y%m%d%H%M%S -s 15 -a 1 &
-../bin/pktminerg -f xml.pcap -r 127.0.0.1 -k 15 -z 5555 -m 10 &
+../bin/pktminerg -f xml.pcap -r 127.0.0.1 -k 15 -z 5555 &
 sleep 20
 
 tshark -r ./nic1/20130327104800_1_0.pcap | grep -v :00_00: > ./nic1/xmltshark.txt
@@ -23,9 +23,9 @@ fi
 
 
 
-rm -rf ./nic2
+rm -rf ./nic2/*
 python ../scripts/recvzmq/recvzmq.py -z 5555 -t ./nic2/%Y%m%d%H%M%S -s 15 -a 2 &
-../bin/pktminerg -f xml.pcap -r 127.0.0.1 -k 3 -z 5555 -m 10 &
+../bin/pktminerg -f xml.pcap -r 127.0.0.1 -k 3 -z 5555 &
 sleep 20
 
 mergecap -w mergedgre.pcap ./nic2/*.pcap
