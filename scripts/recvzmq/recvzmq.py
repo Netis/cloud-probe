@@ -448,6 +448,8 @@ def server_loop_imp(config):
     context = zmq.Context()
     socket = context.socket(zmq.PULL)
     socket.setsockopt(zmq.RCVTIMEO, 1000)
+    socket.setsockopt(zmq.RCVHWM, 2000 * 1000)
+    socket.setsockopt(zmq.SNDHWM, 2000 * 1000)
     if config["total_workers"] == 1:
         socket.bind("tcp://*:%d"%(config["zmq_port"]))
     else:
@@ -500,11 +502,15 @@ def dispatch_loop(config):
     context = zmq.Context()
     front_socket = context.socket(zmq.PULL)
     front_socket.setsockopt(zmq.RCVTIMEO, 1000)
+    front_socket.setsockopt(zmq.RCVHWM, 2000 * 1000)
+    front_socket.setsockopt(zmq.SNDHWM, 2000 * 1000)
     front_socket.bind("tcp://*:%d"%(config["zmq_port"]))
 
     backend_port = config["zmq_port"] + 1
     backend_socket = context.socket(zmq.PUSH)
     backend_socket.setsockopt(zmq.SNDTIMEO, 1000)
+    backend_socket.setsockopt(zmq.RCVHWM, 2000 * 1000)
+    backend_socket.setsockopt(zmq.SNDHWM, 2000 * 1000)
     backend_socket.bind("tcp://127.0.0.1:%d"%(backend_port))
     workers = []
     for i in range(config["total_workers"]):
