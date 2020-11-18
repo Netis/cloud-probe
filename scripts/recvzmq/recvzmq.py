@@ -10,7 +10,6 @@ import sys
 import os
 import getopt
 import traceback
-import threading
 
 grekey_file_info = None
 
@@ -99,14 +98,12 @@ def get_pcapfile(config, ts_sec):
 def takeFirst(elem):
     return elem[0]
 
-class BatchPktsHandler(threading.Thread):
+class BatchPktsHandler():
 
     def __init__(self, config):
-        threading.Thread.__init__(self)
-
         self.PKT_EVICT_TS_TIMEOUT = 7
         self.PKT_EVICT_INTERVAL = 1
-        self.PKT_EVICT_BUFF_SIZE = 1024*1024
+        self.PKT_EVICT_BUFF_SIZE = 2 * 1024*1024
 
         self.config = config
         self.first_msg_realworld_time = 0
@@ -122,10 +119,6 @@ class BatchPktsHandler(threading.Thread):
         self.export_bytearray = bytearray(self.PKT_EVICT_BUFF_SIZE)
         self.export_bytearray_pos = 0
         self.total_drop_pkts = 0
-
-        self.export_cond = threading.Condition()
-        self.export_queue = deque()
-        self.exitFlag = False
 
         self.keybit_ipid_map = {}
 
@@ -251,39 +244,7 @@ class BatchPktsHandler(threading.Thread):
         self.export_bytearray_pos = 0
 
 
-    def stop_running(self):
-        self.exitFlag = True
-        self.export_cond.acquire()
-        self.export_cond.notify()
-        self.export_cond.release()
-
-
-    def run(self):
-        while not self.exitFlag:
-            try:
-                self.process_data()
-            except Exception as e:
-                eprint("id: %d, %s"%(self.config["base_suffixid"], e))
-                track = traceback.format_exc()
-                eprint(track)
-                sys.exit(-1)
-            except:
-                eprint("id: %d, thread unexpected error"%(self.config["base_suffixid"]))
-                sys.exit(-1)
-
-
-    def process_data(self):
-        pkts_list = []
-        self.export_cond.acquire()
-        try:
-            while len(self.export_queue) == 0:  # q is empty
-                self.export_cond.wait()
-                if self.exitFlag:
-                    return
-            pkts_list = self.export_queue.popleft()
-        finally:
-            self.export_cond.release()
-
+    def process_data(self, pkts_list):
         span_time = self.config["span_time"]
         global grekey_file_info
         # export to pcap
@@ -302,21 +263,6 @@ class BatchPktsHandler(threading.Thread):
             if buff_is_full:
                 pcapfile = get_pcapfile(self.config, ts_sec)
                 self.write_buf_to_pcap(pcapfile)
-
-
-    def producer_fillqueue_sync(self, pkts_list):
-        qfull_drop_pkts = 0
-
-        self.export_cond.acquire()
-        if len(self.export_queue) >= 20:
-            qfull_drop_pkts = len(pkts_list)
-            self.total_drop_pkts += qfull_drop_pkts
-        else:
-            self.export_queue.append(pkts_list)
-        self.export_cond.notify()
-        self.export_cond.release()
-
-        return qfull_drop_pkts
 
 
     def sort_and_export_pkts(self):
@@ -338,13 +284,11 @@ class BatchPktsHandler(threading.Thread):
         if lasti > 0:
             self.evict_pkts_list = self.evict_pkts_list[lasti:]
 
-        qfull_drop_pkts = 0
-        export_queue_len = len(self.export_queue)
         export_pkts_count = len(pkts_list)
         left_pkts_count = len(self.evict_pkts_list)
         if pkts_list:
-            qfull_drop_pkts= self.producer_fillqueue_sync(pkts_list)
-        return qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len
+            self.process_data(pkts_list)
+        return export_pkts_count, left_pkts_count
 
 
     def get_next_checkpoint(self):
@@ -380,12 +324,12 @@ class BatchPktsHandler(threading.Thread):
         for ts in to_del_ts:
             del self.msg_dict[ts]
         self.gen_heartbeat()
-        qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len = self.sort_and_export_pkts()
+        export_pkts_count, left_pkts_count = self.sort_and_export_pkts()
         now = time.time()
         nowstr = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
-        print("[%s] id: %d, used: %.2fs, msg %d/%d: %d/%d evicted, export/leftPkts: %d/%d, timeout/frontq/backq/totalDropPkts: %d/%d/%d/%d, backqLen: %d"%(
+        print("[%s] id: %d, used: %.2fs, msg %d/%d: %d/%d evicted, export/leftPkts: %d/%d, timeout/frontq/totalDropPkts: %d/%d/%d"%(
             nowstr, self.config["base_suffixid"], now - realworld_time_sec_and_usec, evicted_msg_count, total_msg_count, len(to_del_ts), len(to_del_ts) + len(self.msg_dict),
-            export_pkts_count, left_pkts_count, timeout_drop_pkts, fqueue_full_drop, qfull_drop_pkts, self.total_drop_pkts, export_queue_len))
+            export_pkts_count, left_pkts_count, timeout_drop_pkts, fqueue_full_drop, self.total_drop_pkts))
         sys.stdout.flush()
 
 
@@ -424,7 +368,7 @@ class BatchPktsHandler(threading.Thread):
                     if pkt_ts_time in self.msg_dict:
                         self.msg_dict[pkt_ts_time].append(message)
                     else:
-                        if len(self.msg_dict) > self.PKT_EVICT_TS_TIMEOUT + self.PKT_EVICT_INTERVAL + 10:
+                        if len(self.msg_dict) > self.PKT_EVICT_TS_TIMEOUT + self.PKT_EVICT_INTERVAL + 20:
                             fqueue_full_drop += pkt_num
                             self.total_drop_pkts += pkt_num
                         else:
@@ -455,17 +399,11 @@ def server_loop_imp(config):
     else:
         socket.connect("tcp://127.0.0.1:%d"%(config["zmq_port"]))
     batch_pkts_handler = BatchPktsHandler(config)
-    batch_pkts_handler.start()
     while True:
         try:
             recv_msg_to_parse(batch_pkts_handler, socket)
-            if not batch_pkts_handler.isAlive():
-                eprint('id: ' + str(config['base_suffixid']) + ' Fatal error: child thread exited')
-                sys.exit(-1)
         except KeyboardInterrupt:
             eprint("KeyboardInterrupt")
-            batch_pkts_handler.stop_running()
-            batch_pkts_handler.join()
             raise
         except Exception as e:
             eprint(e)
