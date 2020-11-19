@@ -126,6 +126,10 @@ class BatchPktsHandler():
         self.keybit_ipid_map = {}
 
 
+    def is_working_busy(self):
+        return len(self.msg_dict) > self.PKT_EVICT_TS_TIMEOUT + self.PKT_EVICT_INTERVAL
+
+
     def unpack_msgpkts_to_evict(self, message):
         header_size = 8
         timeout_drop_pkts = 0
@@ -188,11 +192,12 @@ class BatchPktsHandler():
         gre_eth_hdr_len = 14
         gre_ip_hdr_len = 20
         gre_hdr_len = 8
+        eth_ip_gre_len = 42  # gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len
         checksum = 0xffff
-        gre_caplen = gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + pkt_data_len
+        gre_caplen = eth_ip_gre_len + pkt_data_len
         gre_length =  gre_caplen
         if length > caplen:
-            gre_length =  gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + length
+            gre_length =  eth_ip_gre_len + length
 
         frag_and_offset = 0x40
         if is_frag:
@@ -200,13 +205,11 @@ class BatchPktsHandler():
 
         struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
         self.export_bytearray_pos += 16
-        struct.pack_into(">HIHIBB", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00)
-        self.export_bytearray_pos += gre_eth_hdr_len
-        struct.pack_into(">BBHHBBBBHII", self.export_bytearray, self.export_bytearray_pos, 0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
-                         ipid, frag_and_offset, 0, 0x40, 0x2f, checksum, keybit, 0x7F000001)
-        self.export_bytearray_pos += gre_ip_hdr_len
-        struct.pack_into(">HHI", self.export_bytearray, self.export_bytearray_pos, 0x2000, 0x6558, keybit)
-        self.export_bytearray_pos += gre_hdr_len
+        struct.pack_into(">HIHIBBBBHHBBBBHIIHHI", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00,
+                         0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
+                         ipid, frag_and_offset, 0, 0x40, 0x2f, checksum, keybit, 0x7F000001,
+                         0x2000, 0x6558, keybit)
+        self.export_bytearray_pos += eth_ip_gre_len
         if pkt_data_len > 0:
             struct.pack_into("!%ds"%(pkt_data_len), self.export_bytearray, self.export_bytearray_pos, pkt_data)
             self.export_bytearray_pos += pkt_data_len
@@ -389,7 +392,7 @@ def recv_msg_to_parse(batch_pkts_handler, socket):
             message = socket.recv(flags=zmq.NOBLOCK)
             messages.append(message)
     except zmq.error.Again as _e:
-        if not messages:
+        if not messages and not batch_pkts_handler.is_working_busy():
             time.sleep(0.01)
     batch_pkts_handler.parse_messages(messages)
 
