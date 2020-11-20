@@ -124,6 +124,7 @@ class BatchPktsHandler():
         self.frag_offset_roundup = int((self.frag_offset / 2) / 8) * 8
 
         self.keybit_ipid_map = {}
+        self.last_print_timeout_ts = 0
 
 
     def is_working_busy(self):
@@ -139,6 +140,11 @@ class BatchPktsHandler():
             pkt_data_len, ts_sec, ts_usec, caplen, length = struct.unpack(">HIIII", message[pkt_pos:pkt_pos+18])
             pkt_pos += 18
             if ts_sec < self.pkt_evict_ts_checkpoint:
+                if j == 0 or j + 1 == pkt_num:
+                    if ts_sec > self.last_print_timeout_ts:
+                        print("id: %d, timeout pkt grekey: %d, ts_sec: %d, caplen: %d, length: %d, pkt_num: %d"%(
+                            self.config['base_suffixid'], keybit, ts_sec, caplen, length, pkt_num))
+                        self.last_print_timeout_ts = ts_sec
                 if j == 0 and ts_sec + 1 < self.pkt_evict_ts_checkpoint:  # hack: rely on pktg msg batch max timeout 1s
                     timeout_drop_pkts = pkt_num
                     break
