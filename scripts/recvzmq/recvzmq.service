@@ -1,0 +1,17 @@
+[Unit]
+Description=Receive PktgZmq Service
+After=network.target network-online.target
+
+[Service]
+Type=forking
+KillMode=control-group
+Restart=always
+RestartSec=3
+ExecStart=/bin/bash /usr/local/etc/recvd.sh
+ExecStartPre=/bin/mkdir -p /var/run/recvzmq
+ExecStartPre=/bin/chmod 0777 /var/run/recvzmq
+PIDFile=/var/run/recvzmq/recvzmq.pid
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

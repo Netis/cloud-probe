@@ -1,9 +1,11 @@
 #ifndef SRC_PRIO_H_
 #define SRC_PRIO_H_
 
-#include <unistd.h>
+#ifndef WIN32
+	#include <unistd.h>
+	#include <sys/resource.h>
+#endif
 #include <stdio.h>
-#include <sys/resource.h>
 #include <stdlib.h>
 #include <sys/types.h>
 

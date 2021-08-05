@@ -1,4 +1,9 @@
-#include <arpa/inet.h>
+#ifdef WIN32
+	#include <WinSock2.h>
+	#define IPPROTO_GRE 47
+#else
+	#include <arpa/inet.h>
+#endif
 #include <iostream>
 #include <fstream>
 #include <boost/program_options.hpp>
@@ -21,9 +26,9 @@ int main(int argc, const char* argv[]) {
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
         ("help", "demo help message")
-        ("pcap", boost::program_options::value<std::string>(), "pcap file")
-        ("remote", boost::program_options::value<std::string>(), "gre remote ip")
-        ("keybit", boost::program_options::value<uint32_t>(), "gre keybit");
+        ("pcap", boost::program_options::value<std::string>()->value_name("PATH"), "pcap file")
+        ("remote", boost::program_options::value<std::string>()->value_name("IP"), "gre remote ip")
+        ("keybit", boost::program_options::value<uint32_t>()->value_name("BIT"), "gre keybit");
 
     boost::program_options::variables_map vm;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);

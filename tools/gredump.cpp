@@ -1,4 +1,8 @@
-#include <arpa/inet.h>
+#ifdef WIN32
+	#include <WinSock2.h>
+#else
+	#include <arpa/inet.h>
+#endif
 #include <iostream>
 #include <csignal>
 #include <ctime>
@@ -154,7 +158,7 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
             }
         }
     }
-    
+
     std::time_t current = std::time(NULL);
     if(current - buff->lasttime >= 10) {
         buff->lasttime = current;
@@ -172,13 +176,13 @@ int main(int argc, const char* argv[]) {
 
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
-        ("interface,i", boost::program_options::value<std::string>(), "interface to snoop.")
-        ("pcapfile,f", boost::program_options::value<std::string>(), "specify pcap file for offline mode, mostly for test.")
-        ("sourceip,s", boost::program_options::value<std::string>(), "source ip filter.")
-        ("remoteip,r", boost::program_options::value<std::string>(), "gre remote ip filter.")
-        ("keybit,k", boost::program_options::value<uint32_t>(), "gre key bit filter.")
-        ("output,o", boost::program_options::value<std::string>(), "output pcap file")
-        ("count,c", boost::program_options::value<int>()->default_value(0), "Exit after receiving count packets. Default=0, No limit if count<=0.");
+        ("interface,i", boost::program_options::value<std::string>()->value_name("NIC"), "interface to capture packets.")
+        ("pcapfile,f", boost::program_options::value<std::string>()->value_name("PATH"), "specify pcap file for offline mode, mostly for test.")
+        ("sourceip,s", boost::program_options::value<std::string>()->value_name("SRC_IP"), "source ip filter.")
+        ("remoteip,r", boost::program_options::value<std::string>()->value_name("DST_IP"), "gre remote ip filter.")
+        ("keybit,k", boost::program_options::value<uint32_t>()->value_name("BIT"), "gre key bit filter.")
+        ("output,o", boost::program_options::value<std::string>()->value_name("OUT_PCAP"), "output pcap file")
+        ("count,c", boost::program_options::value<int>()->default_value(0)->value_name("MAX_NUM"), "Exit after receiving count packets. Default=0, No limit if count<=0.");
 
     boost::program_options::options_description all;
     all.add(generic).add(desc);
@@ -273,7 +277,7 @@ int main(int argc, const char* argv[]) {
     if (vm.count("sourceip")) {
         in_addr addr;
         std::string sourceip = vm["sourceip"].as<std::string>();
-        if(inet_aton(sourceip.c_str(), &addr)==0) {
+        if(inet_pton(AF_INET, sourceip.c_str(), &addr)==0) {
             std::cerr << "sourceip option is valid! sourceip: " << sourceip << std::endl;
             grehandlebuff.srcip=0xffffffff;
         } else {
@@ -286,7 +290,7 @@ int main(int argc, const char* argv[]) {
     if (vm.count("remoteip")) {
         in_addr addr;
         std::string remoteip = vm["remoteip"].as<std::string>();
-        if(inet_aton(remoteip.c_str(), &addr)==0) {
+        if(inet_pton(AF_INET,remoteip.c_str(), &addr)==0) {
             std::cerr << "remoteip option is valid! remoteip: " << remoteip << std::endl;
             grehandlebuff.dstip=0xffffffff;
         } else {

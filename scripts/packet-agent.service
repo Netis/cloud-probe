@@ -1,0 +1,17 @@
+[Unit]
+Description=Packet-Agent Service
+After=network.target network-online.target
+
+[Service]
+Type=forking
+KillMode=control-group
+Restart=always
+RestartSec=3
+ExecStart=/bin/bash /usr/local/etc/pktgd.sh
+ExecStartPre=/bin/mkdir -p /var/run/packet-agent
+ExecStartPre=/bin/chmod 0777 /var/run/packet-agent
+PIDFile=/var/run/packet-agent/pktminerg.pid
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
