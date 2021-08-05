@@ -246,3 +246,18 @@ Exit after receiving count packets. Default=0, No limit if count <= 0.
 gredump -i eth0 -o /path/to/gredump_output.pcap
 ```
 
+## Example
+* Network interface example<br>
+pktminerg -i eth0 -r 172.16.1.201
+
+* Pcap file example<br>
+pktminerg -f sample.pcap -r 172.16.1.201
+
+* Filter example<br>
+pktminerg -i eth0 -r 172.16.1.201 --expression '172.16.1.12'
+
+* CPU affinity and high priority example<br>
+pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
+
+* nofilter example, the packet capture network interface must different from the GRE output interface<br>
+pktminerg -i eth0 -r 172.16.1.201 --nofilter
