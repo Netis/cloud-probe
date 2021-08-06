@@ -3,7 +3,7 @@
 The list of the most significant changes made in Netis Packet Agent over time.
 
 
-## Netis Packet Agent 0.3.7
+## Netis Packet Agent 0.5.0
 
 ### Features
 * Support GRE direction in key.
