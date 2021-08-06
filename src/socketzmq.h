@@ -52,7 +52,7 @@ protected:
 
 private:
     int initSockets(size_t index, uint32_t keybit);
-    int exportPacket(size_t index, const struct pcap_pkthdr *header, const uint8_t *pkt_data);
+    int exportPacket(size_t index, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);
     int flushBatchBuf(size_t index);
 
 public:
@@ -60,7 +60,7 @@ public:
 				  const std::string& bind_device, const int send_buf_size);
     ~PcapExportZMQ();
     int initExport();
-    int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data);
+    int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);
     int closeExport();
 };
 
