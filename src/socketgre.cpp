@@ -116,20 +116,29 @@ int PcapExportGre::closeExport() {
     return 0;
 }
 
-int PcapExportGre::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
+int PcapExportGre::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data, int direct) {
     int ret = 0;
+    if(direct == PKTD_UNKNOWN) {
+        return -1;
+    }
+
     for (size_t i = 0; i < _remoteips.size(); ++i) {
-        ret |= exportPacket(i, header, pkt_data);
+        ret |= exportPacket(i, header, pkt_data, direct);
     }
     return ret;
 }
 
-int PcapExportGre::exportPacket(size_t index, const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
+int PcapExportGre::exportPacket(size_t index, const struct pcap_pkthdr* header, const uint8_t* pkt_data, int direct) {
     auto& grebuffer = _grebuffers[index];
     int socketfd = _socketfds[index];
     auto& remote_addr = _remote_addrs[index];
 
     size_t length = (size_t) (header->caplen <= 65535 ? header->caplen : 65535);
+
+    grehdr_t* hdr;
+    hdr = (grehdr_t*)&*grebuffer.begin();    
+    hdr->keybit = htonl(_keybit | (direct << 28));
+
     std::memcpy(reinterpret_cast<void*>(&(grebuffer[sizeof(grehdr_t)])),
                 reinterpret_cast<const void*>(pkt_data), length);
     ssize_t nSend = sendto(socketfd, &(grebuffer[0]), length + sizeof(grehdr_t), 0, (struct sockaddr*) &remote_addr,

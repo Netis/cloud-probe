@@ -64,7 +64,7 @@ Send GRE packets from this binded device. Sending will be failed when this devic
 * remoteip, keybit<br>
 Parameters of GRE channel:
 remoteip：GRE channel remote IP addresss (required)
-keybit：GRE protocol keybit parameter to distinguish the channel to remote IP
+keybit：GRE protocol keybit parameter to distinguish the channel to remote IP, high 4 bit is reserved for direction.
 <br>
 
 * zmq_port, zmq_hwm<br>

@@ -22,14 +22,14 @@ protected:
 
 private:
 	int initSockets(size_t index, uint32_t keybit);
-    int exportPacket(size_t index, const struct pcap_pkthdr *header, const uint8_t *pkt_data);
+    int exportPacket(size_t index, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);
 
 public:
     PcapExportGre(const std::vector<std::string>& remoteips, uint32_t keybit, const std::string& bind_device,
             const int pmtudisc);
     ~PcapExportGre();
     int initExport();
-    int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data);
+    int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);
     int closeExport();
 };
 

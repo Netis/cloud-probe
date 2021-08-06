@@ -76,10 +76,10 @@ int PcapExportZMQ::closeExport() {
 }
 
 
-int PcapExportZMQ::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
+int PcapExportZMQ::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data, int direct) {
     int ret = 0;
     for (size_t i = 0; i < _remoteips.size(); ++i) {
-        ret += exportPacket(i, header, pkt_data);
+        ret += exportPacket(i, header, pkt_data, direct);
     }
     return ret;
 }
@@ -103,7 +103,8 @@ int PcapExportZMQ::flushBatchBuf(size_t index) {
     return drop_pkts_num;
 }
 
-int PcapExportZMQ::exportPacket(size_t index, const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
+int PcapExportZMQ::exportPacket(size_t index, const struct pcap_pkthdr* header, const uint8_t* pkt_data, int direct) {
+    (void)direct;
     auto& pkts_buf = _pkts_bufs[index];
     int drop_pkts_num = 0;
 

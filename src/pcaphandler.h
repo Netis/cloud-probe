@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <netinet/in.h>
+
 #include "pcapexport.h"
 #include "statislog.h"
 
@@ -25,9 +27,16 @@ protected:
     uint64_t _gre_count;
     uint64_t _gre_drop_count;
     int _need_update_status;
+
+    std::vector<in_addr> _ipv4s;
+    std::vector<in6_addr> _ipv6s;
+
 protected:
     int openPcapDumper(pcap_t *pcap_handle);
     void closePcapDumper();
+
+    int checkPktDirectionV4(const in_addr* sip, const in_addr* dip);
+    int checkPktDirectionV6(const in6_addr* sip, const in6_addr* dip);
 public:
     PcapHandler();
     virtual ~PcapHandler();
