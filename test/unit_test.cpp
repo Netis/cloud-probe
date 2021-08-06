@@ -16,7 +16,7 @@ namespace {
             return 0;
         }
 
-        int exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
+        int exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data, int direct) {
             return 0;
         }
 
@@ -42,7 +42,7 @@ namespace {
         header.caplen = 32;
         header.len = 32;
         std::vector<uint8_t> pkt_data(32);
-        EXPECT_EQ(0, greExport.exportPacket(&header, pkt_data.data()));
+        EXPECT_EQ(0, greExport.exportPacket(&header, pkt_data.data(), PKTD_NONCHECK));
         EXPECT_EQ(0, greExport.closeExport());
     }
 
