@@ -203,6 +203,11 @@ set(SOURCE_FILES_GREDUMP
 		${SOURCE_FILES_PCAP}
         )
 
+set(SOURCE_FILES_VXLANDUMP
+        ${PROJECT_SOURCE_DIR}/tools/vxlandump.cpp
+        ${SOURCE_FILES_PCAP}
+        )
+
 set(SOURCE_FILES_PCAPCOMPARE
         ${PROJECT_SOURCE_DIR}/tools/pcapcompare.cpp
         )
@@ -212,6 +217,7 @@ if(WIN32)
             ${SOURCE_FILES_SYSHELP}
             ${SOURCE_FILES_PCAP}
             ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
+            ${PROJECT_SOURCE_DIR}/src/socketvxlan.cpp
             ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
             ${PROJECT_SOURCE_DIR}/src/statislog.cpp
             )
@@ -220,6 +226,7 @@ else()
             ${SOURCE_FILES_SYSHELP}
             ${SOURCE_FILES_PCAP}
             ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
+            ${PROJECT_SOURCE_DIR}/src/socketvxlan.cpp
             ${PROJECT_SOURCE_DIR}/src/socketzmq.cpp
             ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
             ${PROJECT_SOURCE_DIR}/src/statislog.cpp
@@ -244,10 +251,10 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 if(UNIX)
 	set(PCAP_LIB pcap)
 	set(BOOST_LIB boost_program_options.a boost_system.a boost_filesystem.a)
-    set(ZMQ_LIB cppzmq-static)
+    set(ZMQ_LIB zmq)
 else()
 	set(PCAP_LIB wpcap Packet)	
-	set(SOCKET_LIB ws2_32)
+	set(SOCKET_LIB zmq)
     set(ZMQ_LIB )
 endif()
 
@@ -264,6 +271,13 @@ if(WIN32)
 	set_target_properties(gredump PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 endif()
 target_link_libraries(gredump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
+
+# bin --vxlandump
+add_executable(vxlandump ${SOURCE_FILES_VXLANDUMP})
+if (WIN32)
+    set_target_properties(vxlandump PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+endif ()
+target_link_libraries(vxlandump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
 
 # bin -- pcapcompare
 add_executable(pcapcompare ${SOURCE_FILES_PCAPCOMPARE})

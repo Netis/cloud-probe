@@ -114,10 +114,9 @@ int main(int argc, const char* argv[]) {
 
     // read pcap header
     pkthdr_t pktHdr;
-    char pkt_header[16];
     while(1) {
         try {
-            fs.read(pkt_header, sizeof(pkt_header));
+            fs.read((char*)&pktHdr, sizeof(pkthdr_t));
             if ((fs.rdstate() & std::ifstream::failbit) != 0) {
                 if ( (fs.rdstate() & std::ifstream::eofbit) != 0 ) {
                     std::cout << "reach the end of pcap file!" << std::endl;
@@ -130,16 +129,12 @@ int main(int argc, const char* argv[]) {
             std::cout << "Exception read file, " << e.what() << std::endl;
             return 1;
         }
+
         if (isBigEndian) {
-            pktHdr.tv_sec = ntohl(*((uint32_t*)pkt_header));
-            pktHdr.tv_usec = ntohl(*((uint32_t*)(pkt_header+4)));
-            pktHdr.caplen = ntohl(*((uint32_t*)(pkt_header+8)));
-            pktHdr.len = ntohl(*((uint32_t*)(pkt_header+12)));
-        } else {
-            pktHdr.tv_sec = *((uint32_t*)pkt_header);
-            pktHdr.tv_usec = *((uint32_t*)(pkt_header+4));
-            pktHdr.caplen = *((uint32_t*)(pkt_header+8));
-            pktHdr.len = *((uint32_t*)(pkt_header+12));
+            pktHdr.tv_sec = ntohl(pktHdr.tv_sec);
+            pktHdr.tv_usec = ntohl(pktHdr.tv_usec);
+            pktHdr.caplen = ntohl(pktHdr.caplen);
+            pktHdr.len = ntohl(pktHdr.len);
         }
 
         // read pcap
