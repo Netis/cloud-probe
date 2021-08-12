@@ -6,7 +6,7 @@
 #endif
 #include <string>
 #include <vector>
-#include <zmq.hpp>
+#include "zmq.hpp"
 #include "pcapexport.h"
 
 

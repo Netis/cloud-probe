@@ -40,15 +40,17 @@ PcapExportZMQ::~PcapExportZMQ() {
 }
 
 int PcapExportZMQ::initSockets(size_t index, uint32_t keybit) {
+    (void)keybit;
+
     _zmq_contexts.emplace_back(1);
     _zmq_sockets.emplace_back(_zmq_contexts[index], ZMQ_PUSH);
     zmq::socket_t& socket = _zmq_sockets[index];
     std::string connect_addr = "tcp://" + _remoteips[index] + ":" + std::to_string(_zmq_port);
 
-    uint32_t linger_ms = 10 * 1000;
+    int32_t linger_ms = 10 * 1000;
     for (size_t i = 0; i < _remoteips.size(); ++i) {
-        _zmq_sockets[i].setsockopt(ZMQ_LINGER, linger_ms);
-        _zmq_sockets[i].setsockopt(ZMQ_SNDHWM, _zmq_hwm);
+        _zmq_sockets[i].set(zmq::sockopt::linger, linger_ms);
+        _zmq_sockets[i].set(zmq::sockopt::sndhwm, _zmq_hwm);
     }
 
     socket.connect(connect_addr);
