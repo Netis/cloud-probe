@@ -5,7 +5,7 @@
 #include <atomic>
 
 #include <pthread.h>
-#include <zmq.hpp>
+#include "zmq.hpp"
 
 #include "agent_control_itf.h"
 
