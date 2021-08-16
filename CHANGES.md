@@ -2,6 +2,9 @@
 
 The list of the most significant changes made in Netis Packet Agent over time.
 
+## Netis Packet Agent 0.5.1
+### Features
+* Supprot packet forword by vxlan
 
 ## Netis Packet Agent 0.5.0
 
