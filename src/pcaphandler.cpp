@@ -11,6 +11,7 @@
 #include "pcaphandler.h"
 #include "scopeguard.h"
 #include "agent_status.h"
+#include "vlan.h"
 
 PcapHandler::PcapHandler() {
     _gre_count = 0;
@@ -61,6 +62,7 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
     ip6_hdr* ipv6;
     uint16_t eth_type;
     int direct;
+    vlan_tag *vlan_hdr;
 
     if(header->caplen < sizeof(ether_header))
         return;
@@ -77,10 +79,21 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
             ipv6 = (ip6_hdr*)(pkt_data + sizeof(ether_header));
             direct = checkPktDirectionV6(&ipv6->ip6_src, &ipv6->ip6_dst);
             break;
+
+        case ETHERTYPE_VLAN: {
+            vlan_hdr = (vlan_tag *) (pkt_data + sizeof(ether_header));
+            uint16_t vlan_type = ntohs(vlan_hdr->vlan_tci);
+            switch (vlan_type) {
+                case ETHERTYPE_IP:
+                    ip = (iphdr *) (pkt_data + sizeof(ether_header) + sizeof(vlan_tag));
+                    direct = checkPktDirectionV4((const in_addr *) &ip->saddr, (const in_addr *) &ip->daddr);
+                    break;
+            }
+        }
         default:
             break;
     }
-
+    
     std::for_each(_exports.begin(), _exports.end(),
                   [header, pkt_data, this, direct](std::shared_ptr<PcapExportBase> pcapExport) {
                       int ret = pcapExport->exportPacket(header, pkt_data, direct);
