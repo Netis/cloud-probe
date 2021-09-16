@@ -26,7 +26,7 @@ namespace {
     };
 
     TEST(PcapHandlerTest, test) {
-        PcapOfflineHandler handler;
+        PcapOfflineHandler handler("./", 60);
         pcap_init_t param;
         handler.addExport(std::make_shared<PcapExportTest>());
         EXPECT_EQ(0, handler.openPcap("sample.pcap", param, "", false));

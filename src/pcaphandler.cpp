@@ -13,12 +13,21 @@
 #include "agent_status.h"
 #include "vlan.h"
 
-PcapHandler::PcapHandler() {
+PcapHandler::PcapHandler(std::string dumpDir, int16_t dumpInterval):
+    _dumpDir(dumpDir),
+    _dumpInterval(dumpInterval) {
     _gre_count = 0;
     _gre_drop_count = 0;
     _pcap_handle = NULL;
     _pcap_dumpter = NULL;
-    _need_update_status = 0;
+
+    if (dumpInterval != -1) {
+        _dumpDir = dumpDir + "/";
+        _timeStamp = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        if(!boost::filesystem::is_directory(_dumpDir))
+            boost::filesystem::create_directories(_dumpDir);
+    }
+
     std::memset(_errbuf, 0, sizeof(_errbuf));
 }
 
@@ -29,7 +38,18 @@ PcapHandler::~PcapHandler() {
 
 int PcapHandler::openPcapDumper(pcap_t* pcap_handle) {
     closePcapDumper();
-    std::string filepath = "pktminer_dump.pcap";
+    char date[60] = {0};
+    std::string filepath;
+    if (_dumpInterval >0) {
+        struct tm* ptm = localtime(&_timeStamp);
+        sprintf(date, "%d%02d%02d%02d%02d%02d",
+                (int)ptm->tm_year + 1900,(int)ptm->tm_mon + 1,(int)ptm->tm_mday,
+                (int)ptm->tm_hour, (int)ptm->tm_min, (int)ptm->tm_sec);
+        filepath = _dumpDir + "pktminerg_dump_"+std::string(date) + ".pcap";
+    }
+    else {
+        filepath = _dumpDir + "pktminerg_dump.pcap";
+    }
     if (boost::filesystem::exists(filepath)) {
         boost::filesystem::remove(filepath);
     }
@@ -106,6 +126,15 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
                       }
                   });
     if (_pcap_dumpter) {
+        auto tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        if( _dumpInterval > 0 && tt-_timeStamp > _dumpInterval ) {
+            _timeStamp = tt;
+
+            if (openPcapDumper(_pcap_handle) != 0) {
+                std::cerr << StatisLogContext::getTimeString() << "Call openPcapDumper failed." << std::endl;
+            }
+        }
+
         pcap_dump(reinterpret_cast<u_char*>(_pcap_dumpter), header, pkt_data);
     }
     if (_statislog == nullptr) {

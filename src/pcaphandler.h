@@ -4,7 +4,11 @@
 #include <string>
 #include <vector>
 #include <memory>
+
+#include <chrono>
+
 #include <netinet/in.h>
+
 
 #include "pcapexport.h"
 #include "statislog.h"
@@ -26,10 +30,16 @@ protected:
     std::shared_ptr<GreSendStatisLog> _statislog;
     uint64_t _gre_count;
     uint64_t _gre_drop_count;
+
+    std::string _dumpDir;
+    std::int16_t _dumpInterval;
+    std::time_t _timeStamp;
+
     int _need_update_status;
 
     std::vector<in_addr> _ipv4s;
     std::vector<in6_addr> _ipv6s;
+
 
 protected:
     int openPcapDumper(pcap_t *pcap_handle);
@@ -38,7 +48,7 @@ protected:
     int checkPktDirectionV4(const in_addr* sip, const in_addr* dip);
     int checkPktDirectionV6(const in6_addr* sip, const in6_addr* dip);
 public:
-    PcapHandler();
+    PcapHandler(std::string dumpDir, int16_t dumpInterval);
     virtual ~PcapHandler();
     void packetHandler(const struct pcap_pkthdr *header, const uint8_t *pkt_data);
     void addExport(std::shared_ptr<PcapExportBase> pcapExport);
@@ -51,12 +61,16 @@ public:
 
 class PcapOfflineHandler : public PcapHandler {
 public:
+    PcapOfflineHandler(std::string dumpDir, int16_t dumpInterval):
+            PcapHandler(dumpDir, dumpInterval) {};
     int openPcap(const std::string &dev, const pcap_init_t &param, const std::string &expression,
                  bool dumpfile=false);
 };
 
 class PcapLiveHandler : public PcapHandler {
 public:
+    PcapLiveHandler(std::string dumpDir, int16_t dumpInterval):
+            PcapHandler(dumpDir, dumpInterval) {};
     int openPcap(const std::string &dev, const pcap_init_t &param, const std::string &expression,
                  bool dumpfile=false);
 };

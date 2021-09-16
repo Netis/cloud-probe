@@ -53,9 +53,12 @@ int main(int argc, const char* argv[]) {
             ("cpu", boost::program_options::value<int>()->value_name("ID"), "set cpu affinity ID")
             ("expression", boost::program_options::value<std::vector<std::string>>()->value_name("FILTER"),
              R"(filter packets with FILTER; FILTER as same as tcpdump BPF expression syntax)")
-            ("dump", "specify dump file, mostly for integrated test")
-            ("control", boost::program_options::value<int>()->value_name("CONTROL_PORT"),
-             "set zmq listen port for agent daemon control. Control server won't be up if this option is not set")
+
+            ("dump", boost::program_options::value<std::string>()->default_value("./")->value_name("DUMP"),
+             "specify pcap dump file dump dir")
+            ("interval", boost::program_options::value<int>()->default_value(-1)->value_name("INTERVAL"),
+             "specify the interval for dump file creation")
+
             ("nofilter",
              "force no filter; In online mode, only use when GRE interface "
                  "is set via CLI, AND you confirm that the snoop interface is "
@@ -132,15 +135,18 @@ int main(int argc, const char* argv[]) {
 #endif // WIN32
 
 
-    if (!vm.count("remoteip")) {
-        std::cerr << StatisLogContext::getTimeString() << "Please set gre remote ip with --remoteip or -r."
+    if (!vm.count("remoteip")  && !vm.count("dump")) {
+        std::cerr << StatisLogContext::getTimeString()
+                  << "Please set gre remote ip with --remoteip (or -r)  or get dump directory with --Dump."
                   << std::endl;
         return 1;
     }
 
-    std::string remoteip = vm["remoteip"].as<std::string>();
     std::vector<std::string> remoteips;
-    boost::algorithm::split(remoteips, remoteip, boost::algorithm::is_any_of(","));
+    if (vm.count("remoteip")) {
+        std::string remoteip = vm["remoteip"].as<std::string>();
+        boost::algorithm::split(remoteips, remoteip, boost::algorithm::is_any_of(","));
+    }
 
     int zmq_port = vm["zmq_port"].as<int>();
     int zmq_hwm = vm["zmq_hwm"].as<int>();
@@ -188,8 +194,9 @@ int main(int argc, const char* argv[]) {
     }
 
     // dump option
+    // dump option
     bool dumpfile = false;
-    if (vm.count("dump")) {
+    if (vm["interval"].as<int>() >= 0) {
         dumpfile = true;
     }
 
@@ -226,7 +233,7 @@ int main(int argc, const char* argv[]) {
     if (vm.count("pcapfile")) {
         // offline
         std::string path = vm["pcapfile"].as<std::string>();
-        handler = std::make_shared<PcapOfflineHandler>();
+        handler = std::make_shared<PcapOfflineHandler>(vm["dump"].as<std::string>(),vm["interval"].as<int>());
         if (handler->openPcap(path, param, "", dumpfile) != 0) {
             std::cerr << StatisLogContext::getTimeString() << "Call PcapOfflineHandler openPcap failed." << std::endl;
             return 1;
@@ -234,7 +241,7 @@ int main(int argc, const char* argv[]) {
     } else if (vm.count("interface")) {
         // online
         std::string dev = vm["interface"].as<std::string>();
-        handler = std::make_shared<PcapLiveHandler>();
+        handler = std::make_shared<PcapLiveHandler>(vm["dump"].as<std::string>(), vm["interval"].as<int>());
         if (handler->openPcap(dev, param, filter, dumpfile) != 0) {
             std::cerr << StatisLogContext::getTimeString() << "Call PcapLiveHandler openPcap failed." << std::endl;
             return 1;
