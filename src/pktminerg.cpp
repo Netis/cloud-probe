@@ -4,8 +4,14 @@
 #include <boost/algorithm/string.hpp>
 #include "pcaphandler.h"
 #include "socketgre.h"
+#include "socketvxlan.h"
+#include "socketzmq.h"
 #include "versioninfo.h"
 #include "syshelp.h"
+#ifndef WIN32
+    #include "agent_control_plane.h"
+
+#endif
 
 std::shared_ptr<PcapHandler> handler = nullptr;
 
@@ -27,7 +33,13 @@ int main(int argc, const char* argv[]) {
              "specify pcap file for offline mode, mostly for test")
             ("remoteip,r", boost::program_options::value<std::string>()->value_name("IPs"),
              "set gre remote IPs, seperate by ',' Example: -r 8.8.4.4,8.8.8.8")
-            ("keybit,k", boost::program_options::value<int>()->default_value(1)->value_name("BIT"),
+            ("zmq_port,z", boost::program_options::value<int>()->default_value(0)->value_name("ZMQ_PORT"),
+             "set remote zeromq server port to receive packets reliably; ZMQ_PORT default value 0 means disable.")
+            ("zmq_hwm,m", boost::program_options::value<int>()->default_value(4096)->value_name("ZMQ_HWM"),
+             "set zeromq queue high watermark; ZMQ_HWM default value 100.")
+            ("keybit,k", boost::program_options::value<int>()->default_value(1)->value_name("KEYBIT"),
+             "set gre key bit; BIT defaults 1")
+            ("vni,n", boost::program_options::value<int>()->value_name("VNI"),
              "set gre key bit; BIT defaults 1")
             ("snaplen,s", boost::program_options::value<int>()->default_value(2048)->value_name("LENGTH"),
              "set snoop packet snaplen; LENGTH defaults 2048 and units byte")
@@ -41,12 +53,16 @@ int main(int argc, const char* argv[]) {
             ("cpu", boost::program_options::value<int>()->value_name("ID"), "set cpu affinity ID")
             ("expression", boost::program_options::value<std::vector<std::string>>()->value_name("FILTER"),
              R"(filter packets with FILTER; FILTER as same as tcpdump BPF expression syntax)")
+
             ("dump", boost::program_options::value<std::string>()->default_value("./")->value_name("DUMP"),
              "specify pcap dump file dump dir")
             ("interval", boost::program_options::value<int>()->default_value(-1)->value_name("INTERVAL"),
              "specify the interval for dump file creation")
+
             ("nofilter",
-             "force no filter; only use when you confirm that the snoop interface is different from the gre interface");
+             "force no filter; In online mode, only use when GRE interface "
+                 "is set via CLI, AND you confirm that the snoop interface is "
+                 "different from the gre interface.");
 
     boost::program_options::positional_options_description position;
     position.add("expression", -1);
@@ -91,6 +107,10 @@ int main(int argc, const char* argv[]) {
     }
 
     int pmtudisc = -1;
+    int update_status = 0;
+#ifdef WIN32
+    //TODO: support pmtudisc_option on WIN32
+#else
     if (vm.count("pmtudisc_option")) {
         const auto pmtudisc_option = vm["pmtudisc_option"].as<std::string>();
         if (pmtudisc_option == "do") {
@@ -105,6 +125,15 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
     }
+    std::shared_ptr<AgentControlPlane> agent_control_plane;
+    if (vm.count("control")) {
+        const auto daemon_zmq_port = vm["control"].as<int>();
+        agent_control_plane = std::make_shared<AgentControlPlane>(daemon_zmq_port);
+        agent_control_plane->init_msg_server();
+        update_status = 1;    
+    }
+#endif // WIN32
+
 
     if (!vm.count("remoteip")  && !vm.count("dump")) {
         std::cerr << StatisLogContext::getTimeString()
@@ -119,6 +148,9 @@ int main(int argc, const char* argv[]) {
         boost::algorithm::split(remoteips, remoteip, boost::algorithm::is_any_of(","));
     }
 
+    int zmq_port = vm["zmq_port"].as<int>();
+    int zmq_hwm = vm["zmq_hwm"].as<int>();
+
     int keybit = vm["keybit"].as<int>();
 
     std::string filter = "";
@@ -132,6 +164,21 @@ int main(int argc, const char* argv[]) {
     bool nofilter = false;
     if (vm.count("nofilter")) {
         nofilter = true;
+        if (vm.count("interface")) {
+            if (bind_device == "") {
+                std::cerr << StatisLogContext::getTimeString() << "Can't enable --nofilter option "
+                << "because GRE bind devices(-B) is not set, GRE packet might be sent via packet captured interface(-i)"
+                << std::endl;
+                return 1;
+            } else if (bind_device == vm["interface"].as<std::string>()) {
+                std::cerr << StatisLogContext::getTimeString() << "Can't enable --nofilter option "
+                << "because packet captured interface(-i) is equal to GRE bind devices(-B)"
+                << std::endl;
+                return 1;
+            } else {
+                // valid
+            }
+        }
     }
 
     if (nofilter) {
@@ -159,6 +206,7 @@ int main(int argc, const char* argv[]) {
     param.snaplen = vm["snaplen"].as<int>();
     param.promisc = 0;
     param.timeout = vm["timeout"].as<int>() * 1000;
+    param.need_update_status = update_status;
     int nCount = vm["count"].as<int>();
     if (nCount < 0) {
         nCount = 0;
@@ -217,15 +265,36 @@ int main(int argc, const char* argv[]) {
         }
     });
 
-    // export gre
-    std::shared_ptr<PcapExportBase> greExport = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
-    int err = greExport->initExport();
-    if (err != 0) {
-        std::cerr << StatisLogContext::getTimeString()
-                  << "greExport initExport failed." << std::endl;
-        return err;
+    std::shared_ptr<PcapExportBase> exportPtr = nullptr;
+    if (zmq_port != 0) {
+        exportPtr = std::make_shared<PcapExportZMQ>(remoteips, zmq_port, zmq_hwm, keybit, bind_device, param.buffer_size);
+        int err = exportPtr->initExport();
+        if (err != 0) {
+            std::cerr << StatisLogContext::getTimeString()
+                      << "zmqExport initExport failed." << std::endl;
+            return err;
+        }
     }
-    handler->addExport(greExport);
+    else if(vm.count("vni")){
+        int vni = vm["vni"].as<int>();
+        exportPtr = std::make_shared<PcapExportVxlan>(remoteips, vni, bind_device, pmtudisc);
+        int err = exportPtr->initExport();
+        if (err != 0) {
+            std::cerr << StatisLogContext::getTimeString() << "vxlanExport initExport failed." << std::endl;
+            return err;
+        }
+    }
+    else{
+        // export gre
+        exportPtr = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
+        int err = exportPtr->initExport();
+        if (err != 0) {
+            std::cerr << StatisLogContext::getTimeString() << "greExport initExport failed." << std::endl;
+            return err;
+        }
+    }
+    handler->addExport(exportPtr);
+
 
     // begin pcap snoop
 
@@ -234,6 +303,6 @@ int main(int argc, const char* argv[]) {
     std::cout << StatisLogContext::getTimeString() << "End pcap snoop." << std::endl;
 
     // end
-    greExport->closeExport();
+    exportPtr->closeExport();
     return 0;
 }

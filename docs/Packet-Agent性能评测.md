@@ -13,10 +13,10 @@ libpcap version 1.5.3
 
 |     | 2 cpu | 8 cpu | 12 cpu |
 |-----|-------|-------|--------|
-|通用型 centos7.6|内存占用 508.8 M<br>![image](../img/image2019-7-26_12-19-28.png)|内存占用 508.8 M<br>![image](../img/image2019-7-26_12-20-15.png)|内存占用 508.8 M<br>![image](../img/image2019-7-26_12-20-33.png)|
-|高主频 centos7.6|内存占用 508.8 M<br/>![image](../img/image2019-7-26_12-21-22.png)|内存占用 508.8 M<br>![image](../img/image2019-7-26_12-21-51.png)|内存占用 508.8 M<br>![image](../img/image2019-7-26_12-22-37.png)|
-|通用型 suse12.2|内存占用：280.2 M。CPU顶峰：90.3%，1175.5 Mbps<br>![image](../img/image2019-7-29_11-22-40.png)|内存占用：280.2 M<br>![image](../img/image2019-7-26_16-52-16.png)|内存占用：280.2 M<br>![image](../img/image2019-7-26_16-51-39.png)|
-|高主频 suse12.2|内存占用：280.2 M。CPU顶峰：97.47%，1175.5 Mbps<br>![image](../img/image2019-7-29_11-23-48.png)|内存占用：280.2 M<br>![image](../img/image2019-7-26_16-53-32.png)|内存占用：280.2 M<br>![image](../img/image2019-7-26_16-55-46.png)|
+|通用型 centos7.6|内存占用 508.8 M<br>![image](../img/ali-1-1.png)|内存占用 508.8 M<br>![image](../img/ali-1-2.png)|内存占用 508.8 M<br>![image](../img/ali-1-3.png)|
+|高主频 centos7.6|内存占用 508.8 M<br/>![image](../img/ali-2-1.png)|内存占用 508.8 M<br>![image](../img/ali-2-2.png)|内存占用 508.8 M<br>![image](../img/ali-2-3.png)|
+|通用型 suse12.2|内存占用：280.2 M。CPU顶峰：90.3%，1175.5 Mbps<br>![image](../img/ali-3-1.png)|内存占用：280.2 M<br>![image](../img/ali-3-2.png)|内存占用：280.2 M<br>![image](../img/ali-3-3.png)|
+|高主频 suse12.2|内存占用：280.2 M。CPU顶峰：97.47%，1175.5 Mbps<br>![image](../img/ali-4-1.png)|内存占用：280.2 M<br>![image](../img/ali-4-2.png)|内存占用：280.2 M<br>![image](../img/ali-4-3.png)|
 
 # 阿里云机器配置
 
@@ -34,10 +34,10 @@ libpcap version 1.5.3
 
 |     | 2 cpu | 8 cpu | 12 cpu |
 |-----|-------|-------|--------|
-|通用型 centos7.6|内存占用 508.8 M<br>![image](../img/image2019-8-2_10-28-14.png)|内存占用 508.8 M<br>![image](../img/image2019-8-2_10-29-16.png)|内存占用 508.8 M<br>![image](../img/image2019-8-2_10-30-17.png)|
-|高主频 centos7.6|内存占用 508.8 M<br>![image](../img/image2019-8-2_10-31-39.png)|内存占用 508.8 M<br>![image](../img/image2019-8-2_10-32-38.png)|内存占用 508.8 M<br>![image](../img/image2019-8-2_10-33-32.png)|
-|通用型 suse12.2|内存占用：280.2 M<br>![image](../img/image2019-8-1_10-22-54.png)|内存占用：280.2 M<br>![image](../img/image2019-8-1_10-23-45.png)|内存占用：280.2 M<br>![image](../img/image2019-8-1_10-24-32.png)|
-|高主频 suse12.2|内存占用：280.2 M<br>![image](../img/image2019-8-1_10-25-31.png)|内存占用：280.2 M<br>![image](../img/image2019-8-1_10-26-12.png)|内存占用：280.2 M<br>![image](../img/image2019-8-1_10-26-49.png)|
+|通用型 centos7.6|内存占用 508.8 M<br>![image](../img/aws-1-1.png)|内存占用 508.8 M<br>![image](../img/aws-1-2.png)|内存占用 508.8 M<br>![image](../img/aws-1-3.png)|
+|高主频 centos7.6|内存占用 508.8 M<br>![image](../img/aws-2-1.png)|内存占用 508.8 M<br>![image](../img/aws-2-2.png)|内存占用 508.8 M<br>![image](../img/aws-2-3.png)|
+|通用型 suse12.2|内存占用：280.2 M<br>![image](../img/aws-3-1.png)|内存占用：280.2 M<br>![image](../img/aws-3-2.png)|内存占用：280.2 M<br>![image](../img/aws-3-3.png)|
+|高主频 suse12.2|内存占用：280.2 M<br>![image](../img/aws-4-1.png)|内存占用：280.2 M<br>![image](../img/aws-4-2.png)|内存占用：280.2 M<br>![image](../img/aws-4-3.png)|
 
 # aws机器配置
 

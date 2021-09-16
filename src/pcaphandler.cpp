@@ -1,8 +1,17 @@
-#include "pcaphandler.h"
 #include <iostream>
 #include <algorithm>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+#include <netinet/ether.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+
+#include "pcaphandler.h"
 #include "scopeguard.h"
+#include "agent_status.h"
+#include "vlan.h"
 
 PcapHandler::PcapHandler(std::string dumpDir, int16_t dumpInterval):
     _dumpDir(dumpDir),
@@ -11,12 +20,14 @@ PcapHandler::PcapHandler(std::string dumpDir, int16_t dumpInterval):
     _gre_drop_count = 0;
     _pcap_handle = NULL;
     _pcap_dumpter = NULL;
+
     if (dumpInterval != -1) {
         _dumpDir = dumpDir + "/";
         _timeStamp = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         if(!boost::filesystem::is_directory(_dumpDir))
             boost::filesystem::create_directories(_dumpDir);
     }
+
     std::memset(_errbuf, 0, sizeof(_errbuf));
 }
 
@@ -66,12 +77,46 @@ void PcapHandler::closePcap() {
 }
 
 void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
+    ether_header* eth;
+    iphdr* ip;
+    ip6_hdr* ipv6;
+    uint16_t eth_type;
+    int direct;
+    vlan_tag *vlan_hdr;
+
+    if(header->caplen < sizeof(ether_header))
+        return;
+    eth = (ether_header*)pkt_data;
+    eth_type = ntohs(eth->ether_type);
+    direct = PKTD_UNKNOWN;
+
+    switch(eth_type) {
+        case ETHERTYPE_IP:
+            ip = (iphdr*)(pkt_data + sizeof(ether_header));
+            direct = checkPktDirectionV4((const in_addr*)&ip->saddr, (const in_addr*)&ip->daddr);
+            break;
+        case ETHERTYPE_IPV6:
+            ipv6 = (ip6_hdr*)(pkt_data + sizeof(ether_header));
+            direct = checkPktDirectionV6(&ipv6->ip6_src, &ipv6->ip6_dst);
+            break;
+
+        case ETHERTYPE_VLAN: {
+            vlan_hdr = (vlan_tag *) (pkt_data + sizeof(ether_header));
+            uint16_t vlan_type = ntohs(vlan_hdr->vlan_tci);
+            switch (vlan_type) {
+                case ETHERTYPE_IP:
+                    ip = (iphdr *) (pkt_data + sizeof(ether_header) + sizeof(vlan_tag));
+                    direct = checkPktDirectionV4((const in_addr *) &ip->saddr, (const in_addr *) &ip->daddr);
+                    break;
+            }
+        }
+        default:
+            break;
+    }
+    
     std::for_each(_exports.begin(), _exports.end(),
-                  [header, pkt_data, this](std::shared_ptr<PcapExportBase> pcapExport) {
-//        if (header->caplen > 1472) {
-//            std::cout << "pkt " << _gre_count << ", len: " << header->len << ", caplen: " << header->caplen << std::endl;
-//        }
-                      int ret = pcapExport->exportPacket(header, pkt_data);
+                  [header, pkt_data, this, direct](std::shared_ptr<PcapExportBase> pcapExport) {
+                      int ret = pcapExport->exportPacket(header, pkt_data, direct);
                       if (pcapExport->getExportType() == exporttype::gre) {
                           if (ret == 0) {
                               this->_gre_count++;
@@ -98,6 +143,10 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
     }
     _statislog->logSendStatis((uint64_t) (header->ts.tv_sec), header->caplen, _gre_count, _gre_drop_count, 0,
                               _pcap_handle);
+    if (_need_update_status) {
+        AgentStatus::get_instance()->update_capture_status((uint64_t) (header->ts.tv_sec), header->caplen,
+                                                           _gre_count, _gre_drop_count, _pcap_handle);
+    }
 }
 
 void PcapHandler::addExport(std::shared_ptr<PcapExportBase> pcapExport) {
@@ -130,6 +179,34 @@ void PcapHandler::stopPcapLoop() {
     pcap_breakloop(_pcap_handle);
 }
 
+int PcapHandler::checkPktDirectionV4(const in_addr *sip, const in_addr *dip) {
+    for(auto& ipv4 : _ipv4s)
+    {
+        if(ipv4.s_addr == sip->s_addr)
+            return PKTD_OG;
+        else if(ipv4.s_addr == dip->s_addr)
+            return PKTD_IC;
+    }
+    return PKTD_UNKNOWN;
+}
+
+int PcapHandler::checkPktDirectionV6(const in6_addr *sip, const in6_addr *dip) {
+    for(auto& ipv6 : _ipv6s)
+    {
+        if(ipv6.s6_addr32[0] == sip->s6_addr32[0] &&
+           ipv6.s6_addr32[1] == sip->s6_addr32[1] &&
+           ipv6.s6_addr32[2] == sip->s6_addr32[2] &&
+           ipv6.s6_addr32[3] == sip->s6_addr32[3])
+            return PKTD_OG;
+        else if(ipv6.s6_addr32[0] == dip->s6_addr32[0] &&
+                ipv6.s6_addr32[1] == dip->s6_addr32[1] &&
+                ipv6.s6_addr32[2] == dip->s6_addr32[2] &&
+                ipv6.s6_addr32[3] == dip->s6_addr32[3])
+            return PKTD_IC;
+    }
+    return PKTD_UNKNOWN;
+}
+
 int PcapOfflineHandler::openPcap(const std::string& dev, const pcap_init_t& param, const std::string& expression,
                                  bool dumpfile) {
     pcap_t* pcap_handle = pcap_open_offline(dev.c_str(), _errbuf);
@@ -141,6 +218,7 @@ int PcapOfflineHandler::openPcap(const std::string& dev, const pcap_init_t& para
     auto pcapGuard = MakeGuard([pcap_handle]() {
         pcap_close(pcap_handle);
     });
+    _need_update_status = param.need_update_status;
 
     if (dumpfile) {
         if (openPcapDumper(pcap_handle) != 0) {
@@ -159,7 +237,31 @@ int PcapLiveHandler::openPcap(const std::string& dev, const pcap_init_t& param, 
     struct bpf_program filter;
     bpf_u_int32 mask = 0;
     bpf_u_int32 net = 0;
+    _need_update_status = param.need_update_status;
 
+    {
+        struct ifaddrs* ifaddr;
+
+        _ipv4s.clear();
+        _ipv6s.clear();
+        if (::getifaddrs(&ifaddr) < 0) {
+            return -1;
+        }
+
+        for (auto ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+            if(!ifa->ifa_name || dev != ifa->ifa_name || !ifa->ifa_addr)
+                continue;
+            if(ifa->ifa_addr->sa_family == AF_INET)
+            {
+                _ipv4s.push_back(((sockaddr_in*)ifa->ifa_addr)->sin_addr);
+            }
+            else if(ifa->ifa_addr->sa_family == AF_INET6)
+            {
+                _ipv6s.push_back(((sockaddr_in6*)ifa->ifa_addr)->sin6_addr);
+            }
+        }
+        freeifaddrs(ifaddr);
+    }
     pcap_t* pcap_handle = pcap_create(dev.c_str(), _errbuf);
     if (!pcap_handle) {
         std::cerr << StatisLogContext::getTimeString() << "Call pcap_create failed, error is " << _errbuf << "."

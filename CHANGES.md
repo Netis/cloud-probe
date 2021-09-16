@@ -2,6 +2,33 @@
 
 The list of the most significant changes made in Netis Packet Agent over time.
 
+## Netis Packet Agent 0.5.2
+### Features
+* Supprot vlan packets
+
+## Netis Packet Agent 0.5.1
+### Features
+* Supprot packet forword by vxlan
+
+## Netis Packet Agent 0.5.0
+
+### Features
+* Support GRE direction in key.
+
+
+## Netis Packet Agent 0.3.6
+
+### Features
+* Support agent control plane for agent daemon over zeromq.
+
+
+## Netis Packet Agent 0.3.5
+
+### Features
+* Support option check for '--nofilter' option invalid usage. In version 0.3.5 or later, pktminerg will exit directly in the following cases:
+    - if you enable '--nofilter' option without specifying gre bind device(-B) in online mode.
+    - if you enable '--nofilter' option and gre bind device(-B) is same as packet captured interface(-i) in online mode. 
+
 ## Netis Packet Agent 0.3.4
 
 ### Features

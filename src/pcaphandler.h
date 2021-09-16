@@ -4,7 +4,12 @@
 #include <string>
 #include <vector>
 #include <memory>
+
 #include <chrono>
+
+#include <netinet/in.h>
+
+
 #include "pcapexport.h"
 #include "statislog.h"
 
@@ -13,6 +18,7 @@ typedef struct PcapInit {
     int timeout;
     int promisc;
     int buffer_size;
+    int need_update_status;
 } pcap_init_t;
 
 class PcapHandler {
@@ -24,12 +30,23 @@ protected:
     std::shared_ptr<GreSendStatisLog> _statislog;
     uint64_t _gre_count;
     uint64_t _gre_drop_count;
+
     std::string _dumpDir;
     std::int16_t _dumpInterval;
     std::time_t _timeStamp;
+
+    int _need_update_status;
+
+    std::vector<in_addr> _ipv4s;
+    std::vector<in6_addr> _ipv6s;
+
+
 protected:
     int openPcapDumper(pcap_t *pcap_handle);
     void closePcapDumper();
+
+    int checkPktDirectionV4(const in_addr* sip, const in_addr* dip);
+    int checkPktDirectionV6(const in6_addr* sip, const in6_addr* dip);
 public:
     PcapHandler(std::string dumpDir, int16_t dumpInterval);
     virtual ~PcapHandler();

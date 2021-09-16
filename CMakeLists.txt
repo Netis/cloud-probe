@@ -6,16 +6,16 @@ option(PROJECT_WITH_PROF "Enable profiling and coverage report analysis" OFF)
 message("\${PROJECT_WITH_PROF}: ${PROJECT_WITH_PROF}")
 # cmake cxx flags
 if (${PROJECT_WITH_PROF})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -fprofile-arcs -ftest-coverage")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt -fprofile-arcs -ftest-coverage")
     set(LINK_FLAGS "${LINK_FLAGS} -fprofile-arcs")
 else ()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt")
 endif ()
 
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
 set(PKTMINERG_MAJOR_VERSION "0")
-set(PKTMINERG_MINOR_VERSION "3")
-set(PKTMINERG_PATCH_VERSION "4")
+set(PKTMINERG_MINOR_VERSION "5")
+set(PKTMINERG_PATCH_VERSION "1")
 set(PKTMINERG_VERSION_STRING "${PKTMINERG_MAJOR_VERSION}.${PKTMINERG_MINOR_VERSION}.${PKTMINERG_PATCH_VERSION}")
 
 if(WIN32)
@@ -88,6 +88,8 @@ if(UNIX)
 	INCLUDE(FindBoost)
 	set(Boost_USE_STATIC_LIBS ON)
 	find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
+
+    find_package(cppzmq)
 
 	message("Boost_INCLUDE_DIRS: " ${Boost_INCLUDE_DIRS})
 	message("Boost_LIBRARY_DIRS: " ${Boost_LIBRARY_DIRS})
@@ -201,17 +203,37 @@ set(SOURCE_FILES_GREDUMP
 		${SOURCE_FILES_PCAP}
         )
 
+set(SOURCE_FILES_VXLANDUMP
+        ${PROJECT_SOURCE_DIR}/tools/vxlandump.cpp
+        ${SOURCE_FILES_PCAP}
+        )
+
 set(SOURCE_FILES_PCAPCOMPARE
         ${PROJECT_SOURCE_DIR}/tools/pcapcompare.cpp
         )
 
-set(SOURCE_FILES_PKTMINERG_BASE
-        ${SOURCE_FILES_SYSHELP}
-		${SOURCE_FILES_PCAP}
-        ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
-        ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
-        ${PROJECT_SOURCE_DIR}/src/statislog.cpp
-        )
+if(WIN32)
+    set(SOURCE_FILES_PKTMINERG_BASE
+            ${SOURCE_FILES_SYSHELP}
+            ${SOURCE_FILES_PCAP}
+            ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
+            ${PROJECT_SOURCE_DIR}/src/socketvxlan.cpp
+            ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
+            ${PROJECT_SOURCE_DIR}/src/statislog.cpp
+            )
+else()
+    set(SOURCE_FILES_PKTMINERG_BASE
+            ${SOURCE_FILES_SYSHELP}
+            ${SOURCE_FILES_PCAP}
+            ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
+            ${PROJECT_SOURCE_DIR}/src/socketvxlan.cpp
+            ${PROJECT_SOURCE_DIR}/src/socketzmq.cpp
+            ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
+            ${PROJECT_SOURCE_DIR}/src/statislog.cpp
+            ${PROJECT_SOURCE_DIR}/src/agent_status.cpp
+            ${PROJECT_SOURCE_DIR}/src/agent_control_plane.cpp
+            )
+endif()    
 
 set(SOURCE_FILES_PKTMINERG
         ${SOURCE_FILES_PKTMINERG_BASE}
@@ -229,9 +251,11 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 if(UNIX)
 	set(PCAP_LIB pcap)
 	set(BOOST_LIB boost_program_options.a boost_system.a boost_filesystem.a)
+    set(ZMQ_LIB zmq)
 else()
 	set(PCAP_LIB wpcap Packet)	
-	set(SOCKET_LIB ws2_32)
+	set(SOCKET_LIB zmq)
+    set(ZMQ_LIB )
 endif()
 
 # bin -- gredemo
@@ -248,6 +272,13 @@ if(WIN32)
 endif()
 target_link_libraries(gredump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
 
+# bin --vxlandump
+add_executable(vxlandump ${SOURCE_FILES_VXLANDUMP})
+if (WIN32)
+    set_target_properties(vxlandump PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+endif ()
+target_link_libraries(vxlandump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
+
 # bin -- pcapcompare
 add_executable(pcapcompare ${SOURCE_FILES_PCAPCOMPARE})
 target_link_libraries(pcapcompare ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
@@ -257,7 +288,7 @@ add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
 if(WIN32)
 	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 endif()
-target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
+target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} ${ZMQ_LIB})
 
 if(UNIX AND NOT APPLE)
     # test
@@ -275,7 +306,7 @@ if(UNIX AND NOT APPLE)
                               ${TEST_DIR}/src/gtest-test-part.cc
                               ${TEST_DIR}/src/gtest-typed-test.cc)
     add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
-    target_link_libraries(unittest ${BOOST_LIB} pcap pthread)
+    target_link_libraries(unittest ${BOOST_LIB} pcap pthread ${ZMQ_LIB})
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
 endif()
 
@@ -317,10 +348,12 @@ else()
         set(CPACK_DEB_COMPONENT_INSTALL ON) 
         set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}_amd64)   
         set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64") 	  
+        set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${PROJECT_SOURCE_DIR}/scripts/postinst")
     else ()
         set(CPACK_GENERATOR "RPM")
         set(CPACK_RPM_COMPONENT_INSTALL ON)   
-   	    set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}.el6.${CMAKE_SYSTEM_PROCESSOR}) 
+        set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}.el6.${CMAKE_SYSTEM_PROCESSOR})
+        set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/scripts/postinst_rpm.sh")
     endif() 
     #set(CPACK_COMPONENTS_ALL pktminerg)
 endif()
