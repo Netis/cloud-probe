@@ -57,7 +57,7 @@ private:
 
 public:
     PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_port, int zmq_hwm, uint32_t keybit,
-				  const std::string& bind_device, const int send_buf_size);
+				  const std::string& bind_device, const int send_buf_size, double mbps);
     ~PcapExportZMQ();
     int initExport();
     int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);

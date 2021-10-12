@@ -26,7 +26,7 @@ private:
 
 public:
     PcapExportGre(const std::vector<std::string>& remoteips, uint32_t keybit, const std::string& bind_device,
-            const int pmtudisc);
+            const int pmtudisc, double mbps);
     ~PcapExportGre();
     int initExport();
     int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);

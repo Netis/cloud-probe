@@ -58,7 +58,8 @@ int main(int argc, const char* argv[]) {
              "specify pcap dump file dump dir")
             ("interval", boost::program_options::value<int>()->default_value(-1)->value_name("INTERVAL"),
              "specify the interval for dump file creation")
-
+            ("mbps", boost::program_options::value<double>()->default_value(0)->value_name("mbps"),
+             "specify a floating point value for the Mbps rate that pktmg should send packets at.")
             ("nofilter",
              "force no filter; In online mode, only use when GRE interface "
                  "is set via CLI, AND you confirm that the snoop interface is "
@@ -267,7 +268,7 @@ int main(int argc, const char* argv[]) {
 
     std::shared_ptr<PcapExportBase> exportPtr = nullptr;
     if (zmq_port != 0) {
-        exportPtr = std::make_shared<PcapExportZMQ>(remoteips, zmq_port, zmq_hwm, keybit, bind_device, param.buffer_size);
+        exportPtr = std::make_shared<PcapExportZMQ>(remoteips, zmq_port, zmq_hwm, keybit, bind_device, param.buffer_size,vm["mbps"].as<double>());
         int err = exportPtr->initExport();
         if (err != 0) {
             std::cerr << StatisLogContext::getTimeString()
@@ -277,7 +278,7 @@ int main(int argc, const char* argv[]) {
     }
     else if(vm.count("vni")){
         int vni = vm["vni"].as<int>();
-        exportPtr = std::make_shared<PcapExportVxlan>(remoteips, vni, bind_device, pmtudisc);
+        exportPtr = std::make_shared<PcapExportVxlan>(remoteips, vni, bind_device, pmtudisc, vm["mbps"].as<double>());
         int err = exportPtr->initExport();
         if (err != 0) {
             std::cerr << StatisLogContext::getTimeString() << "vxlanExport initExport failed." << std::endl;
@@ -286,7 +287,7 @@ int main(int argc, const char* argv[]) {
     }
     else{
         // export gre
-        exportPtr = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc);
+        exportPtr = std::make_shared<PcapExportGre>(remoteips, keybit, bind_device, pmtudisc, vm["mbps"].as<double>());
         int err = exportPtr->initExport();
         if (err != 0) {
             std::cerr << StatisLogContext::getTimeString() << "greExport initExport failed." << std::endl;

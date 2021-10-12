@@ -18,7 +18,7 @@
 
 
 PcapExportZMQ::PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_port, int zmq_hwm, uint32_t keybit,
-                             const std::string& bind_device, const int send_buf_size) :
+                             const std::string& bind_device, const int send_buf_size, double mbps) :
         _remoteips(remoteips),
         _zmq_port(zmq_port),
         _zmq_hwm(zmq_hwm),
@@ -26,7 +26,7 @@ PcapExportZMQ::PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_
         _bind_device(bind_device),
         _send_buf_size(send_buf_size),
         _pkts_bufs(remoteips.size()) {
-    _type = exporttype::zmq;
+    setExportTypeAndMbps(exporttype::zmq, mbps);
     for (size_t i = 0; i < remoteips.size(); ++i) {
         _pkts_bufs[i].buf.resize(MAX_BATCH_BUF_LENGTH, '\0');
         _pkts_bufs[i].batch_bufpos = sizeof(batch_pkts_hdr_t);
@@ -80,6 +80,14 @@ int PcapExportZMQ::closeExport() {
 
 int PcapExportZMQ::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data, int direct) {
     int ret = 0;
+    uint64_t us;
+
+    if(direct == PKTD_UNKNOWN)
+        return -1;
+
+    us = tv2us(&header->ts);
+    if(_check_mbps_cb(us, header->caplen) < 0)
+        return -1;
     for (size_t i = 0; i < _remoteips.size(); ++i) {
         ret += exportPacket(i, header, pkt_data, direct);
     }

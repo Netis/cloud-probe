@@ -25,7 +25,7 @@ typedef struct {
 const int INVALIDE_SOCKET_FD = -1;
 
 PcapExportVxlan::PcapExportVxlan(const std::vector<std::string>& remoteips, uint32_t vni, const std::string& bind_device,
-                             const int pmtudisc) :
+                             const int pmtudisc, double mbps) :
         _remoteips(remoteips),
         _vni(vni),
         _bind_device(bind_device),
@@ -33,7 +33,7 @@ PcapExportVxlan::PcapExportVxlan(const std::vector<std::string>& remoteips, uint
         _socketfds(remoteips.size()),
         _remote_addrs(remoteips.size()),
         _vxlanbuffers(remoteips.size()) {
-    _type = exporttype::vxlan;
+    setExportTypeAndMbps(exporttype::vxlan, mbps);
     for (size_t i = 0; i < remoteips.size(); ++i) {
         _socketfds[i] = INVALIDE_SOCKET_FD;
         _vxlanbuffers[i].resize(65535 + sizeof(vxlan_hdr_t), '\0');
@@ -119,9 +119,14 @@ int PcapExportVxlan::closeExport() {
 
 int PcapExportVxlan::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data, int direct) {
     int ret = 0;
-    if(direct == PKTD_UNKNOWN) {
+    uint64_t us;
+
+    if(direct == PKTD_UNKNOWN)
         return -1;
-    }
+
+    us = tv2us(&header->ts);
+    if(_check_mbps_cb(us, header->caplen) < 0)
+        return -1;
 
     for (size_t i = 0; i < _remoteips.size(); ++i) {
         ret |= exportPacket(i, header, pkt_data, direct);

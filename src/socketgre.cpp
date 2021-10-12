@@ -19,7 +19,7 @@
 const int INVALIDE_SOCKET_FD = -1;
 
 PcapExportGre::PcapExportGre(const std::vector<std::string>& remoteips, uint32_t keybit, const std::string& bind_device,
-                             const int pmtudisc) :
+                             const int pmtudisc, double mbps) :
         _remoteips(remoteips),
         _keybit(keybit),
         _bind_device(bind_device),
@@ -27,7 +27,7 @@ PcapExportGre::PcapExportGre(const std::vector<std::string>& remoteips, uint32_t
         _socketfds(remoteips.size()),
         _remote_addrs(remoteips.size()),
         _grebuffers(remoteips.size()) {
-    _type = exporttype::gre;
+    setExportTypeAndMbps(exporttype::gre, mbps);
     for (size_t i = 0; i < remoteips.size(); ++i) {
         _socketfds[i] = INVALIDE_SOCKET_FD;
         _grebuffers[i].resize(65535 + sizeof(grehdr_t), '\0');
@@ -118,9 +118,14 @@ int PcapExportGre::closeExport() {
 
 int PcapExportGre::exportPacket(const struct pcap_pkthdr* header, const uint8_t* pkt_data, int direct) {
     int ret = 0;
-    if(direct == PKTD_UNKNOWN) {
+    uint64_t us;
+
+    if(direct == PKTD_UNKNOWN)
         return -1;
-    }
+
+    us = tv2us(&header->ts);
+    if(_check_mbps_cb(us, header->caplen) < 0)
+        return -1;
 
     for (size_t i = 0; i < _remoteips.size(); ++i) {
         ret |= exportPacket(i, header, pkt_data, direct);

@@ -25,7 +25,7 @@ private:
 
 public:
     PcapExportVxlan(const std::vector<std::string>& remoteips, uint32_t vni, const std::string& bind_device,
-            const int pmtudisc);
+            const int pmtudisc,double mbps);
     ~PcapExportVxlan();
     int initExport();
     int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);
