@@ -20,7 +20,7 @@ typedef struct PcapInit {
     int buffer_size;
     int need_update_status;
 } pcap_init_t;
-
+bool replaceWithIfIp(std::string& expression, std::vector<std::string> &ips);
 class PcapHandler {
 protected:
     pcap_t*_pcap_handle;
