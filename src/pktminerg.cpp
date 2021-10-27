@@ -156,9 +156,22 @@ int main(int argc, const char* argv[]) {
 
     std::string filter = "";
     if (vm.count("expression")) {
-        auto expressions = vm["expression"].as<std::vector<std::string>>();
-        std::for_each(expressions.begin(), expressions.end(),
-                      [&filter](const std::string& express) { filter = filter + express + " "; });
+        auto expressions = vm["expression"].as < std::vector < std::string >> ();
+        for (size_t i = 0; i < expressions.size(); i++) {
+            filter = filter + expressions[i] + " ";
+            if (expressions[i] == "host" && i + 1 < expressions.size()) {
+                if (i > 0 && expressions[i - 1] == "not") {
+                    continue;
+                }
+                if (expressions[i + 1].find("nic.") == 0) {
+                    std::vector <std::string> ips;
+                    if (!replaceWithIfIp(expressions[i + 1], ips)) {
+                        std::cerr << "Please input right interface name." << std::endl;
+                        return 1;
+                    }
+                }
+            }
+        }
     }
 
     // no filter option

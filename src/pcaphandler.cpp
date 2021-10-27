@@ -13,6 +13,50 @@
 #include "agent_status.h"
 #include "vlan.h"
 
+bool replaceWithIfIp(std::string& expression, std::vector<std::string> &ips) {
+    std::string name = expression.substr(strlen("nic."));
+    expression = "";
+    pcap_if_t *alldevs;
+    pcap_if_t *d;
+    struct pcap_addr *addr;
+    char err_buf[PCAP_ERRBUF_SIZE];
+
+    if (pcap_findalldevs(&alldevs, err_buf) < 0)
+        return false;
+    for (d = alldevs; d; d = d->next) {
+        if (strcmp(d->name, (char*)name.data()) == 0) {
+            for (addr = d->addresses; addr; addr = addr->next) {
+                if (!addr->addr) {
+                    continue;
+                }
+
+                if (addr->addr->sa_family == AF_INET) {
+                    char str[INET_ADDRSTRLEN];
+                    inet_ntop(AF_INET, &(((sockaddr_in *) addr->addr)->sin_addr), str, sizeof(str));
+                    expression +=std::string(str);
+                    ips.push_back(std::string(str));
+                }
+                else if (addr->addr->sa_family == AF_INET6) {
+                    char str[INET6_ADDRSTRLEN];
+                    inet_ntop(AF_INET6, &(((sockaddr_in6 *) addr->addr)->sin6_addr), str, sizeof(str));
+                    expression += std::string(str);
+                }
+                else {
+                    continue;
+                }
+                if (addr->next != nullptr) {
+                    expression += " or host ";
+                }
+            }
+            pcap_freealldevs(alldevs);
+            return true;
+        }
+    }
+
+    pcap_freealldevs(alldevs);
+    return false;
+}
+
 PcapHandler::PcapHandler(std::string dumpDir, int16_t dumpInterval):
     _dumpDir(dumpDir),
     _dumpInterval(dumpInterval) {
