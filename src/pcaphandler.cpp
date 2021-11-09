@@ -365,3 +365,58 @@ int PcapLiveHandler::openPcap(const std::string& dev, const pcap_init_t& param, 
     _pcap_handle = pcap_handle;
     return 0;
 }
+
+void IpPortAddr::init(std::string express) {
+    std::vector<std::string> strs;
+    boost::split(strs, express, boost::is_any_of("_"));
+    for (int i = 0; i < strs.size()-1; i++) {
+        if (strs[i] == "host" || strs[i] == "(host") {
+            int len = strs[i+1].length();
+            if (strs[i+1][len-1] ==')') {
+                strs[i+1].erase(strs[i+1].end() - 1);
+            }
+            if (strs[i+1].find("nic.") == 0) {
+                std::vector<std::string> ips;
+                replaceWithIfIp(strs[i+1], ips);
+                for (auto i: ips) {
+                    struct in_addr ipV4;
+                    if (1 == inet_pton(AF_INET, i.c_str(), &ipV4)) {
+                        _ips.push_back(ipV4);
+                    }
+                }
+            }
+            else {
+                struct in_addr ipV4;
+
+                if (1 == inet_pton(AF_INET, strs[i+1].c_str(), &ipV4)) {
+                    _ips.push_back(ipV4);
+                }
+            }
+        }
+        else if (strs[i] == "port" || strs[i] == "(port") {
+            _ports.push_back(stoi(strs[i+1]));
+        }
+    }
+    _inited = true;
+    return;
+}
+bool IpPortAddr::matchIpPort (const in_addr *ip, const uint16_t port) {
+    bool ret = false;
+
+    for (auto ipv4: _ips) {
+        if (ipv4.s_addr == ip->s_addr) {
+            ret = true;
+            break;
+        }
+    }
+
+    if (ret) {
+        for (auto p : _ports) {
+            if (p == port) {
+                return true;
+            }
+            ret = false;
+        }
+    }
+    return ret;
+}

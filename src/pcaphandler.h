@@ -20,7 +20,21 @@ typedef struct PcapInit {
     int buffer_size;
     int need_update_status;
 } pcap_init_t;
+
 bool replaceWithIfIp(std::string& expression, std::vector<std::string> &ips);
+
+class IpPortAddr {
+public:
+    void init(const std::string express);
+    bool matchIpPort (const in_addr *ip, const uint16_t port);
+    bool isInited() {return _inited;};
+
+private:
+    std::vector<in_addr> _ips;
+    std::vector<uint32_t> _ports;
+    bool _inited = false;
+};
+
 class PcapHandler {
 protected:
     pcap_t*_pcap_handle;
@@ -40,6 +54,7 @@ protected:
     std::vector<in_addr> _ipv4s;
     std::vector<in6_addr> _ipv6s;
 
+    IpPortAddr _addr;
 
 protected:
     int openPcapDumper(pcap_t *pcap_handle);
