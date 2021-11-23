@@ -9,6 +9,16 @@
 #define PKTD_OG 2
 #define PKTD_NONCHECK 0
 
+typedef struct
+{
+    uint8_t reserved1:4;
+    uint8_t rra:4;
+    uint8_t service_tag_h : 4;
+    uint8_t reserved2 : 4;
+    uint8_t service_tag_l:8;
+    uint8_t check;
+}pa_tag_t;
+
 static inline uint64_t
 tv2us(const timeval* tv)
 {

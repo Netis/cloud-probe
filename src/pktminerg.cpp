@@ -60,6 +60,8 @@ int main(int argc, const char* argv[]) {
              "specify the interval for dump file creation")
             ("mbps", boost::program_options::value<double>()->default_value(0)->value_name("mbps"),
              "specify a floating point value for the Mbps rate that pktmg should send packets at.")
+            ("dir", boost::program_options::value<std::string>()->value_name("DIR"),
+             "specify the direction determination expression")
             ("nofilter",
              "force no filter; In online mode, only use when GRE interface "
                  "is set via CLI, AND you confirm that the snoop interface is "
@@ -256,6 +258,9 @@ int main(int argc, const char* argv[]) {
         // online
         std::string dev = vm["interface"].as<std::string>();
         handler = std::make_shared<PcapLiveHandler>(vm["dump"].as<std::string>(), vm["interval"].as<int>());
+        if (vm.count("dir")) {
+            handler->setDirIPPorts(vm["dir"].as<std::string>());
+        }
         if (handler->openPcap(dev, param, filter, dumpfile) != 0) {
             std::cerr << StatisLogContext::getTimeString() << "Call PcapLiveHandler openPcap failed." << std::endl;
             return 1;
