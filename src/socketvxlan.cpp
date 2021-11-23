@@ -143,11 +143,18 @@ int PcapExportVxlan::exportPacket(size_t index, const struct pcap_pkthdr* header
 
     vxlan_hdr_t* hdr;
     hdr = (vxlan_hdr_t*)&*vxlanbuffer.begin();
-    hdr->vx_flags = htonl(0x08000000);
-    hdr->vx_vni = htonl(_vni | (direct << 28));
-
     std::memcpy(reinterpret_cast<void*>(&(vxlanbuffer[sizeof(vxlan_hdr_t)])),
                 reinterpret_cast<const void*>(pkt_data), length);
+
+    hdr->vx_vni = htonl(_vni<<8);
+    if (direct != 0) {
+        ((pa_tag_t*)&hdr->vx_vni)->rra = direct;
+        ((pa_tag_t*)&hdr->vx_vni)->reserved1 = 0;
+        ((pa_tag_t*)&hdr->vx_vni)->reserved2 = 0;
+        ((pa_tag_t*)&hdr->vx_vni)->check = 0;
+    }
+
+
     ssize_t nSend = sendto(socketfd, &(vxlanbuffer[0]), length + sizeof(vxlan_hdr_t), 0, (struct sockaddr*) &remote_addr,
                            sizeof(struct sockaddr));
     while (nSend == -1 && errno == ENOBUFS) {

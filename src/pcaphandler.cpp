@@ -124,9 +124,14 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
     ether_header* eth;
     iphdr* ip;
     ip6_hdr* ipv6;
-    uint16_t eth_type;
-    int direct;
     vlan_tag *vlan_hdr;
+    udphdr *udp_hdr;
+    tcphdr *tcp_hdr;
+    uint16_t eth_type;
+    uint16_t sport = 0;
+    uint16_t dport = 0;
+    int direct;
+    int cap_len = header->len;
 
     if(header->caplen < sizeof(ether_header))
         return;
@@ -137,20 +142,38 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
     switch(eth_type) {
         case ETHERTYPE_IP:
             ip = (iphdr*)(pkt_data + sizeof(ether_header));
-            direct = checkPktDirectionV4((const in_addr*)&ip->saddr, (const in_addr*)&ip->daddr);
-            break;
-        case ETHERTYPE_IPV6:
-            ipv6 = (ip6_hdr*)(pkt_data + sizeof(ether_header));
-            direct = checkPktDirectionV6(&ipv6->ip6_src, &ipv6->ip6_dst);
-            break;
+            if (ip->protocol == 17) {
+                udp_hdr = (udphdr*) (pkt_data + sizeof(ether_header)+sizeof(iphdr));
+                sport = ntohs(udp_hdr->source);
+                dport = ntohs(udp_hdr->dest);
+            }
+            else if (ip->protocol == 6) {
+                tcp_hdr = (tcphdr*) (pkt_data + sizeof(ether_header)+sizeof(iphdr));
+                sport = ntohs(tcp_hdr->source);
+                dport = ntohs(tcp_hdr->dest);
+            }
+            direct = checkPktDirection((const in_addr*)&ip->saddr, (const in_addr*)&ip->daddr, sport, dport);
 
         case ETHERTYPE_VLAN: {
-            vlan_hdr = (vlan_tag *) (pkt_data + sizeof(ether_header));
+            vlan_hdr = (vlan_tag*) (pkt_data + sizeof(ether_header));
             uint16_t vlan_type = ntohs(vlan_hdr->vlan_tci);
-            switch (vlan_type) {
+            switch(vlan_type) {
                 case ETHERTYPE_IP:
-                    ip = (iphdr *) (pkt_data + sizeof(ether_header) + sizeof(vlan_tag));
-                    direct = checkPktDirectionV4((const in_addr *) &ip->saddr, (const in_addr *) &ip->daddr);
+                    ip = (iphdr*)(pkt_data + sizeof(ether_header)+sizeof(vlan_tag));
+                    if (ip->protocol == 17) {
+                        udp_hdr = (udphdr*) (pkt_data + sizeof(ether_header) + sizeof(iphdr) + sizeof(vlan_tag)) ;
+                        sport = ntohs(udp_hdr->source);
+                        dport = ntohs(udp_hdr->dest);
+                    }
+                    else if (ip->protocol == 6) {
+                        tcp_hdr = (tcphdr*) (pkt_data + sizeof(ether_header)+sizeof(iphdr) + sizeof(vlan_tag));
+                        sport = ntohs(tcp_hdr->source);
+                        dport = ntohs(tcp_hdr->dest);
+                    }
+                    direct = checkPktDirection((const in_addr*)&ip->saddr, (const in_addr*)&ip->daddr, sport, dport);
+                    break;
+
+                default:
                     break;
             }
         }
@@ -223,31 +246,19 @@ void PcapHandler::stopPcapLoop() {
     pcap_breakloop(_pcap_handle);
 }
 
-int PcapHandler::checkPktDirectionV4(const in_addr *sip, const in_addr *dip) {
-    for(auto& ipv4 : _ipv4s)
-    {
-        if(ipv4.s_addr == sip->s_addr)
-            return PKTD_OG;
-        else if(ipv4.s_addr == dip->s_addr)
-            return PKTD_IC;
+int PcapHandler::checkPktDirection(const in_addr *sip, const in_addr *dip, const uint16_t sport, const uint16_t dport) {
+    if (!_addr.isInited()) {
+        return PKTD_NONCHECK;
     }
-    return PKTD_UNKNOWN;
-}
 
-int PcapHandler::checkPktDirectionV6(const in6_addr *sip, const in6_addr *dip) {
-    for(auto& ipv6 : _ipv6s)
-    {
-        if(ipv6.s6_addr32[0] == sip->s6_addr32[0] &&
-           ipv6.s6_addr32[1] == sip->s6_addr32[1] &&
-           ipv6.s6_addr32[2] == sip->s6_addr32[2] &&
-           ipv6.s6_addr32[3] == sip->s6_addr32[3])
-            return PKTD_OG;
-        else if(ipv6.s6_addr32[0] == dip->s6_addr32[0] &&
-                ipv6.s6_addr32[1] == dip->s6_addr32[1] &&
-                ipv6.s6_addr32[2] == dip->s6_addr32[2] &&
-                ipv6.s6_addr32[3] == dip->s6_addr32[3])
-            return PKTD_IC;
+    if (_addr.matchIpPort(sip, sport)) {
+        return PKTD_OG;
     }
+
+    if (_addr.matchIpPort(dip, dport)) {
+        return PKTD_IC;
+    }
+
     return PKTD_UNKNOWN;
 }
 

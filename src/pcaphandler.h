@@ -12,7 +12,46 @@
 
 #include "pcapexport.h"
 #include "statislog.h"
-
+struct tcphdr
+{
+    uint16_t source;
+    uint16_t dest;
+    uint32_t seq;
+    uint32_t ack_seq;
+#  if __BYTE_ORDER == __LITTLE_ENDIAN
+    uint16_t res1:4;
+    uint16_t doff:4;
+    uint16_t fin:1;
+    uint16_t syn:1;
+    uint16_t rst:1;
+    uint16_t psh:1;
+    uint16_t ack:1;
+    uint16_t urg:1;
+    uint16_t res2:2;
+#  elif __BYTE_ORDER == __BIG_ENDIAN
+    uint16_t doff:4;
+    uint16_t res1:4;
+    uint16_t res2:2;
+    uint16_t urg:1;
+    uint16_t ack:1;
+    uint16_t psh:1;
+    uint16_t rst:1;
+    uint16_t syn:1;
+    uint16_t fin:1;
+#  else
+#   error "Adjust your <bits/endian.h> defines"
+#  endif
+    u_int16_t window;
+    u_int16_t check;
+    u_int16_t urg_ptr;
+};
+struct udphdr
+{
+    uint16_t source;
+    uint16_t dest;
+    uint16_t len;
+    uint16_t check;
+};
 typedef struct PcapInit {
     int snaplen;
     int timeout;
@@ -60,8 +99,7 @@ protected:
     int openPcapDumper(pcap_t *pcap_handle);
     void closePcapDumper();
 
-    int checkPktDirectionV4(const in_addr* sip, const in_addr* dip);
-    int checkPktDirectionV6(const in6_addr* sip, const in6_addr* dip);
+    int checkPktDirection(const in_addr *sip, const in_addr *dip, const uint16_t sport, const uint16_t dport);
 public:
     PcapHandler(std::string dumpDir, int16_t dumpInterval);
     virtual ~PcapHandler();
@@ -72,6 +110,7 @@ public:
     virtual int openPcap(const std::string &dev, const pcap_init_t &param, const std::string &expression,
                          bool dumpfile=false) = 0;
     void closePcap();
+    void setDirIPPorts(std::string str) {_addr.init(str);};
 };
 
 class PcapOfflineHandler : public PcapHandler {
