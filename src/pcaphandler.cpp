@@ -120,6 +120,32 @@ void PcapHandler::closePcap() {
     }
 }
 
+bool PcapHandler::handlePacket() {
+    if (_pcap_handle == NULL) {
+        std::cerr << StatisLogContext::getTimeString() << "The pcap has not created." << std::endl;
+        return false;
+    }
+    struct pcap_pkthdr * hdr;
+    const u_char * data;
+
+    int ret = pcap_next_ex(_pcap_handle, &hdr, &data);
+    if (1 == ret) {
+        packetHandler(hdr, data);
+
+    } else if (-1 == ret){
+        return false;
+    }
+    return true;
+}
+
+void PcapHandler::closeExports() {
+    for (auto & ex: _exports) {
+        ex->closeExport();
+    }
+
+    return;
+}
+
 void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
     ether_header* eth;
     iphdr* ip;

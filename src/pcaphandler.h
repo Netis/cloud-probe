@@ -111,6 +111,8 @@ public:
                          bool dumpfile=false) = 0;
     void closePcap();
     void setDirIPPorts(std::string str) {_addr.init(str);};
+    bool handlePacket();
+    void closeExports();
 };
 
 class PcapOfflineHandler : public PcapHandler {
