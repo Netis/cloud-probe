@@ -74,6 +74,8 @@ int main(int argc, char* argv[]) {
 
             ("dump", boost::program_options::value<std::string>()->default_value("./")->value_name("DUMP"),
              "specify pcap dump file dump dir")
+            ("slice", boost::program_options::value<int>()->default_value(0)->value_name("SLICE"),
+             "specify the length of the received packets that will be transferred or dumped.")
             ("interval", boost::program_options::value<int>()->default_value(-1)->value_name("INTERVAL"),
              "specify the interval for dump file creation")
             ("mbps", boost::program_options::value<double>()->default_value(0)->value_name("mbps"),
@@ -348,6 +350,9 @@ int main(int argc, char* argv[]) {
                 std::cerr << StatisLogContext::getTimeString() << "greExport initExport failed." << std::endl;
                 return err;
             }
+        }
+        if (vm.count("slice")) {
+            handler->setSliceLength(vm["slice"].as<int>());
         }
         handler->addExport(exportPtr);
         handlers.push_back(handler);

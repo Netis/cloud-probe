@@ -87,6 +87,7 @@ protected:
     std::string _dumpDir;
     std::int16_t _dumpInterval;
     std::time_t _timeStamp;
+    uint32_t _sliceLen;
 
     int _need_update_status;
 
@@ -98,6 +99,7 @@ protected:
 protected:
     int openPcapDumper(pcap_t *pcap_handle);
     void closePcapDumper();
+    uint32_t getPacketLen (uint32_t length);
 
     int checkPktDirection(const in_addr *sip, const in_addr *dip, const uint16_t sport, const uint16_t dport);
 public:
@@ -111,6 +113,7 @@ public:
                          bool dumpfile=false) = 0;
     void closePcap();
     void setDirIPPorts(std::string str) {_addr.init(str);};
+    void setSliceLength(uint32_t len) { _sliceLen = len; };
     bool handlePacket();
     void closeExports();
 };

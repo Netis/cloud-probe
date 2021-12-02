@@ -145,7 +145,14 @@ void PcapHandler::closeExports() {
 
     return;
 }
-
+uint32_t PcapHandler::getPacketLen (uint32_t length) {
+    if (_sliceLen == 0) {
+        return length;
+    }
+    else{
+        return (_sliceLen < length)? _sliceLen : length;
+    }
+};
 void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t* pkt_data) {
     ether_header* eth;
     iphdr* ip;
@@ -156,6 +163,7 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
     uint16_t eth_type;
     uint16_t sport = 0;
     uint16_t dport = 0;
+    _sliceLen = 0;
     int direct;
     int cap_len = header->len;
 
@@ -206,7 +214,7 @@ void PcapHandler::packetHandler(const struct pcap_pkthdr* header, const uint8_t*
         default:
             break;
     }
-    
+    ((struct pcap_pkthdr*)header)->caplen = getPacketLen(header->caplen);
     std::for_each(_exports.begin(), _exports.end(),
                   [header, pkt_data, this, direct](std::shared_ptr<PcapExportBase> pcapExport) {
                       int ret = pcapExport->exportPacket(header, pkt_data, direct);
