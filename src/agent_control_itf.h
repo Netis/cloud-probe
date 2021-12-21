@@ -16,9 +16,7 @@ typedef struct msg {
     uint32_t action;   // list below
     uint32_t query_id;  // the query id to identify each client for req flush
 
-    /* body */
-    char body[MAX_MSG_CONTENT_LENGTH];
-}  __attribute__((packed)) msg_t, * msg_ptr_t;
+} msg_t;
 
 
 // support action now
@@ -38,7 +36,7 @@ typedef struct msg_status {
     uint32_t total_cap_drop_count;
     uint32_t total_filter_drop_count;
     uint32_t total_fwd_drop_count;
-}__attribute__((packed)) msg_status_t, * msg_status_ptr_t;
+}msg_status_t;
 
 
 

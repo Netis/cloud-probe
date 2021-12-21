@@ -3,6 +3,7 @@
 
 #include <pcap/pcap.h>
 #include <functional>
+#include "dep.h"
 
 #define PKTD_UNKNOWN -1
 #define PKTD_IC 1

@@ -7,51 +7,13 @@
 
 #include <chrono>
 
-#include <netinet/in.h>
+#include <boost/algorithm/string.hpp>
 
 
 #include "pcapexport.h"
 #include "statislog.h"
-struct tcphdr
-{
-    uint16_t source;
-    uint16_t dest;
-    uint32_t seq;
-    uint32_t ack_seq;
-#  if __BYTE_ORDER == __LITTLE_ENDIAN
-    uint16_t res1:4;
-    uint16_t doff:4;
-    uint16_t fin:1;
-    uint16_t syn:1;
-    uint16_t rst:1;
-    uint16_t psh:1;
-    uint16_t ack:1;
-    uint16_t urg:1;
-    uint16_t res2:2;
-#  elif __BYTE_ORDER == __BIG_ENDIAN
-    uint16_t doff:4;
-    uint16_t res1:4;
-    uint16_t res2:2;
-    uint16_t urg:1;
-    uint16_t ack:1;
-    uint16_t psh:1;
-    uint16_t rst:1;
-    uint16_t syn:1;
-    uint16_t fin:1;
-#  else
-#   error "Adjust your <bits/endian.h> defines"
-#  endif
-    u_int16_t window;
-    u_int16_t check;
-    u_int16_t urg_ptr;
-};
-struct udphdr
-{
-    uint16_t source;
-    uint16_t dest;
-    uint16_t len;
-    uint16_t check;
-};
+
+
 typedef struct PcapInit {
     int snaplen;
     int timeout;

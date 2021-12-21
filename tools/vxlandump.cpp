@@ -9,8 +9,9 @@
 #include <pcap/pcap.h>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
-#include "scopeguard.h"
-#include "versioninfo.h"
+#include "../src/scopeguard.h"
+#include "../src/versioninfo.h"
+#include "../src/dep.h"
 
 #define VXLAN_PORT 4789
 int g_break_loop = 0;
@@ -113,7 +114,11 @@ int main(int argc, const char* argv[]) {
     }
 
     noblock = 1;
+#ifdef WIN32
+    ret = ioctlsocket(sock, FIONBIO, (unsigned long*)&noblock);
+#else
     setsockopt(sock, SOL_SOCKET, SOCK_NONBLOCK, &noblock, sizeof(noblock));
+#endif
 
     buff.resize(UINT16_MAX);
 
@@ -137,7 +142,7 @@ int main(int argc, const char* argv[]) {
         if(select(sock + 1, &rset, 0, 0, &timeout) > 0)
         {
             addr_len = sizeof(addr);
-            if((ret = recvfrom(sock, &*buff.begin(), UINT16_MAX, 0, (sockaddr*)&addr, &addr_len)) > 0)
+            if((ret = recvfrom(sock, (char*)&*buff.begin(), UINT16_MAX, 0, (sockaddr*)&addr, &addr_len)) > 0)
             {
                 ++capture_cnt;
                 if(vxlan_frame_match(&*buff.begin(), ret, vni) < 0)

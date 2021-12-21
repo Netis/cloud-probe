@@ -1,9 +1,7 @@
 #ifndef SRC_SOCKETZMQ_H_
 #define SRC_SOCKETZMQ_H_
 
-#ifndef WIN32
-	#include <netinet/in.h>
-#endif
+
 #include <string>
 #include <vector>
 #include "zmq.hpp"
@@ -31,7 +29,7 @@ struct BatchPktsBuf {
 	// | 8 bytes   | (2 bytes          + 16 bytes + n bytes ) | (2 bytes          + 16 bytes + n bytes ) | ...
     std::vector<char> buf;
     uint32_t batch_bufpos;
-    __time_t first_pktsec;
+    long int first_pktsec;
 public:
 	static constexpr uint16_t BATCH_PKTS_VERSION = 1;
 };

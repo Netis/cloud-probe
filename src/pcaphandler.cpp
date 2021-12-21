@@ -2,11 +2,6 @@
 #include <algorithm>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
-#include <netinet/ether.h>
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
 
 #include "pcaphandler.h"
 #include "scopeguard.h"
@@ -327,30 +322,7 @@ int PcapLiveHandler::openPcap(const std::string& dev, const pcap_init_t& param, 
     bpf_u_int32 mask = 0;
     bpf_u_int32 net = 0;
     _need_update_status = param.need_update_status;
-
-    {
-        struct ifaddrs* ifaddr;
-
-        _ipv4s.clear();
-        _ipv6s.clear();
-        if (::getifaddrs(&ifaddr) < 0) {
-            return -1;
-        }
-
-        for (auto ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-            if(!ifa->ifa_name || dev != ifa->ifa_name || !ifa->ifa_addr)
-                continue;
-            if(ifa->ifa_addr->sa_family == AF_INET)
-            {
-                _ipv4s.push_back(((sockaddr_in*)ifa->ifa_addr)->sin_addr);
-            }
-            else if(ifa->ifa_addr->sa_family == AF_INET6)
-            {
-                _ipv6s.push_back(((sockaddr_in6*)ifa->ifa_addr)->sin6_addr);
-            }
-        }
-        freeifaddrs(ifaddr);
-    }
+ 
     pcap_t* pcap_handle = pcap_create(dev.c_str(), _errbuf);
     if (!pcap_handle) {
         std::cerr << StatisLogContext::getTimeString() << "Call pcap_create failed, error is " << _errbuf << "."
@@ -373,7 +345,7 @@ int PcapLiveHandler::openPcap(const std::string& dev, const pcap_init_t& param, 
     ret = pcap_activate(pcap_handle);
     if (ret != 0) {
         std::cerr << StatisLogContext::getTimeString() << "Call pcap_activate failed  error is "
-                  << pcap_statustostr(ret) << "." << std::endl;
+                  << pcap_geterr(pcap_handle) << "." << std::endl;
         return -1;
     }
 
@@ -388,14 +360,14 @@ int PcapLiveHandler::openPcap(const std::string& dev, const pcap_init_t& param, 
         ret = pcap_compile(pcap_handle, &filter, expression.c_str(), 0, net);
         if (ret != 0) {
             std::cerr << StatisLogContext::getTimeString() << "Call pcap_compile failed, error is "
-                      << pcap_statustostr(ret) << "." << std::endl;
+                      << pcap_geterr(pcap_handle) << "." << std::endl;
             return -1;
         }
 
         ret = pcap_setfilter(pcap_handle, &filter);
         if (ret != 0) {
             std::cerr << StatisLogContext::getTimeString() << "Call pcap_setfilter failed, error is "
-                      << pcap_statustostr(ret) << "." << std::endl;
+                      << pcap_geterr(pcap_handle) << "." << std::endl;
             return -1;
         }
     }

@@ -5,17 +5,19 @@ option(PROJECT_WITH_PROF "Enable profiling and coverage report analysis" OFF)
 
 message("\${PROJECT_WITH_PROF}: ${PROJECT_WITH_PROF}")
 # cmake cxx flags
+if (NOT WIN32)
 if (${PROJECT_WITH_PROF})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt -fprofile-arcs -ftest-coverage")
     set(LINK_FLAGS "${LINK_FLAGS} -fprofile-arcs")
 else ()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt")
 endif ()
+endif ()
 
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
 set(PKTMINERG_MAJOR_VERSION "0")
 set(PKTMINERG_MINOR_VERSION "5")
-set(PKTMINERG_PATCH_VERSION "9")
+set(PKTMINERG_PATCH_VERSION "10")
 set(PKTMINERG_VERSION_STRING "${PKTMINERG_MAJOR_VERSION}.${PKTMINERG_MINOR_VERSION}.${PKTMINERG_PATCH_VERSION}")
 
 if(WIN32)
@@ -85,6 +87,7 @@ if(UNIX)
 	message("LIBGCCS: " ${LIBGCCS})
 
 
+
 	INCLUDE(FindBoost)
 	set(Boost_USE_STATIC_LIBS ON)
 	find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
@@ -101,18 +104,22 @@ if(UNIX)
 	)
 endif()
 
+if (UNIX)
+    set(DEP_ROOT "${PROJECT_SOURCE_DIR}/dep/unix")
+elseif (WIN32)
+    set(DEP_ROOT "${PROJECT_SOURCE_DIR}/dep/win")
+endif ()
+
 if(WIN32)
 	set(Boost_USE_STATIC_LIBS ON)
-	find_package(Boost REQUIRED COMPONENTS program_options system filesystem)
+	#find_package(Boost REQUIRED COMPONENTS program_options system filesystem)
 	include_directories(
 			${PROJECT_SOURCE_DIR}/include
 			${PROJECT_BINARY_DIR}
-			${BOOST_ROOT}
-			${PCAP_ROOT}/Include
+			${DEP_ROOT}/Include
 	)
 	link_directories(
-		${BOOST_ROOT}/stage/lib
-		${PCAP_ROOT}/lib/x64)
+		${DEP_ROOT}/lib)
 endif()
 
 if(UNIX AND NOT APPLE)
@@ -188,12 +195,6 @@ else()
         )
 endif()
 
-if(WIN32)
-	set(SOURCE_FILES_PCAP
-		${PROJECT_SOURCE_DIR}/src/pcap_win32.cpp
-        )
-endif()
-
 set(SOURCE_FILES_GREDEMO
         ${PROJECT_SOURCE_DIR}/tools/gredemo.cpp
         )
@@ -215,9 +216,11 @@ set(SOURCE_FILES_PCAPCOMPARE
 if(WIN32)
     set(SOURCE_FILES_PKTMINERG_BASE
             ${SOURCE_FILES_SYSHELP}
-            ${SOURCE_FILES_PCAP}
+            ${PROJECT_SOURCE_DIR}/src/agent_control_plane.cpp
             ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
+            ${PROJECT_SOURCE_DIR}/src/socketzmq.cpp.
             ${PROJECT_SOURCE_DIR}/src/socketvxlan.cpp
+            ${PROJECT_SOURCE_DIR}/src/agent_status.cpp
             ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
             ${PROJECT_SOURCE_DIR}/src/statislog.cpp
             )
@@ -254,8 +257,12 @@ if(UNIX)
     set(ZMQ_LIB zmq)
 else()
 	set(PCAP_LIB wpcap Packet)	
-	set(SOCKET_LIB zmq)
-    set(ZMQ_LIB )
+	set(SOCKET_LIB ws2_32 Iphlpapi)
+    if (${CMAKE_BUILD_TYPE} MATCHES "[Dd][Ee][Bb][Uu][Gg]")
+        set(ZMQ_LIB libzmq-v${MSVC_TOOLSET_VERSION}-mt-sgd-4_3_4)
+    else ()
+        set(ZMQ_LIB libzmq-v${MSVC_TOOLSET_VERSION}-mt-s-4_3_4)
+    endif ()
 endif()
 
 # bin -- gredemo
@@ -286,6 +293,7 @@ target_link_libraries(pcapcompare ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
 # bin -- pktminerg
 add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
 if(WIN32)
+    target_compile_definitions(pktminerg PRIVATE -D_CRT_SECURE_NO_WARNINGS)
 	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 endif()
 target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} ${ZMQ_LIB})
@@ -306,18 +314,39 @@ if(UNIX AND NOT APPLE)
                               ${TEST_DIR}/src/gtest-test-part.cc
                               ${TEST_DIR}/src/gtest-typed-test.cc)
     add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
+    target_include_directories(unittest PRIVATE
+            ${DEP_ROOT}/include)
     target_link_libraries(unittest ${BOOST_LIB} pcap pthread ${ZMQ_LIB})
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
 endif()
 
 # cpack
 if(WIN32)
-    install(FILES 
-        "${PROJECT_SOURCE_DIR}/README.md" "${PROJECT_SOURCE_DIR}/README-zh-Hans.md" 
-        "${PROJECT_SOURCE_DIR}/USAGE.md" "${PROJECT_SOURCE_DIR}/BUILD.md" 
-        "${PROJECT_SOURCE_DIR}/CHANGES.md" "${PROJECT_SOURCE_DIR}/INSTALL.md"   
-        "${PROJECT_SOURCE_DIR}/LICENSE.md"
-        DESTINATION doc COMPONENT pktminerg)
+    install(FILES
+            "${PROJECT_SOURCE_DIR}/README.md" "${PROJECT_SOURCE_DIR}/README-zh-Hans.md"
+            "${PROJECT_SOURCE_DIR}/USAGE.md" "${PROJECT_SOURCE_DIR}/BUILD.md"
+            "${PROJECT_SOURCE_DIR}/CHANGES.md" "${PROJECT_SOURCE_DIR}/INSTALL.md"
+            "${PROJECT_SOURCE_DIR}/LICENSE.md"
+            DESTINATION doc COMPONENT pktminerg)
+    install(FILES
+            "${DEP_ROOT}/pak/WinPcap_4_1_3.exe"
+            "${DEP_ROOT}/pak/winpcap-nmap-4.13.exe"
+            "${DEP_ROOT}/pak/npcap-1.20.exe"
+            "${DEP_ROOT}/pak/install.bat"
+            "${DEP_ROOT}/pak/VC_redist.${MSVC_TOOLSET_VERSION}.x64.exe"
+            DESTINATION pak COMPONENT pktminerg)
+    install(FILES
+            "${DEP_ROOT}/pak/npcap-1.20/npcap.cat"
+            "${DEP_ROOT}/pak/npcap-1.20/npcap.inf"
+            "${DEP_ROOT}/pak/npcap-1.20/npcap.sys"
+            "${DEP_ROOT}/pak/npcap-1.20/npcap_wfp.inf"
+            "${DEP_ROOT}/pak/npcap-1.20/NpcapHelper.exe"
+            "${DEP_ROOT}/pak/npcap-1.20/NPFInstall.exe"
+            "${DEP_ROOT}/pak/npcap-1.20/Packet.dll"
+            "${DEP_ROOT}/pak/npcap-1.20/Uninstall.exe"
+            "${DEP_ROOT}/pak/npcap-1.20/WlanHelper.exe"
+            "${DEP_ROOT}/pak/npcap-1.20/wpcap.dll"
+            DESTINATION pak/npcap-1.20 COMPONENT pktminerg)
     install(TARGETS pktminerg gredump pcapcompare gredemo DESTINATION bin COMPONENT pktminerg)
     set(CPACK_PACKAGE_NAME "netis-packet-agent")
     set(CPACK_PACKAGE_VENDOR "netis")

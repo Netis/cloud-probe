@@ -9,8 +9,8 @@
 #include <pcap/pcap.h>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
-#include "scopeguard.h"
-#include "versioninfo.h"
+#include "../src/scopeguard.h"
+#include "../src/versioninfo.h"
 
 const int32_t PROT_ETH_MINLEN = 14;
 const int32_t PROT_IPV4_MINLEN = 20;
@@ -241,7 +241,7 @@ int main(int argc, const char* argv[]) {
         });
         int ret = pcap_activate(pcap_handle);
         if (ret != 0) {
-            std::cerr << "Capture error: " << pcap_statustostr(ret) << std::endl;
+            std::cerr << "Capture error: " << pcap_geterr(pcap_handle) << std::endl;
             return 1;
         }
         pcapGuard.Dismiss();

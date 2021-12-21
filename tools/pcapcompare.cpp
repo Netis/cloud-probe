@@ -3,8 +3,8 @@
 #include <pcap/pcap.h>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
-#include "scopeguard.h"
-#include "versioninfo.h"
+#include "../src/scopeguard.h"
+#include "../src/versioninfo.h"
 
 int main(int argc, const char* argv[]) {
     boost::program_options::options_description generic("Generic options");

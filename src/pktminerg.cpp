@@ -2,6 +2,7 @@
 #include <csignal>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
+#include <unordered_map>
 #include "pcaphandler.h"
 #include "socketgre.h"
 #include "socketvxlan.h"
@@ -39,10 +40,13 @@ int main(int argc, char* argv[]) {
             ("version,v", "show version.")
             ("help,h", "show help.");
 
-    boost::program_options::options_description desc("Allowed options");
+    boost::program_options::options_description desc("\
+            Multi-interface is supported and the format should be \" \" \" \" ...\n\
+            the rules for each interface are set within \"  \", for example, pktminerg \"-i eth0 -r 10.1.1.1.\" \"-i eth1 -r 10.1.1.2\"\n\n\
+Allowed options for each interface:");
     desc.add_options()
-            ("interface,i", boost::program_options::value<std::string>()->value_name("NIC"),
-             "interface to capture packets")
+        ("interface,i", boost::program_options::value<std::vector<std::string>>()->value_name("NIC"),
+            "interface to capture packets")
             ("bind_device,B", boost::program_options::value<std::string>()->value_name("BIND"),
              "send GRE packets from this binded device.(Not available on Windows)")
             ("pmtudisc_option,M", boost::program_options::value<std::string>()->value_name("MTU"),
@@ -53,6 +57,8 @@ int main(int argc, char* argv[]) {
              "set gre remote IPs, seperate by ',' Example: -r 8.8.4.4,8.8.8.8")
             ("zmq_port,z", boost::program_options::value<int>()->default_value(0)->value_name("ZMQ_PORT"),
              "set remote zeromq server port to receive packets reliably; ZMQ_PORT default value 0 means disable.")
+            ("interface_csets,S",boost::program_options::value<std::string>()->default_value("gb2312")->value_name("NIC_CSETS"),
+             "characters sets of interface, avl: gb2312 utf8")
             ("zmq_hwm,m", boost::program_options::value<int>()->default_value(4096)->value_name("ZMQ_HWM"),
              "set zeromq queue high watermark; ZMQ_HWM default value 100.")
             ("keybit,k", boost::program_options::value<int>()->default_value(1)->value_name("KEYBIT"),
@@ -169,9 +175,11 @@ int main(int argc, char* argv[]) {
                 pmtudisc = IP_PMTUDISC_DO;
             } else if (pmtudisc_option == "dont") {
                 pmtudisc = IP_PMTUDISC_DONT;
-            } else if (pmtudisc_option == "want") {
+            }
+            else if (pmtudisc_option == "want") {
                 pmtudisc = IP_PMTUDISC_WANT;
-            } else {
+            }
+            else {
                 std::cerr << StatisLogContext::getTimeString()
                           << "Wrong value for -M: do, dont, want are valid ones." << std::endl;
                 return 1;
@@ -181,9 +189,8 @@ int main(int argc, char* argv[]) {
         if (vm.count("control")) {
             const auto daemon_zmq_port = vm["control"].as<int>();
             agent_control_plane = std::make_shared<AgentControlPlane>(daemon_zmq_port);
-            agent_control_plane->init_msg_server();
-            update_status = 1;
         }
+	update_status = 1;
 #endif // WIN32
 
 
@@ -308,7 +315,42 @@ int main(int argc, char* argv[]) {
             }
         } else if (vm.count("interface")) {
             // online
-            std::string dev = vm["interface"].as<std::string>();
+            std::string intface = "";
+            if (vm.count("interface")) {
+                auto strs = vm["interface"].as<std::vector<std::string>>();
+                for (uint16_t i = 0; i < strs.size(); i++) {
+                    intface = intface + strs[i];
+                    if (i < strs.size() - 1) {
+                        intface = intface + " ";
+                    }
+                }
+            }
+            std::string dev = intface;
+#ifdef _WIN32
+            std::string cset = vm["interface_csets"].as<std::string>();
+
+            if (cset != "gb2312" && cset != "utf8") {
+                std::cerr << StatisLogContext::getTimeString() << "unsupported characters sets(" << cset
+                    << ") of interface" << std::endl;
+                return 1;
+            }
+            std::unordered_map<std::string, std::string> interfaces;
+            std::unordered_map<std::string, std::string>::iterator it;
+            if (getLocalInterfacesWin(interfaces) < 0) {
+                std::cerr << StatisLogContext::getTimeString() << "Call getLocalInterfacesWin failed." << std::endl;
+                return 1;
+            }
+            if (cset == "gb2312")
+                dev = u16ToUtf8(gb2312ToU16(dev));
+            if ((it = interfaces.find(dev)) == interfaces.end()) {
+                std::cerr << StatisLogContext::getTimeString() << "not interface match ("<< intface << ") failed, reference follow list:" << std::endl;
+                for (auto& m : interfaces) {
+                    std::cerr << "\t" << m.second << "\t" << u16ToGb2312(utf8ToU16(m.first)) << std::endl;
+                }
+                return 1;
+            }
+            dev = it->second;
+#endif
             handler = std::make_shared<PcapLiveHandler>(vm["dump"].as<std::string>(), vm["interval"].as<int>());
             if (vm.count("dir")) {
                 handler->setDirIPPorts(vm["dir"].as<std::string>());
