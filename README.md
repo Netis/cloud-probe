@@ -2,7 +2,7 @@
 English  ∙  [简体中文](README-zh-Hans.md) 
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.5.0
+# Netis Packet Agent 0.6.0
 
 [![Stable release](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.5.0)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
