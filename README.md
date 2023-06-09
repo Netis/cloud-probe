@@ -28,15 +28,15 @@ With 3 utilities:
 ### Installation
 
 #### CentOS 7/8 and RedHat 7
-1. Install libpcap and wget
+1. Install wget
 ```bash
-yum install libpcap wget zeromq
+yum install wget
 ```
 
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.5.0/netis-packet-agent-0.5.0.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.5.0.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.x86_64_centos.rpm
+rpm -ivh netis-packet-agent-0.6.0.x86_64_centos.rpm
 ```
 
 #### SUSE 12
