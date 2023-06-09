@@ -1,11 +1,11 @@
 #ifndef SRC_SOCKETZMQ_H_
 #define SRC_SOCKETZMQ_H_
 
-
 #include <string>
 #include <vector>
 #include "zmq.hpp"
 #include "pcapexport.h"
+#include "logfilecontext.h"
 
 
 
@@ -34,6 +34,7 @@ public:
 	static constexpr uint16_t BATCH_PKTS_VERSION = 1;
 };
 
+
 class PcapExportZMQ : public PcapExportBase {
 protected:
     std::vector<std::string> _remoteips;
@@ -45,8 +46,12 @@ protected:
 	std::vector<zmq::context_t> _zmq_contexts;
     std::vector<zmq::socket_t> _zmq_sockets;
     std::vector<BatchPktsBuf> _pkts_bufs;
-    constexpr static uint32_t MAX_PKTS_TIMEDIFF_S = 1;
+    constexpr static long MAX_PKTS_TIMEDIFF_S = 1;
 	constexpr static uint32_t MAX_BATCH_BUF_LENGTH = 1 * 1024 * 1024;
+	uint64_t _fwd_cnt = 0;
+	uint64_t _fwd_byte = 0;
+    LogFileContext _ctx;
+    std::string output_buffer;
 
 private:
     int initSockets(size_t index, uint32_t keybit);
@@ -55,11 +60,14 @@ private:
 
 public:
     PcapExportZMQ(const std::vector<std::string>& remoteips, int zmq_port, int zmq_hwm, uint32_t keybit,
-				  const std::string& bind_device, const int send_buf_size, double mbps);
+				  const std::string& bind_device, const int send_buf_size, double mbps, LogFileContext& ctx);
     ~PcapExportZMQ();
     int initExport();
     int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);
     int closeExport();
+    virtual void checkSendBuf();
+    virtual uint64_t getForwardCnt() {return _fwd_cnt;};
+    virtual uint64_t getForwardByte() {return _fwd_byte;};
 };
 
 #endif // SRC_SOCKETZMQ_H_

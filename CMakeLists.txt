@@ -6,23 +6,22 @@ option(PROJECT_WITH_PROF "Enable profiling and coverage report analysis" OFF)
 message("\${PROJECT_WITH_PROF}: ${PROJECT_WITH_PROF}")
 # cmake cxx flags
 if (NOT WIN32)
-if (${PROJECT_WITH_PROF})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt -fprofile-arcs -ftest-coverage")
-    set(LINK_FLAGS "${LINK_FLAGS} -fprofile-arcs")
-else ()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt")
+    if (${PROJECT_WITH_PROF})
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt -fprofile-arcs -ftest-coverage")
+        set(LINK_FLAGS "${LINK_FLAGS} -fprofile-arcs")
+    else ()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pthread -lrt")
+    endif ()
 endif ()
-endif ()
-
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
 set(PKTMINERG_MAJOR_VERSION "0")
-set(PKTMINERG_MINOR_VERSION "5")
-set(PKTMINERG_PATCH_VERSION "10")
+set(PKTMINERG_MINOR_VERSION "6")
+set(PKTMINERG_PATCH_VERSION "0")
 set(PKTMINERG_VERSION_STRING "${PKTMINERG_MAJOR_VERSION}.${PKTMINERG_MINOR_VERSION}.${PKTMINERG_PATCH_VERSION}")
 
-if(WIN32)
-Add_Definitions(-D_XKEYCHECK_H) 
-endif()
+if (WIN32)
+    Add_Definitions(-D_XKEYCHECK_H)
+endif ()
 
 # Get the current working branch
 execute_process(
@@ -57,52 +56,46 @@ configure_file(
         ${PROJECT_BINARY_DIR}/version.h
 )
 
-if(APPLE)
+if (APPLE)
     find_library(LIBPCAP NAMES libpcap.dylib)
     find_library(LIBSTDCPP NAMES libstdc++.6.dylib)
     find_library(LIBGCCS NAMES libgcc_s.1.dylib)
     add_definitions(-DMAC)
-elseif(UNIX)
-    find_library(LIBPCAP NAMES libpcap.so)
+elseif (UNIX)
     find_library(LIBSTDCPP NAMES libstdc++.so.6)
     find_library(LIBGCCS NAMES libgcc_s.so.1)
-endif()
+endif ()
 
-if(UNIX)
-	if (NOT LIBPCAP)
-		message(FATAL_ERROR "lib pcap not found")
-	endif()
-	message("LIBPCAP: " ${LIBPCAP})
-
-
-	if (NOT LIBSTDCPP)
-		message(FATAL_ERROR "lib stdcpp not found")
-	endif()
-	message("LIBSTDCPP: " ${LIBSTDCPP})
+if (UNIX)
+    if (NOT LIBSTDCPP)
+        message(FATAL_ERROR "lib stdcpp not found")
+    endif ()
+    message("LIBSTDCPP: " ${LIBSTDCPP})
 
 
-	if (NOT LIBGCCS)
-		message(FATAL_ERROR "lib gccs not found")
-	endif()
-	message("LIBGCCS: " ${LIBGCCS})
+    if (NOT LIBGCCS)
+        message(FATAL_ERROR "lib gccs not found")
+    endif ()
+    message("LIBGCCS: " ${LIBGCCS})
 
 
-
-	INCLUDE(FindBoost)
-	set(Boost_USE_STATIC_LIBS ON)
-	find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
+    INCLUDE(FindBoost)
+    set(Boost_USE_STATIC_LIBS ON)
+    find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
 
     find_package(cppzmq)
+    message("Boost_INCLUDE_DIRS: " ${Boost_INCLUDE_DIRS})
+    message("Boost_LIBRARY_DIRS: " ${Boost_LIBRARY_DIRS})
+    # include dir
+    include_directories(
+            ${PROJECT_SOURCE_DIR}/include
+            ${PROJECT_SOURCE_DIR}/src
+            ${PROJECT_BINARY_DIR}
+            ${Boost_INCLUDE_DIRS}
+    )
+endif ()
 
-	message("Boost_INCLUDE_DIRS: " ${Boost_INCLUDE_DIRS})
-	message("Boost_LIBRARY_DIRS: " ${Boost_LIBRARY_DIRS})
-	# include dir
-	include_directories(
-			${PROJECT_SOURCE_DIR}/include
-			${PROJECT_BINARY_DIR}
-			${Boost_INCLUDE_DIRS}
-	)
-endif()
+set(ASSETS_ROOT "${PROJECT_SOURCE_DIR}/assets")
 
 if (UNIX)
     set(DEP_ROOT "${PROJECT_SOURCE_DIR}/dep/unix")
@@ -110,26 +103,22 @@ elseif (WIN32)
     set(DEP_ROOT "${PROJECT_SOURCE_DIR}/dep/win")
 endif ()
 
-if(WIN32)
-	set(Boost_USE_STATIC_LIBS ON)
-	#find_package(Boost REQUIRED COMPONENTS program_options system filesystem)
-	include_directories(
-			${PROJECT_SOURCE_DIR}/include
-			${PROJECT_BINARY_DIR}
-			${DEP_ROOT}/Include
-	)
-	link_directories(
-		${DEP_ROOT}/lib)
-endif()
+if (WIN32)
+    set(Boost_USE_STATIC_LIBS ON)
+    #find_package(Boost REQUIRED COMPONENTS program_options system filesystem)
+    include_directories(
+            ${PROJECT_SOURCE_DIR}/include
+            ${PROJECT_SOURCE_DIR}/src
+            ${PROJECT_BINARY_DIR}
+            ${DEP_ROOT}/include
+    )
+    link_directories(
+            ${DEP_ROOT}/lib)
+endif ()
 
-if(UNIX AND NOT APPLE)
+if (UNIX AND NOT APPLE)
     # link dir
-link_directories(${Boost_LIBRARY_DIRS})
-
-# read the real file which libpcap.so links to
-    execute_process(COMMAND readlink -f ${LIBPCAP}
-            OUTPUT_VARIABLE PCAP_REAL_FILE OUTPUT_STRIP_TRAILING_WHITESPACE)
-    message("PCAP REAL FILE: " ${PCAP_REAL_FILE})
+    link_directories(${Boost_LIBRARY_DIRS})
 
     # read the real file which libstdc++.so links to
     execute_process(COMMAND readlink -f ${LIBSTDCPP}
@@ -176,7 +165,7 @@ link_directories(${Boost_LIBRARY_DIRS})
     execute_process(COMMAND basename ${LIBGCCS} OUTPUT_VARIABLE BN_GCCS_LINK OUTPUT_STRIP_TRAILING_WHITESPACE)
     execute_process(COMMAND basename ${GCCS_REAL_FILE} OUTPUT_VARIABLE BN_GCCS_REAL OUTPUT_STRIP_TRAILING_WHITESPACE)
     execute_process(COMMAND ln -s ${BN_GCCS_REAL} ${BN_GCCS_LINK} WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/3rdlib)
-endif()
+endif ()
 
 
 # output dir
@@ -185,15 +174,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 # source
-if(WIN32)
-	set(SOURCE_FILES_SYSHELP
-		${PROJECT_SOURCE_DIR}/src/syshelp_win32.cpp
-        )
-else()
-	set(SOURCE_FILES_SYSHELP
-        ${PROJECT_SOURCE_DIR}/src/syshelp.cpp
-        )
-endif()
+if (WIN32)
+    set(SOURCE_FILES_SYSHELP
+            ${PROJECT_SOURCE_DIR}/src/syshelp_win32.cpp
+            )
+else ()
+    set(SOURCE_FILES_SYSHELP
+            ${PROJECT_SOURCE_DIR}/src/syshelp.cpp
+            )
+endif ()
 
 set(SOURCE_FILES_GREDEMO
         ${PROJECT_SOURCE_DIR}/tools/gredemo.cpp
@@ -201,19 +190,16 @@ set(SOURCE_FILES_GREDEMO
 
 set(SOURCE_FILES_GREDUMP
         ${PROJECT_SOURCE_DIR}/tools/gredump.cpp
-		${SOURCE_FILES_PCAP}
         )
-
 set(SOURCE_FILES_VXLANDUMP
         ${PROJECT_SOURCE_DIR}/tools/vxlandump.cpp
-        ${SOURCE_FILES_PCAP}
         )
 
 set(SOURCE_FILES_PCAPCOMPARE
         ${PROJECT_SOURCE_DIR}/tools/pcapcompare.cpp
         )
 
-if(WIN32)
+if (WIN32)
     set(SOURCE_FILES_PKTMINERG_BASE
             ${SOURCE_FILES_SYSHELP}
             ${PROJECT_SOURCE_DIR}/src/agent_control_plane.cpp
@@ -223,11 +209,11 @@ if(WIN32)
             ${PROJECT_SOURCE_DIR}/src/agent_status.cpp
             ${PROJECT_SOURCE_DIR}/src/pcaphandler.cpp
             ${PROJECT_SOURCE_DIR}/src/statislog.cpp
+            ${PROJECT_SOURCE_DIR}/src/logfilecontext.cpp
             )
-else()
+else ()
     set(SOURCE_FILES_PKTMINERG_BASE
             ${SOURCE_FILES_SYSHELP}
-            ${SOURCE_FILES_PCAP}
             ${PROJECT_SOURCE_DIR}/src/socketgre.cpp
             ${PROJECT_SOURCE_DIR}/src/socketvxlan.cpp
             ${PROJECT_SOURCE_DIR}/src/socketzmq.cpp
@@ -235,8 +221,9 @@ else()
             ${PROJECT_SOURCE_DIR}/src/statislog.cpp
             ${PROJECT_SOURCE_DIR}/src/agent_status.cpp
             ${PROJECT_SOURCE_DIR}/src/agent_control_plane.cpp
+            ${PROJECT_SOURCE_DIR}/src/logfilecontext.cpp
             )
-endif()    
+endif ()
 
 set(SOURCE_FILES_PKTMINERG
         ${SOURCE_FILES_PKTMINERG_BASE}
@@ -251,77 +238,110 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 set(CMAKE_INSTALL_RPATH "/opt/netis/lib")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
-if(UNIX)
-	set(PCAP_LIB pcap)
-	set(BOOST_LIB boost_program_options.a boost_system.a boost_filesystem.a)
-    set(ZMQ_LIB zmq)
-else()
-	set(PCAP_LIB wpcap Packet)	
-	set(SOCKET_LIB ws2_32 Iphlpapi)
+if (UNIX)
+    set(PCAP_LIB pcap)
+    set(BOOST_LIB boost_program_options.a boost_system.a boost_filesystem.a boost_date_time.a)
+    set(ZMQ_LIB cppzmq-static)
+else ()
+    set(PCAP_LIB wpcap Packet)
+    set(SOCKET_LIB ws2_32 Iphlpapi)
+    set(LOG4CPP_LIB log4cppLIB)
     if (${CMAKE_BUILD_TYPE} MATCHES "[Dd][Ee][Bb][Uu][Gg]")
         set(ZMQ_LIB libzmq-v${MSVC_TOOLSET_VERSION}-mt-sgd-4_3_4)
     else ()
         set(ZMQ_LIB libzmq-v${MSVC_TOOLSET_VERSION}-mt-s-4_3_4)
     endif ()
-endif()
+endif ()
 
 # bin -- gredemo
 add_executable(gredemo ${SOURCE_FILES_GREDEMO})
-if(WIN32)
-	set_target_properties(gredemo PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
-endif()
-target_link_libraries(gredemo ${BOOST_LIB} ${SOCKET_LIB})
-
+if (WIN32)
+    set_target_properties(gredemo PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+    target_link_libraries(gredemo ${BOOST_LIB} ${SOCKET_LIB})
+endif ()
+if (UNIX)
+    target_link_libraries(gredemo ${BOOST_LIB} ${DEP_ROOT}/lib/libpcap.a ${SOCKET_LIB})
+    target_include_directories(gredemo PRIVATE
+            ${DEP_ROOT}/include)
+endif ()
 # bin -- gredump
 add_executable(gredump ${SOURCE_FILES_GREDUMP})
-if(WIN32)
-	set_target_properties(gredump PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
-endif()
-target_link_libraries(gredump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
-
-# bin --vxlandump
+if (WIN32)
+    set_target_properties(gredump PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+    target_link_libraries(gredump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
+endif ()
+if (UNIX)
+    target_link_libraries(gredump ${BOOST_LIB} ${DEP_ROOT}/lib/libpcap.a ${SOCKET_LIB})
+    target_include_directories(gredump PRIVATE
+            ${DEP_ROOT}/include)
+endif ()
+# bin --udpvxlandump
 add_executable(vxlandump ${SOURCE_FILES_VXLANDUMP})
 if (WIN32)
     set_target_properties(vxlandump PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+    target_link_libraries(vxlandump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
 endif ()
-target_link_libraries(vxlandump ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
 
+if (UNIX)
+    target_link_libraries(vxlandump ${BOOST_LIB} ${DEP_ROOT}/lib/libpcap.a ${SOCKET_LIB})
+    target_include_directories(vxlandump PRIVATE
+            ${DEP_ROOT}/include)
+endif ()
 # bin -- pcapcompare
 add_executable(pcapcompare ${SOURCE_FILES_PCAPCOMPARE})
-target_link_libraries(pcapcompare ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB})
-
+if(WIN32)
+target_link_libraries(pcapcompare ${BOOST_LIB} ${PCAP_LIB} ${SOCKET_LIB})
+endif()
+if(UNIX)
+target_link_libraries(pcapcompare ${BOOST_LIB} ${DEP_ROOT}/lib/libpcap.a ${SOCKET_LIB})
+target_include_directories(pcapcompare PRIVATE
+            ${DEP_ROOT}/include)
+endif()
 # bin -- pktminerg
 add_executable(pktminerg ${SOURCE_FILES_PKTMINERG})
-if(WIN32)
+if (WIN32)
     target_compile_definitions(pktminerg PRIVATE -D_CRT_SECURE_NO_WARNINGS)
-	set_target_properties(pktminerg PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+    set_target_properties(pktminerg PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
+endif ()
+if(UNIX)
+    target_link_libraries(pktminerg ${BOOST_LIB} ${DEP_ROOT}/lib/libpcap.a ${DEP_ROOT}/lib/liblog4cpp.a ${SOCKET_LIB} ${ZMQ_LIB})
+    target_include_directories(pktminerg PRIVATE
+            ${DEP_ROOT}/include)
+else ()
+    target_link_libraries(pktminerg ${BOOST_LIB} ${PCAP_LIB} ${LOG4CPP_LIB} ${SOCKET_LIB} ${ZMQ_LIB})	
 endif()
-target_link_libraries(pktminerg ${BOOST_LIB}  ${PCAP_LIB} ${SOCKET_LIB} ${ZMQ_LIB})
 
-if(UNIX AND NOT APPLE)
+if (UNIX AND NOT APPLE)
     # test
-	include_directories(${PROJECT_SOURCE_DIR}/test)
+    include_directories(${PROJECT_SOURCE_DIR}/test)
     set(TEST_DIR ${PROJECT_SOURCE_DIR}/test)
 
     # unit test
+    
     set(SOURCE_FILES_UNITTEST ${TEST_DIR}/unit_test.cpp
-                              ${TEST_DIR}/src/gtest.cc
-                              ${TEST_DIR}/src/gtest-death-test.cc
-                              ${TEST_DIR}/src/gtest-filepath.cc
-                              ${TEST_DIR}/src/gtest_main.cc
-                              ${TEST_DIR}/src/gtest-port.cc
-                              ${TEST_DIR}/src/gtest-printers.cc
-                              ${TEST_DIR}/src/gtest-test-part.cc
-                              ${TEST_DIR}/src/gtest-typed-test.cc)
-    add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE})
+            ${TEST_DIR}/src/gtest.cc
+            ${TEST_DIR}/src/gtest-death-test.cc
+            ${TEST_DIR}/src/gtest-filepath.cc
+            ${TEST_DIR}/src/gtest_main.cc
+            ${TEST_DIR}/src/gtest-port.cc
+            ${TEST_DIR}/src/gtest-printers.cc
+            ${TEST_DIR}/src/gtest-test-part.cc
+            ${TEST_DIR}/src/gtest-typed-test.cc)
+    add_executable(unittest ${SOURCE_FILES_UNITTEST} ${SOURCE_FILES_PKTMINERG_BASE} ${SOURCE_FILES_DAEMON_BASE})
     target_include_directories(unittest PRIVATE
             ${DEP_ROOT}/include)
-    target_link_libraries(unittest ${BOOST_LIB} pcap pthread ${ZMQ_LIB})
+    target_link_libraries(unittest 
+            ${BOOST_LIB} 
+            pthread
+	    ${DEP_ROOT}/lib/libpcap.a
+            ${ZMQ_LIB} 
+            ${DEP_ROOT}/lib/liblog4cpp.a
+            -ldl)
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
-endif()
+endif ()
 
 # cpack
-if(WIN32)
+if (WIN32)
     install(FILES
             "${PROJECT_SOURCE_DIR}/README.md" "${PROJECT_SOURCE_DIR}/README-zh-Hans.md"
             "${PROJECT_SOURCE_DIR}/USAGE.md" "${PROJECT_SOURCE_DIR}/BUILD.md"
@@ -331,23 +351,12 @@ if(WIN32)
     install(FILES
             "${DEP_ROOT}/pak/WinPcap_4_1_3.exe"
             "${DEP_ROOT}/pak/winpcap-nmap-4.13.exe"
-            "${DEP_ROOT}/pak/npcap-1.20.exe"
+            "${DEP_ROOT}/pak/npcap-1.71.exe"
             "${DEP_ROOT}/pak/install.bat"
             "${DEP_ROOT}/pak/VC_redist.${MSVC_TOOLSET_VERSION}.x64.exe"
             DESTINATION pak COMPONENT pktminerg)
-    install(FILES
-            "${DEP_ROOT}/pak/npcap-1.20/npcap.cat"
-            "${DEP_ROOT}/pak/npcap-1.20/npcap.inf"
-            "${DEP_ROOT}/pak/npcap-1.20/npcap.sys"
-            "${DEP_ROOT}/pak/npcap-1.20/npcap_wfp.inf"
-            "${DEP_ROOT}/pak/npcap-1.20/NpcapHelper.exe"
-            "${DEP_ROOT}/pak/npcap-1.20/NPFInstall.exe"
-            "${DEP_ROOT}/pak/npcap-1.20/Packet.dll"
-            "${DEP_ROOT}/pak/npcap-1.20/Uninstall.exe"
-            "${DEP_ROOT}/pak/npcap-1.20/WlanHelper.exe"
-            "${DEP_ROOT}/pak/npcap-1.20/wpcap.dll"
-            DESTINATION pak/npcap-1.20 COMPONENT pktminerg)
     install(TARGETS pktminerg gredump pcapcompare gredemo DESTINATION bin COMPONENT pktminerg)
+    install(FILES "${ASSETS_ROOT}/pktminerg.windows.properties" DESTINATION bin RENAME pktminerg.properties COMPONENT pktminerg)
     set(CPACK_PACKAGE_NAME "netis-packet-agent")
     set(CPACK_PACKAGE_VENDOR "netis")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Netis packet agent tools")
@@ -355,35 +364,42 @@ if(WIN32)
     set(CPACK_GENERATOR "ZIP")
     set(CPACK_OUTPUT_FILE_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/bin)
     set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}.Windows.${CMAKE_SYSTEM_PROCESSOR})
-else()
+else ()
     install(FILES
             DESTINATION lib COMPONENT pktminerg)
 
     install(FILES "${PROJECT_SOURCE_DIR}/scripts/packet-agent.service" DESTINATION /usr/lib/systemd/system COMPONENT pktminerg)
     install(FILES "${PROJECT_SOURCE_DIR}/scripts/pktgd.sh" DESTINATION etc COMPONENT pktminerg)
+    install(FILES "${PROJECT_SOURCE_DIR}/scripts/get_pid_with_container.sh" DESTINATION bin COMPONENT pktminerg)
+    install(FILES "${PROJECT_SOURCE_DIR}/scripts/get_if_with_name.sh" DESTINATION bin COMPONENT pktminerg)
+    install(FILES "${PROJECT_SOURCE_DIR}/scripts/get_mac_with_name.sh" DESTINATION bin COMPONENT pktminerg)
 
     install(TARGETS pktminerg gredump pcapcompare DESTINATION bin COMPONENT pktminerg)
+
+    install(FILES 
+            "${ASSETS_ROOT}/pktminerg.properties" 
+            DESTINATION bin COMPONENT pktminerg)
 
     set(CPACK_PACKAGE_CONTACT "netis")
     set(CPACK_PACKAGE_NAME "netis-packet-agent")
     set(CPACK_PACKAGE_VENDOR "netis")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Netis packet agent tools")
-    set(CPACK_PACKAGE_VERSION ${PKTMINERG_VERSION_STRING})    
+    set(CPACK_PACKAGE_VERSION ${PKTMINERG_VERSION_STRING})
     set(CPACK_PACKAGING_INSTALL_PREFIX "/usr/local")
-    set(CPACK_OUTPUT_FILE_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/installer)    
-    
+    set(CPACK_OUTPUT_FILE_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/installer)
+
     if (DEBIAN)
         set(CPACK_GENERATOR "DEB")
-        set(CPACK_DEB_COMPONENT_INSTALL ON) 
-        set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}_amd64)   
-        set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64") 	  
+        set(CPACK_DEB_COMPONENT_INSTALL ON)
+        set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}_amd64)
+        set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
         set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${PROJECT_SOURCE_DIR}/scripts/postinst")
     else ()
         set(CPACK_GENERATOR "RPM")
-        set(CPACK_RPM_COMPONENT_INSTALL ON)   
-        set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}.el6.${CMAKE_SYSTEM_PROCESSOR})
+        set(CPACK_RPM_COMPONENT_INSTALL ON)
+        set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}.${CMAKE_SYSTEM_PROCESSOR})
         set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/scripts/postinst_rpm.sh")
-    endif() 
+    endif ()
     #set(CPACK_COMPONENTS_ALL pktminerg)
-endif()
+endif ()
 include(CPack)

@@ -8,10 +8,11 @@
 #include <fstream>
 
 
-AgentControlPlane::AgentControlPlane(uint16_t port) :
-    _zmq_context(DEFAULT_ZMQ_IO_THREAD),
-    _zmq_socket(_zmq_context, ZMQ_REP),
-    _break_loop(0) {
+AgentControlPlane::AgentControlPlane(LogFileContext& ctx, uint16_t port):
+        _zmq_context(DEFAULT_ZMQ_IO_THREAD),
+        _zmq_socket(_zmq_context, ZMQ_REP),
+        _break_loop(0),
+        _ctx(ctx){
     _zmq_url = boost::str(boost::format("tcp://127.0.0.1:%1%") % port);
     init();
 }
@@ -21,24 +22,27 @@ AgentControlPlane::~AgentControlPlane()
     _break_loop = 1;
     _thread.join();
 }
-
-
-
-int AgentControlPlane::msg_req_check(const msg_t* req_msg) {
+int AgentControlPlane::msg_req_check(const msg_t* req_msg){
     /* check length */
-    if (req_msg->msglength != sizeof(msg_t))
+    if(req_msg->msglength != sizeof(msg_t))
     {
-        std::cerr << "[pktminerg] msg_req_check failed: invalid msg length " << req_msg->msglength << std::endl;
+        output_buffer = std::string("[pktminerg] msg_req_check failed: invalid msg length ") + std::to_string(req_msg->msglength);
+        _ctx.log(output_buffer, log4cpp::Priority::ERROR);
+        std::cerr << output_buffer << std::endl;
         return -1;
     }
     /* check magic */
     if (req_msg->magic != MSG_MAGIC_NUMBER) {
-        std::cerr << "[pktminerg] msg_req_check failed: invalid msg magic number " << req_msg->magic << std::endl;
+        output_buffer = std::string("[pktminerg] msg_req_check failed: invalid msg magic number ") + std::to_string(req_msg->magic);
+        _ctx.log(output_buffer, log4cpp::Priority::ERROR);
+        std::cerr << output_buffer << std::endl;
         return -1;
     }
     /* check action */
     if (req_msg->action >= MSG_ACTION_REQ_MAX) {
-        std::cerr << "[pktminerg] msg_req_check failed: invalid action request:" << req_msg->action << std::endl;
+        output_buffer = std::string("[pktminerg] msg_req_check failed: invalid action request:") + std::to_string(req_msg->action);
+        _ctx.log(output_buffer, log4cpp::Priority::ERROR);
+        std::cerr << output_buffer << std::endl;
         return -1;
     }
     return 0;
@@ -62,7 +66,7 @@ int AgentControlPlane::msg_rsp_process(const msg_t* req, msg_t* rep) {
 
 int AgentControlPlane::msg_rsp_process_get_status(msg_status_t* p_stat) {
     //std::ofstream f;
-
+    
     memset(p_stat, 0, sizeof(msg_status_t));
     p_stat->ver = MSG_SERVER_VERSION;
     AgentStatus* inst = AgentStatus::get_instance();
@@ -74,11 +78,13 @@ int AgentControlPlane::msg_rsp_process_get_status(msg_status_t* p_stat) {
     p_stat->total_cap_bytes = inst->total_cap_bytes();
     p_stat->total_cap_packets = inst->total_cap_packets();
     p_stat->total_cap_drop_count = inst->total_cap_drop_count();
+    p_stat->total_fwd_bytes = inst->total_fwd_bytes();
+    p_stat->total_fwd_count = inst->total_fwd_count();
     return 0;
 }
 
 void AgentControlPlane::step() {
-    msg_t req, * rep;
+    msg_t req,* rep;
     char tmp[sizeof(msg_t) + sizeof(msg_status_t)];
 
     rep = (msg_t*)tmp;
@@ -93,18 +99,20 @@ void AgentControlPlane::step() {
 
     if (msg_recv.size() != sizeof(msg_t))
     {
-        std::cerr << "[pktminerg] zmq recv req msg length " << msg_recv.size() << " not match" << std::endl;
+        output_buffer = std::string("[pktminerg] zmq recv req msg length ") + std::to_string(msg_recv.size()) + " not match";
+        _ctx.log(output_buffer, log4cpp::Priority::ERROR);
+        std::cerr << output_buffer << std::endl;
         return;
     }
 
-    memcpy(&req, msg_recv.data(), sizeof(msg_t));
+    memcpy(&req, msg_recv.data(),sizeof(msg_t));
 
-    if (msg_req_check(&req) < 0)
+    if(msg_req_check(&req) < 0)
         return;
     msg_rsp_process(&req, rep);
     // Send Response
     zmq::message_t msg_send(tmp, sizeof(msg_t) + sizeof(msg_status_t), NULL);
-
+   
     _zmq_socket.send(msg_send, zmq::send_flags::none);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -113,12 +121,11 @@ void AgentControlPlane::step() {
 void AgentControlPlane::init() {
     _zmq_socket.bind(_zmq_url);
 
-    _thread = std::thread([&]() {
-        while (!_break_loop)
+    _thread = std::thread([&](){
+        while(!_break_loop)
             step();
-        });
+    });
 }
-
 
 
 

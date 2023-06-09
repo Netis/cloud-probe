@@ -2,8 +2,15 @@
 #include <cstring>
 #include <iostream>
 
+#include "log4cpp/Category.hh"
+#include "log4cpp/FileAppender.hh"
+#include "log4cpp/SimpleLayout.hh"
+#include "log4cpp/PropertyConfigurator.hh"
+
 #define __STDC_FORMAT_MACROS
+#ifndef PRId64
 #include <inttypes.h>
+#endif
 
 std::string StatisLogContext::getTimeString() {
     char time_buffer[LOG_TIME_BUF_LEN];
@@ -13,7 +20,8 @@ std::string StatisLogContext::getTimeString() {
     return std::string("[") + time_buffer + std::string("] ");
 }
 
-StatisLogContext::StatisLogContext(bool bQuiet) :
+StatisLogContext::StatisLogContext(LogFileContext ctx, bool bQuiet) :
+    ctx_(ctx),
     bQuiet_(bQuiet) {
     log_count_      = 0;
     start_log_time_ = 0;
@@ -41,7 +49,9 @@ void StatisLogContext::initStatisLogFmt(const char* name, const char* title) {
     std::time_t now = std::time(NULL);
     __process_time_buffer(now);
     start_log_time_ = now;
-    std::cout << "[" << name << "] " << time_buffer_ << " starts." << std::endl;
+    output_buffer = std::string("[") + name + "] " + time_buffer_ + " starts.";
+    ctx_.log(output_buffer, log4cpp::Priority::INFO);
+    std::cout << output_buffer << std::endl;
     std::strncpy(title_buffer_, title, sizeof(title_buffer_)-1);
 }
 
@@ -55,6 +65,7 @@ void StatisLogContext::__process_first_packet(uint64_t pkt_time, pcap_t *handle)
 
 void StatisLogContext::__process_title() {
     if( log_count_ <= 0 ) {
+        ctx_.log(std::string(title_buffer_), log4cpp::Priority::INFO);
         std::cout << title_buffer_ << std::endl;
         log_count_ = LOG_PROMPT_COUNT;
     }
@@ -70,9 +81,9 @@ void StatisLogContext::__process_bps_pps_buffer(std::time_t timep) {
     std::time_t delta_time = timep - last_log_time_;
     // live_time, bps, pps
     if(last_log_time_ == 0 || delta_time == 0) {
-        std::snprintf(bps_pps_buffer_, sizeof(bps_pps_buffer_) - 1, "%ld,0,0", timep-start_log_time_);
+        std::snprintf(bps_pps_buffer_, sizeof(bps_pps_buffer_) - 1, "%" PRId64 ",0,0", timep-start_log_time_);
     } else {
-        std::snprintf(bps_pps_buffer_, sizeof(bps_pps_buffer_) - 1, "%ld,%" PRIu64 ",%" PRIu64, timep-start_log_time_,
+        std::snprintf(bps_pps_buffer_, sizeof(bps_pps_buffer_) - 1, "%" PRId64 ",%" PRIu64 ",%" PRIu64, timep-start_log_time_,
                      total_cap_bytes_*8 / delta_time, total_packets_ / delta_time);
     }
 }
@@ -100,14 +111,14 @@ void StatisLogContext::__inline_update_statis(std::time_t timep) {
     total_packets_ = 0;
 }
 
-GreStatisLogContext::GreStatisLogContext(bool bQuiet) :
-    StatisLogContext(bQuiet) {
+GreStatisLogContext::GreStatisLogContext(LogFileContext ctx, bool bQuiet) :
+    StatisLogContext(ctx, bQuiet) {
     last_drop_count_    = 0;
     std::memset(gre_buffer_, 0, sizeof(gre_buffer_));
 }
 
-GreSendStatisLog::GreSendStatisLog(bool bQuiet) :
-    GreStatisLogContext(bQuiet) {
+GreSendStatisLog::GreSendStatisLog(LogFileContext ctx, bool bQuiet) :
+    GreStatisLogContext(ctx, bQuiet) {
 }
 
 void GreSendStatisLog::initSendLog(const char* name) {
@@ -121,7 +132,7 @@ void GreSendStatisLog::logSendStatis(uint64_t pkt_time, uint32_t caplen, uint64_
 
 void GreSendStatisLog::init(const char* name) {
     initStatisLogFmt(name, "# [now] first_time,pkt_time,ps_recv,ps_drop,ps_ifdrop,filter_drop,,"
-        "live_time,bps,pps,,send_num,total_send_drop:send_drop");
+        "live_time,bps,pps,,recvd_num,total_send:send_drop");
 }
 
 void GreSendStatisLog::logSendStatisGre(uint64_t pkt_time, uint32_t caplen, uint64_t count, uint64_t drop_count,
@@ -146,21 +157,26 @@ void GreSendStatisLog::logSendStatisGre(uint64_t pkt_time, uint32_t caplen, uint
 }
 
 void GreSendStatisLog::logSendStatisGre(std::time_t current, uint64_t pkt_time, uint64_t count,
-                      uint64_t drop_count, uint64_t filter_drop, pcap_t *handle) {
+                      uint64_t fwd_count, uint64_t filter_drop, pcap_t *handle) {
     // [now]: statis,bps_pps
     __process_time_buffer(current);
     __process_send_statis_buffer(pkt_time, filter_drop, handle);
     __process_bps_pps_buffer(current);
-    __process_send_gre_buffer(count, drop_count);
+    __process_send_gre_buffer(count, fwd_count);
     __inline_update_statis(current);
 
-    std::snprintf(message_buffer_, sizeof(message_buffer_), "[%s] %s,,%s,,%s", time_buffer_,
-                  statis_buffer_, bps_pps_buffer_, gre_buffer_);
+    std::snprintf(message_buffer_, sizeof(message_buffer_), "%s,,%s,,%s", 
+                  statis_buffer_, bps_pps_buffer_, gre_buffer_);    
+    ctx_.log(std::string(message_buffer_), log4cpp::Priority::INFO);
+
+    std::snprintf(message_buffer_, sizeof(message_buffer_), "[%s] %s,,%s,,%s", time_buffer_, 
+                  statis_buffer_, bps_pps_buffer_, gre_buffer_);  
     std::cout << message_buffer_ << std::endl;
+    // LOG(INFO) << message_buffer_;
 }
 
-void GreSendStatisLog::__process_send_gre_buffer(uint64_t num, uint64_t drop_count) {
+void GreSendStatisLog::__process_send_gre_buffer(uint64_t num, uint64_t fwd_count) {
     // send_num,send_pos,occupy
-    std::snprintf(gre_buffer_, sizeof(gre_buffer_), "%" PRIu64 ",%" PRIu64 ":%" PRIu64 ",", num, drop_count,
-                  drop_count - last_drop_count_);
+    std::snprintf(gre_buffer_, sizeof(gre_buffer_), "%" PRIu64 ",%" PRIu64 ":%" PRIu64 ",", num, fwd_count,
+                  num - fwd_count);
 }

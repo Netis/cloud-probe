@@ -4,14 +4,20 @@
 #include <string>
 #include <vector>
 #include <memory>
-
 #include <chrono>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <fstream>
 
 #include <boost/algorithm/string.hpp>
-
-
+#include <boost/format.hpp>
 #include "pcapexport.h"
 #include "statislog.h"
+#include "logfilecontext.h"
+
+#define HANDLER_ACTIVE 1
+#define HANDLER_DOWN 2
 
 
 typedef struct PcapInit {
@@ -22,14 +28,42 @@ typedef struct PcapInit {
     int need_update_status;
 } pcap_init_t;
 
-bool replaceWithIfIp(std::string& expression, std::vector<std::string> &ips);
+class HandleParam {
+    public:
+        HandleParam(std::string dump,int interval, int slice,std::string dev, std::string processId, pcap_init_t param,  
+                std::string filter, std::string dirStr, std::string machineName, LogFileContext& ctx);
+        HandleParam(HandleParam &param);
+        std::string & getDump() {return _dump;};
+        int getInterval() {return _interval;};
+        uint32_t getSlice() {return _slice;};
+        std::string & getDev(){return _dev;};
+        std::string & getProcessId(){return _processId;};
+        std::string & getDirStr(){return _dirStr;};
+        std::string & getFilter(){return _filter;};
+        pcap_init_t getPcapParam(){return _pcapParam;};
+        std::string getMachineName(){return _machineName;};
+        LogFileContext& getLogFileContext(){return _ctx;};
+    private:
+        std::string _dump;
+        int _interval;
+        int _slice;
+        std::string _dev;
+        std::string _processId;
+        std::string _dirStr;
+        std::string _filter;
+        pcap_init_t _pcapParam;
+        std::string _machineName;
+        LogFileContext _ctx;
+};
+
+bool replaceWithIfIp(std::string& expression, std::vector<std::string> &ips, LogFileContext& ctx);
+uint32_t makeMplsHdr(int direct, int serviceTag);
 
 class IpPortAddr {
 public:
     void init(const std::string express);
     bool matchIpPort (const in_addr *ip, const uint16_t port);
     bool isInited() {return _inited;};
-
 private:
     std::vector<in_addr> _ips;
     std::vector<uint32_t> _ports;
@@ -40,60 +74,53 @@ class PcapHandler {
 protected:
     pcap_t*_pcap_handle;
     pcap_dumper_t* _pcap_dumpter;
+    HandleParam _param;
     char _errbuf[PCAP_ERRBUF_SIZE];
-    std::vector<std::shared_ptr<PcapExportBase>> _exports;
+    std::shared_ptr<PcapExportBase> _export;
     std::shared_ptr<GreSendStatisLog> _statislog;
-    uint64_t _gre_count;
-    uint64_t _gre_drop_count;
-
-    std::string _dumpDir;
-    std::int16_t _dumpInterval;
-    std::time_t _timeStamp;
-    uint32_t _sliceLen;
-
+    static uint64_t _fwd_count;
+    static uint64_t _cap_count;
+    static uint64_t _fwd_byte;
+    static uint64_t _cap_byte;
     int _need_update_status;
-
-    std::vector<in_addr> _ipv4s;
-    std::vector<in6_addr> _ipv6s;
-
+    
+    std::string _dumpDir;
+    std::time_t _timeStamp;
     IpPortAddr _addr;
-
+    u_int8_t  _macAddr[ETH_ALEN] ={0};
+    bool _autoDirection = false;
+    int _handlerStatus = HANDLER_DOWN;
+    std::string output_buffer;
+    LogFileContext _ctx;
+#ifdef _WIN32
+    std::unordered_map<std::string, std::string> _interfaces;
+    std::time_t _intfaceTimeStamp = 0;
+#endif  
 protected:
-    int openPcapDumper(pcap_t *pcap_handle);
-    void closePcapDumper();
     uint32_t getPacketLen (uint32_t length);
-
     int checkPktDirection(const in_addr *sip, const in_addr *dip, const uint16_t sport, const uint16_t dport);
+    int setMacAddr(std::string dev,std::string machineName);
+    void closePcap();
+    void closeExport();
+    void closePcapDumper();
+
 public:
-    PcapHandler(std::string dumpDir, int16_t dumpInterval);
+    PcapHandler(HandleParam &param);
+    int openPcap();
     virtual ~PcapHandler();
     void packetHandler(const struct pcap_pkthdr *header, const uint8_t *pkt_data);
     void addExport(std::shared_ptr<PcapExportBase> pcapExport);
-    int startPcapLoop(int count);
-    void stopPcapLoop();
-    virtual int openPcap(const std::string &dev, const pcap_init_t &param, const std::string &expression,
-                         bool dumpfile=false) = 0;
-    void closePcap();
+    void clearHandler();
+    
+    int initExport();
+    int handlePacket();
+    
     void setDirIPPorts(std::string str) {_addr.init(str);};
-    void setSliceLength(uint32_t len) { _sliceLen = len; };
-    bool handlePacket();
-    void closeExports();
-};
+    int openPcapDumper(pcap_t *pcap_handle);  
+    void setHandlerStatus (int status) {_handlerStatus = status;};
+    int getHandlerStatus () {return _handlerStatus;};
 
-class PcapOfflineHandler : public PcapHandler {
-public:
-    PcapOfflineHandler(std::string dumpDir, int16_t dumpInterval):
-            PcapHandler(dumpDir, dumpInterval) {};
-    int openPcap(const std::string &dev, const pcap_init_t &param, const std::string &expression,
-                 bool dumpfile=false);
-};
-
-class PcapLiveHandler : public PcapHandler {
-public:
-    PcapLiveHandler(std::string dumpDir, int16_t dumpInterval):
-            PcapHandler(dumpDir, dumpInterval) {};
-    int openPcap(const std::string &dev, const pcap_init_t &param, const std::string &expression,
-                 bool dumpfile=false);
+    LogFileContext& getLogFileContext() {return _ctx;};
 };
 
 #endif // SRC_PCAPHANDLER_H_

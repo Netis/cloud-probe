@@ -2,9 +2,7 @@
 #define SRC_CONTROL_ITF_H_
 
 
-#define MAX_MSG_CONTENT_LENGTH  (256)
 #define MSG_MAGIC_NUMBER   (0x504D3230)
-#define MSG_HEADER_LENGTH  (16)
 
 // request and response data format, between zmq client and server
 
@@ -15,8 +13,7 @@ typedef struct msg {
     uint32_t msglength;   // msg length, include header, in bytes.
     uint32_t action;   // list below
     uint32_t query_id;  // the query id to identify each client for req flush
-
-} msg_t;
+}msg_t;
 
 
 // support action now
@@ -31,11 +28,11 @@ typedef struct msg_status {
     uint32_t ver;
     uint32_t start_time;
     uint32_t last_time;
-    uint32_t total_cap_bytes;
-    uint32_t total_cap_packets;
-    uint32_t total_cap_drop_count;
-    uint32_t total_filter_drop_count;
-    uint32_t total_fwd_drop_count;
+    uint64_t total_cap_bytes;
+    uint64_t total_cap_packets;
+    uint64_t total_cap_drop_count;
+    uint64_t total_fwd_bytes;
+    uint64_t total_fwd_count;
 }msg_status_t;
 
 
