@@ -1,14 +1,22 @@
 #ifndef SRC_PCAPEXPORT_H_
 #define SRC_PCAPEXPORT_H_
 
-#include <pcap/pcap.h>
 #include <functional>
+#include <iostream>
+
+#include "log4cpp/Category.hh"
+#include "log4cpp/FileAppender.hh"
+#include "log4cpp/SimpleLayout.hh"
+#include "log4cpp/PropertyConfigurator.hh"
+
 #include "dep.h"
+#include "logfilecontext.h"
 
 #define PKTD_UNKNOWN -1
 #define PKTD_IC 1
 #define PKTD_OG 2
 #define PKTD_NONCHECK 0
+#define ETHER_TYPE_MPLS 0x8847
 
 typedef struct
 {
@@ -16,9 +24,61 @@ typedef struct
     uint8_t rra:4;
     uint8_t service_tag_h : 4;
     uint8_t reserved2 : 4;
-    uint8_t service_tag_l:8;
+    uint8_t service_tag_l:8;    
     uint8_t check;
 }pa_tag_t;
+
+typedef struct {
+    uint32_t vx_flags;
+    uint32_t vx_vni;
+}vxlan_hdr_t;
+
+static inline uint32_t
+__rte_raw_cksum(const void *buf, size_t len, uint32_t sum)
+{
+    /* workaround gcc strict-aliasing warning */
+    uintptr_t ptr = (uintptr_t)buf;
+    typedef uint16_t u16_p;
+    const u16_p *u16 = (const u16_p *)ptr;
+
+    while (len >= (sizeof(*u16) * 4)) {
+        sum += u16[0];
+        sum += u16[1];
+        sum += u16[2];
+        sum += u16[3];
+        len -= sizeof(*u16) * 4;
+        u16 += 4;
+    }
+    while (len >= sizeof(*u16)) {
+        sum += *u16;
+        len -= sizeof(*u16);
+        u16 += 1;
+    }
+
+    /* if length is in odd bytes */
+    if (len == 1)
+        sum += *((const uint8_t *)u16);
+
+    return sum;
+}
+
+static inline uint16_t
+__rte_raw_cksum_reduce(uint32_t sum)
+{
+    sum = ((sum & 0xffff0000) >> 16) + (sum & 0xffff);
+    sum = ((sum & 0xffff0000) >> 16) + (sum & 0xffff);
+    return (uint16_t)sum;
+}
+
+static inline uint16_t
+rte_raw_cksum(const void *buf, size_t len)
+{
+    uint32_t sum;
+
+    sum = __rte_raw_cksum(buf, len, 0x4a3b2d1c);
+    return __rte_raw_cksum_reduce(sum);
+}
+
 
 static inline uint64_t
 tv2us(const timeval* tv)
@@ -37,6 +97,7 @@ enum class exporttype : uint8_t {
     zmq = 2,
     vxlan = 3
 };
+
 #define __ETH_LEN 14
 #define __GRE_LEN 8
 #define __IP_LEN 20
@@ -45,6 +106,36 @@ enum class exporttype : uint8_t {
 #define __MTU 1500
 #define __MTU_IP_PAYLOAD (__MTU - __IP_LEN)
 #define __TRAFFIC_GAP_US 1000000
+
+typedef struct
+{
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    unsigned int reserved0:3; //MPLS Label
+    unsigned int rra:4; //MPLS Label
+    unsigned int magic_number: 1; //MPLS Label
+
+    unsigned int service_tag_h:8; //MPLS Label
+
+    unsigned int bottom:1; //MPLS Bottom of Label Stack
+    unsigned int reserved1:3; //MPLS Experimental Bits;
+    unsigned int service_tag_l:4; //MPLS Label
+
+    unsigned int reserved2:8; //MPLS TTL
+#elif __BYTE_ORDER == __BIG_ENDIAN
+    unsigned int magic_number: 1; //MPLS Label
+    unsigned int rra:4; //MPLS Label
+    unsigned int reserved0:3; //MPLS Label
+
+    unsigned int service_tag_h:8; //MPLS Label
+
+    unsigned int service_tag_l:4; //MPLS Label
+    unsigned int reserved1:3; //MPLS Experimental Bits;
+    unsigned int bottom:1; //MPLS Bottom of Label Stack
+
+    unsigned int reserved2:8; //MPLS TTL
+#endif
+}mplsHdr;
+
 class PcapExportBase {
 protected:
     std::function<int(uint64_t, int len)> _check_mbps_cb;
@@ -161,6 +252,20 @@ public:
     virtual int initExport() = 0;
     virtual int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct) = 0;
     virtual int closeExport() = 0;
-};
 
+    static void makeExportFlag(void* data, int len, pa_tag_t* tag)
+    {
+        tag->check = static_cast<uint8_t>(rte_raw_cksum(data, len));
+    }
+    static bool checkExportFlag(void* data, int len, pa_tag_t* tag)
+    {
+        int check = tag->check;
+        tag->check = 0;
+        return htons(rte_raw_cksum(data, len)) == check;
+    };
+
+    virtual void checkSendBuf() {return;};
+    virtual uint64_t getForwardCnt() {return 0;};
+    virtual uint64_t getForwardByte() {return 0;};
+};
 #endif // SRC_PCAPEXPORT_H_

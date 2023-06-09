@@ -1,3 +1,3 @@
 @echo off
-winpcap-nmap-4.13.exe /S
+npcap-1.71.exe
 VC_redist.141.x64.exe /S

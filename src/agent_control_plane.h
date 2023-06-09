@@ -7,11 +7,12 @@
 #include <thread>
 #include "zmq.hpp"
 #include "agent_control_itf.h"
+#include "logfilecontext.h"
 
 class AgentControlPlane {
 
 public:
-    AgentControlPlane(uint16_t port = 5566);
+    AgentControlPlane(LogFileContext& ctx, uint16_t port = 5566);
     ~AgentControlPlane();
 public:
     const static int DEFAULT_ZMQ_IO_THREAD = 1;
@@ -30,6 +31,8 @@ private:
     zmq::socket_t _zmq_socket;
     std::thread _thread;
     int _break_loop;
+    LogFileContext _ctx;
+    std::string output_buffer;
 };
 
 

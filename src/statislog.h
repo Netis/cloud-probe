@@ -7,6 +7,8 @@
 
 #include <string>
 
+#include "logfilecontext.h"
+
 #define LOG_PROMPT_COUNT 20
 #define LOG_TIME_BUF_LEN 20
 #define LOG_BUFFER_LEN 256
@@ -14,6 +16,7 @@
 
 class StatisLogContext {
 protected:
+    LogFileContext ctx_;
     bool bQuiet_;
     int log_count_;
     std::time_t start_log_time_;
@@ -27,11 +30,12 @@ protected:
     char message_buffer_[LOG_BUFFER_LEN];
     char statis_buffer_[LOG_BUFFER_LEN];
     char bps_pps_buffer_[LOG_BUFFER_LEN];
+    std::string output_buffer;    
 
 public:
     static std::string getTimeString();
 
-    explicit StatisLogContext(bool bQuiet = false);
+    explicit StatisLogContext(LogFileContext ctx, bool bQuiet = false);
 //    void setQuiet(bool bQuiet);
 //    bool getQuiet() const;
 protected:
@@ -56,7 +60,7 @@ protected:
     uint64_t last_drop_count_;
     char gre_buffer_[LOG_BUFFER_LEN];
 public:
-    explicit GreStatisLogContext(bool bQuiet = false);
+    explicit GreStatisLogContext(LogFileContext ctx, bool bQuiet = false);
 };
 
 class StatisSendLog {
@@ -69,7 +73,7 @@ public:
 
 class GreSendStatisLog : public StatisSendLog, GreStatisLogContext {
 public:
-    explicit GreSendStatisLog(bool bQuiet = false);
+    explicit GreSendStatisLog(LogFileContext ctx, bool bQuiet = false);
 
     void initSendLog(const char* name);
 

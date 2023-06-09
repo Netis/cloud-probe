@@ -347,31 +347,6 @@ get_interface_friendly_name_from_device_guid(__in GUID* guid, std::string* frien
 
 inline int getLocalInterfacesWin(std::unordered_map<std::string, std::string>& interfaces)
 {
-#if 0
-    PIP_ADAPTER_ADDRESSES addrs;
-    ULONG addrsLen;
-    PIP_ADAPTER_ADDRESSES addr;
-    ULONG ret;
-
-    addrsLen = 150000;
-    if (!(addrs = (IP_ADAPTER_ADDRESSES*)malloc(addrsLen)))
-        return -1;
-
-    if ((ret = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_ALL_COMPARTMENTS, NULL, addrs, &addrsLen)) != NO_ERROR)
-    {
-        fprintf(stderr, "GetAdaptersAddresses failed: %d\n", ret);
-        free(addrs);
-        return -1;
-    }
-
-    addr = addrs;
-    while (addr) {
-        interfaces.emplace(u16ToUtf8(addr->FriendlyName), addr->AdapterName);
-        addr = addr->Next;
-    }
-    free(addrs);
-    return 0;
-#else
     pcap_if_t* all_devs, * it;
     char err_buf[PCAP_ERRBUF_SIZE];
     //all_devs = 0;
@@ -389,10 +364,9 @@ inline int getLocalInterfacesWin(std::unordered_map<std::string, std::string>& i
             continue;
         interfaces.emplace(friendly_name, it->name);
     }
+    pcap_freealldevs(all_devs);
     return 0;
-#endif
 }
-
 #else
 
 #include <netinet/ether.h>
