@@ -27,7 +27,7 @@ With 3 utilities:
 ## Getting Started
 ### Installation
 
-#### CentOS 6/7 and RedHat 7
+#### CentOS 7/8 and RedHat 7
 1. Install libpcap and wget
 ```bash
 yum install libpcap wget zeromq
