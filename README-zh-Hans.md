@@ -61,7 +61,7 @@ sudo dpkg -i netis-packet-agent-0.6.0_amd64.deb
 ** 现在仅支持 CentOS 7/8版本和RedHat 7, SUSE12和Ubuntu 18.04 LTS版本
 
 #### Windows server 2019 x64
-1. 下载[Packet-Agent][([https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.Windows.AMD64.zip])](https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.Windows.AMD64.zip)
+1. 下载https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.Windows.AMD64.zip
 2. 从压缩包中安装npcap
 3. 从zip文件解压pktminerg和其他utilities，并在命令行界面运行（需管理员模式）.
 
