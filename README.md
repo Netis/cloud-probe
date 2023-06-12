@@ -63,7 +63,7 @@ Remarks: If it encounter a library dependency error when install from rpm, you s
 
 Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12, Ubuntu 18.04 LTS.
 
-#### Windows 7/8/10 x64
+#### Windows 2019 server x64
 1. Download and Install [Winpcap](https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.Windows.AMD64.zip) of latest version. 
 2. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode.
 Use example:
