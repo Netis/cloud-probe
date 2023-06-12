@@ -2,7 +2,7 @@
 [English](README.md)  ∙  简体中文
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.5.0
+# Netis Packet Agent 0.6.0
 
 [![Stable release](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.5.0)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
@@ -27,62 +27,45 @@ Netis Packet Agent是一个用于解决如下问题的开源项目：设备A上�
 ## 开始
 ### 安装
 
-#### CentOS 6/7和RedHat 7
+#### CentOS 7/8和RedHat 7
 1. 安装libpcap和wget
 ```bash
-yum install libpcap wget
+yum install wget 
 ```
 
 2. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.5.0/netis-packet-agent-0.5.0.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.5.0.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.x86_64_centos.rpm
+rpm -ivh netis-packet-agent-0.6.0.x86_64_centos.rpm
 ```
 #### SUSE12
 1. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.5.0/netis-packet-agent-0.5.0.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.5.0.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.x86_64_suse.rpm
+rpm -ivh netis-packet-agent-0.6.0.x86_64_suse.rpm
 ```
 
 #### Ubuntu 18.04LTS
 1. 安装libpcap和wget
 ```bash
-sudo apt-get install libpcap-dev wget
+sudo apt-get install wget
 ```
 
 2. 下载并安装DEB包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.5.0/netis-packet-agent-0.5.0_amd64.deb
-sudo dpkg -i netis-packet-agent-0.5.0_amd64.deb
-```
-
-3. 如果提示libpcap.so找不到，到libpcap.so所在目录下创建libpcap.so.1软链接。
-```bash
-whereis libpcap.so
-cd /path/to/libpcap.so
-ln -s libpcap.so.x.y.z libpcap.so.1
+wget https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0_amd64.deb
+sudo dpkg -i netis-packet-agent-0.6.0_amd64.deb
 ```
 
 ** 如果安装过程中提示libboost库的版本号不正确，请下载安装boost_1_59_0或者之后的版本。如果问题依然无法解决，可以尝试从源代码直接编译安装。<br/>
-** 现在仅支持 CentOS 6/7版本和RedHat 7, SUSE12和Ubuntu 18.04 LTS版本
+** 现在仅支持 CentOS 7/8版本和RedHat 7, SUSE12和Ubuntu 18.04 LTS版本
 
-#### Windows 7/8/10 x64
+#### Windows server 2019 x64
 1. 下载并安装[WinPcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe)
 2. 下载并安装[Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe)
-3. 从zip文件解压pktminerg和其他utilities，并在命令行界面运行（需管理员模式）.
+3. 从zip(https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.Windows.AMD64.zip)文件解压pktminerg和其他utilities，并在命令行界面运行（需管理员模式）.
 
-备注：在Windows平台运行时，命令的interface选项参数需要使用网卡的NT Device Name，形如"\Device\UPF_{UUID}"。可使用如下命令获取
-```
-    C:\> getmac /fo csv /v 
-    "Connection Name","Network Adapter","Physical Address","Transport Name" 
-    "Ethernet","Intel(R) Ethernet Connection (4) I219-V","8C-16-45-6B-53-B5","\Device\Tcpip_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2}" 
-```
-将Transport Name字段里的"Tcpip_"替换为"NPF_"，作为-i参数：
-```
-    \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
-```
-使用示例：
+  
 ```
     C:\> pktminerg -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -r 172.24.103.201 
     C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
@@ -93,20 +76,14 @@ ln -s libpcap.so.x.y.z libpcap.so.1
 备注：请确保防火墙允许向目标发送GRE数据包.
 https://lartc.org/howto/lartc.tunnel.gre.html提供验证是否允许向目标发送GRE数据包的方法.
 ```bash
-# Capture packet from NIC "eth0", encapsulate with GRE header and send to 172.16.1.201
-pktminerg -i eth0 -r 172.16.1.201
-
-# Specify cpu 1 for this program with high priority to avoid thread switch cost.
-pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
+# Capture packet from NIC "eth0" and eth1, encapsulate with GRE header and send to 172.16.1.201, and encapsulate with VNI1 header and send to 172.16.1.202
+pktminerg "-i eth0 -r 172.16.1.201 -k 12" "-i eth1 -r 172.16.1.202 -vni1 12"
 
 # compare 2 pcap files
 pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 
 # Capture packet from NIC "eth0" and save them to gredump_output.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
-
-# Capture packet from NIC "eth0", do not set DF flag
-pktminerg -i eth0 -r 172.16.1.201 -M dont
 ```
 ![packet agent's pktminerg : network capture use case](./img/use_case.png)
 
