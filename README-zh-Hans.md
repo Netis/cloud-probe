@@ -91,7 +91,7 @@ ln -s libpcap.so.x.y.z libpcap.so.1
 
 ### 使用 
 备注：请确保防火墙允许向目标发送GRE数据包.
-https://lartc.org/howto/lartc.tunnel.gre.html提供验证是否允许向目标发送GRE数据包的方法.
+[https://lartc.org/howto/lartc.tunnel.gre.html](https://lartc.org/howto/lartc.tunnel.gre.html) 提供验证是否允许向目标发送GRE数据包的方法.
 ```bash
 # Capture packet from NIC "eth0", encapsulate with GRE header and send to 172.16.1.201
 pktminerg -i eth0 -r 172.16.1.201
