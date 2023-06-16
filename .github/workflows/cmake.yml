@@ -28,17 +28,10 @@ jobs:
       run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
       
     - name: get zmqlib
-      run: sudo apt-get install -y unzip && unzip zeromq-4.3.2.zip && cd zeromq-4.3.2.zip && mkdir build && cd build && cmake .. && make && make install
+      run: sudo apt-get install -y unzip && unzip zeromq-4.3.2.zip && cd zeromq-4.3.2 && mkdir build && cd build && cmake .. && make && make install
         
     - name: set up cppzmq
-      run: \
-        wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip &&
-        unzip v4.6.0.zip &&
-        cd 4.6.0 &&
-        mkdir build &&
-        cd build &&
-        cmake -DCPPZMQ_BUILD_TESTS=OFF .. &&
-        make -j4 install &&
+      run: wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip && unzip v4.6.0.zip && cd 4.6.0 && mkdir build && cd build && cmake -DCPPZMQ_BUILD_TESTS=OFF .. && make -j4 install &&
     
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
