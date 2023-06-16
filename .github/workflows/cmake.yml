@@ -29,7 +29,7 @@ jobs:
       run: yum install -y wget && wget https://cmake.org/files/v3.4/cmake-3.4.0.tar.gz && tar xf cmake-3.4.0.tar.gz && cd cmake-3.4.0/ && ./bootstrap --prefix=/usr --datadir=share/cmake --docdir=doc/cmake && make && make install
       
     - name: get zmqlib
-      run: yum install cmake && wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
+      run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
       
     - name: compile zmqlib
       run: yum install -y unzip && unzip zeromq-4.3.2.zip && cd zeromq-4.3.2 && mkdir build && cd build && cmake .. && make && make install
