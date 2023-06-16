@@ -28,15 +28,7 @@ jobs:
       run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
       
     - name: get zmqlib
-      run: \
-        sudo apt-get install -y unzip && 
-        unzip zeromq-4.3.2.zip && 
-        cd zeromq-4.3.2.zip &&
-        mkdir build && 
-        cd build && 
-        cmake .. && 
-        make && 
-        make install
+      run: sudo apt-get install -y unzip && unzip zeromq-4.3.2.zip && cd zeromq-4.3.2.zip && mkdir build && cd build && cmake .. && make && make install
         
     - name: set up cppzmq
       run: \
