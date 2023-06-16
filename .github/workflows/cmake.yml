@@ -17,11 +17,11 @@ jobs:
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
+    
+    container:
+      image: centos:7
 
     steps:
-    - name: Set up CentOS 7 environment
-      uses: docker://centos:7
-      
     - name: Set up Boost
       run: sudo yum install -y boost-static
       
