@@ -25,7 +25,7 @@ jobs:
     - name: Set up Boost
       run: yum install -y boost-static
     - name: set up cmake
-      run: yum install -y wget && https://cmake.org/files/v3.16/cmake-3.16.0.tar.gz && tar xf cmake-3.16.0.tar.gz && cd cmake-3.16.0 && ./bootstrap --prefix=/usr --datadir=share/cmake --docdir=doc/cmake && make && make install
+      run: yum install -y wget && wget https://cmake.org/files/v3.16/cmake-3.16.0.tar.gz && tar xf cmake-3.16.0.tar.gz && cd cmake-3.16.0 && ./bootstrap --prefix=/usr --datadir=share/cmake --docdir=doc/cmake && make && make install
       
     - name: get zmqlib
       run: yum install cmake && wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
