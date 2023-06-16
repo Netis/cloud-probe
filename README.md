@@ -102,7 +102,7 @@ You can also clone source from Github and build Netis Packet Agent in local, the
 For build precondition and steps, please refer to this [document](./BUILD.md).
 
 ## Documentation / Useful link
-* [Installation](./INSTALL.md) and [Usage](./USAGE.md).
+* [Usage](./USAGE.md).
 * [Build requirements and steps](./BUILD.md).
 * [Release Information / Roadmap](./CHANGES.md).
 
