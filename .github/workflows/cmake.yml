@@ -19,24 +19,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Set up CentOS 7 environment
+      uses: docker://centos:7
       
     - name: Set up Boost
-      run: sudo apt-get install -y libboost-all-dev
+      run: sudo yum install -y boost-static
       
     - name: get zmqlib
       run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
       
     - name: get zmqlib
-      run: sudo apt-get install -y unzip && unzip zeromq-4.3.2.zip && cd zeromq-4.3.2 && mkdir build && cd build && cmake .. && make && sudo make install
+      run: sudo yum install -y unzip && unzip zeromq-4.3.2.zip && cd zeromq-4.3.2 && mkdir build && cd build && cmake .. && make && sudo make install
         
     - name: set up cppzmq
       run: wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip && unzip v4.6.0.zip && cd cppzmq-4.6.0 && mkdir build && cd build && cmake -DCPPZMQ_BUILD_TESTS=OFF .. && sudo make -j4 install
-      
-    - name: set up boost module
-      run: sed -i 's/{Boost_PROGRAM_OPTIONS_LIBRARY}/{Boost_LIBRARY_DIRS}\/libboost_program_options.a/g'  ${{github.workspace}}/CMakeLists.txt&& sed -i 's/{Boost_SYSTEM_LIBRARY}/{Boost_LIBRARY_DIRS}\/libboost_system.a/g' ${{github.workspace}}/CMakeLists.txt&& sed -i 's/{Boost_FILESYSTEM_LIBRARY}/{Boost_LIBRARY_DIRS}\/libboost_filesystem.a/g' ${{github.workspace}}/CMakeLists.txt
-      
-  
     
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
