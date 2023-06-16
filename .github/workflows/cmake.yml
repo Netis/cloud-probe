@@ -26,7 +26,7 @@ jobs:
       run: yum install -y boost-static
       
     - name: get zmqlib
-      run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
+      run: yum install -y wget && wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
       
     - name: get zmqlib
       run: yum install -y unzip && unzip zeromq-4.3.2.zip && cd zeromq-4.3.2 && mkdir build && cd build && cmake .. && make && make install
