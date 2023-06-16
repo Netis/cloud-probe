@@ -21,8 +21,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
-    - name: set up wget
-      run: sudo apt-get install -y wget
+    - name: check wget
+      run: which wget
       
     - name: Set up Boost
       run: sudo apt-get install -y libboost-all-dev
