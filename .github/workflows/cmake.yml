@@ -23,7 +23,8 @@ jobs:
 
     steps:
     - name: Set up Boost
-      run: yum install -y boost-static
+      run: yum install -y boost-static && yum install -y gcc-c++
+      
     - name: set up cmake
       run: yum install -y wget && wget https://cmake.org/files/v3.16/cmake-3.16.0.tar.gz && tar xf cmake-3.16.0.tar.gz && cd cmake-3.16.0 && ./bootstrap --prefix=/usr --datadir=share/cmake --docdir=doc/cmake && make && make install
       
