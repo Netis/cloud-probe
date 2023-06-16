@@ -24,6 +24,8 @@ jobs:
     - name: Set up Boost
       run: sudo apt-get install -y libboost-all-dev
       
+    - name: find boost lib
+      run: find / -name "libboost*.a"
     - name: get zmqlib
       run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
       
