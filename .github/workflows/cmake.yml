@@ -29,7 +29,7 @@ jobs:
       
     - name: set up zmqlib
       run: \
-        wget https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
+        curl -o zeromq-4.3.2.zip https://github.com/zeromq/libzmq/releases/download/v4.3.2/zeromq-4.3.2.zip
         unzip zeromq-4.3.2.zip
         cd zeromq-4.3.2
         mkdir build
@@ -40,7 +40,7 @@ jobs:
         
     - name: set up cppzmq
       run: \
-        wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip
+        curl -o v4.6.0.zip https://github.com/zeromq/cppzmq/archive/v4.6.0.zip
         unzip v4.6.0.zip
         cd 4.6.0
         mkdir build
