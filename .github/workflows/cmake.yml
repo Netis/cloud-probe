@@ -22,6 +22,8 @@ jobs:
       image: centos:7
 
     steps:
+    - uses: actions/checkout@v2
+    
     - name: Set up Boost
       run: yum install -y boost-static && yum install -y gcc-c++ && yum install -y make
       
