@@ -7,42 +7,63 @@ Generic options:
   -h [ --help ]         show help.
 
 Allowed options:
-  -i [ --interface ] NIC          interface to capture packets
-  -B [ --bind_device ] BIND       send GRE packets from this binded
-                                  device.(Not available on Windows)
-  -M [ --pmtudisc_option ] MTU    Select Path MTU Discovery strategy.  
-                                  pmtudisc_option may be either do (prohibit 
-                                  fragmentation, even local one), want (do 
-                                  PMTU discovery, fragment locally when packet
-                                  size is large), or dont (do not set DF flag)
-  -f [ --pcapfile ] PATH          specify pcap file for offline mode, mostly
-                                  for test
-  -r [ --remoteip ] IPs           set gre remote IPs, seperate by ',' Example:
-                                  -r 8.8.4.4,8.8.8.8
-  -z [ --zmq_port ] ZMQ_PORT (=0)  set remote zeromq server port to receive
-                                   packets reliably; ZMQ_PORT default value 0
-                                   means disable.
-  -m [ --zmq_hwm ] ZMQ_HWM (=100)  set zeromq queue high watermark; ZMQ_HWM
-                                   default value 100.
-  -k [ --keybit ] BIT (=1)        set gre key bit; BIT defaults 1
-  -s [ --snaplen ] LENGTH (=2048) set snoop packet snaplen; LENGTH defaults 
-                                  2048 and units byte
-  -t [ --timeout ] TIME (=3)      set snoop packet timeout; TIME defaults 3 and
-                                  units second
-  -b [ --buffsize ] SIZE (=256)   set snoop buffer size; SIZE defaults 256 and 
-                                  units MB
-  -c [ --count ] COUNT (=0)       exit after receiving count packets; COUNT 
-                                  defaults; count<=0 means unlimited
-  -p [ --priority ]               set high priority mode (Not supported on Windows platform)
-  --cpu ID                        set cpu affinity ID (Not supported on Windows platform)
-  --expression FILTER             filter packets with FILTER; FILTER as same as
-                                  tcpdump BPF expression syntax
-  --control CONTROL_PORT          set zmq listen port for agent daemon control. Control server won't 
-                                  be up if this option is not set.(Not supported on Windows platform).
-  --dump                          specify dump file, mostly for integrated test
-  --nofilter                      force no filter; In online mode, only use when GRE interface
-                                  is set via CLI, AND you confirm that the snoop interface is
-                                  different from the gre interface.
+  -i [ --interface ] NIC                interface to capture packets
+  -c [ --container ] CONTAINER          container to capture packets
+  -S [ --interface_csets ] NIC_CSETS (=gb2312)
+                                        characters sets of interface, avl: 
+                                        gb2312 utf8
+  -B [ --bind_device ] BIND             send GRE packets from this binded 
+                                        device.(Not available on Windows)
+  -M [ --pmtudisc_option ] MTU           Select Path MTU Discovery strategy.  
+                                        pmtudisc_option may be either do 
+                                        (prohibit fragmentation, even local 
+                                        one), want (do PMTU discovery, fragment
+                                        locally when packet size is large), or 
+                                        dont (do not set DF flag)
+  -r [ --remoteip ] IPs                 set gre remote IPs, seperate by ',' 
+                                        Example: -r 8.8.4.4,8.8.8.8
+  -z [ --zmq_port ] ZMQ_PORT (=0)       set remote zeromq server port to 
+                                        receive packets reliably; ZMQ_PORT 
+                                        default value 0 means disable.
+  --zmq_hwm ZMQ_HWM (=100)              set zeromq queue high watermark; 
+                                        ZMQ_HWM default value 100.
+  -k [ --keybit ] BIT (=4294967295)     set gre key bit; BIT defaults 1
+  -n [ --vni1 ] VNI1                    set udp vxlan vni of version 1;
+  --vni2 VNI2                           set udp vxlan vni of version 2;
+  -x [ --vxlan_port ] VXLAN_PORT (=4789)
+                                        set udp vxlan port;
+  -s [ --snaplen ] LENGTH (=2048)       set snoop packet snaplen; LENGTH 
+                                        defaults 2048 and units byte
+  -t [ --timeout ] TIME (=3000)         set snoop packet timeout; TIME defaults
+                                        3000 and units ms
+  -b [ --buffsize ] SIZE (=256)         set snoop buffer size; SIZE defaults 
+                                        256 and units MB
+  -p [ --priority ]                     set high priority mode
+  --in_addr ID                          set cpu affinity ID
+  --expression FILTER                   filter packets with FILTER; FILTER as 
+                                        same as tcpdump BPF expression syntax
+  --dump DUMP (=./)                     specify pcap dump file dump dir
+  --interval INTERVAL (=-1)             specify the interval for dump file 
+                                        creation
+  --control CONTROL_ZMQ_PORT (=15566)   set zmq listen port for agent daemon 
+                                        control. Control server won't be up if 
+                                        this option is not set
+  --slice SLICE (=0)                    specify the length of the received 
+                                        packets that will be transferred or 
+                                        dumped.
+  --nofilter                            force no filter; In online mode, only 
+                                        use when GRE interface is set via CLI, 
+                                        AND you confirm that the snoop 
+                                        interface is different from the gre 
+                                        interface.
+  --mbps mbps (=0)                      specify a floating point value for the 
+                                        Mbps rate that pktmg should send 
+                                        packets at.
+  --dir DIR                             specify the direction determination 
+                                        expression
+  -m [ --kvm ] KVM                      specify the name of virtual machine in 
+                                        KVM env
+
 
 ```
 
@@ -51,6 +72,15 @@ Allowed options:
 * interface<br>
 Network interface to capture packets (eth0, eth1...). Required in live mode.
 <br>
+
+* container<br>
+Id of the container to capturing packets. The id is obtained from its process and used in K8S env.
+<br>
+
+* kvm<br>
+the name of the virtual machine to capturing packets. used in KVM env.
+<br>
+
 
 * pmtudisc_option<br>
 Select Path MTU Discovery strategy.pmtudisc_option may be either do (prohibit fragmentation, even local one), 
