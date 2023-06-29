@@ -37,18 +37,17 @@ jobs:
     - name: set up cppzmq
       run: wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip && unzip v4.6.0.zip && cd cppzmq-4.6.0 && mkdir build && cd build && cmake -DCPPZMQ_BUILD_TESTS=OFF .. && make -j4 install && cd ../..
       
-    - uses: actions/checkout@v2
-      with:
-        path: ${{github.workspace}}
+    - name: clone project
+      run: git clone -b master https://github.com/Netis/packet-agent.git
       
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: find / -name packet-agent && cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: cd packet-agent && mkdir build && cd build && cmake ..
 
     - name: Build
       # Build your program with the given configuration   
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: make
 
     #- name: Test
      # working-directory: ${{github.workspace}}/build
