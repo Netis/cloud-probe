@@ -47,7 +47,7 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration   
-      run: packet-agent/build && make
+      run: cd packet-agent/build && make
 
     #- name: Test
      # working-directory: ${{github.workspace}}/build
