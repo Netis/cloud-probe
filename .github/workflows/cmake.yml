@@ -38,7 +38,7 @@ jobs:
       run: wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip && unzip v4.6.0.zip && cd cppzmq-4.6.0 && mkdir build && cd build && cmake -DCPPZMQ_BUILD_TESTS=OFF .. && make -j4 install && cd ../..
       
     - name: clone project
-      run: git clone -b master https://github.com/Netis/packet-agent.git
+      run: yum install -y git && git clone -b master https://github.com/Netis/packet-agent.git
       
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
