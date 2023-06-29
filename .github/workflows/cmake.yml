@@ -47,7 +47,7 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration   
-      run: make
+      run: pwd && ls && make
 
     #- name: Test
      # working-directory: ${{github.workspace}}/build
