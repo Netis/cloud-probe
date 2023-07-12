@@ -67,7 +67,7 @@ sudo dpkg -i netis-packet-agent-0.6.0_amd64.deb
 
   
 ```
-    C:\> pktminerg -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -r 172.24.103.201 
+    C:\> pktminerg "-i Ethernet -r 172.24.103.201" 
     C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
 ```
 
