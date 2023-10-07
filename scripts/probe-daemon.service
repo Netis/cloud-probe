@@ -1,0 +1,17 @@
+[Unit]
+Description=Probe-Daemon Service
+After=network.target network-online.target
+
+[Service]
+Type=forking
+KillMode=control-group
+Restart=always
+RestartSec=3
+ExecStart=/bin/bash /usr/local/etc/probe-daemon.sh
+ExecStartPre=/bin/mkdir -p /var/run/probe-daemon
+ExecStartPre=/bin/chmod 0777 /var/run/probe-daemon
+PIDFile=/var/run/probe-daemon/probe-daemon.pid
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

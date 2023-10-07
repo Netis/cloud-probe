@@ -90,7 +90,7 @@ static std::string getProccssIdWithContainer(const std::string &containerId, Log
     ctx.log(output_buffer, log4cpp::Priority::INFO);
     std::cout << StatisLogContext::getTimeString() << output_buffer << std::endl;
     const auto cmd = boost::str(
-            boost::format("sh get_pid_with_container.sh %1%") % id);
+            boost::format("sh /usr/local/bin/get_pid_with_container.sh %1%") % id);
 	fp=popen(cmd.c_str(),"r");
 	fgets(buffer,sizeof(buffer),fp);
     pclose(fp);

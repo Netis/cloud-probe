@@ -1,0 +1,4 @@
+/**
+@mainpage
+This is the <A HREF="http://www.doxygen.org/">Doxygen</A> generated API documentation of <A HREF="http://log4cpp.sourceforge.net/">Log4cpp</A>.   
+**/

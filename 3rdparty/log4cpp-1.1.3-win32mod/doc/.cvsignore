@@ -1,0 +1,6 @@
+.cvsignore
+Makefile
+Makefile.in
+Doxyfile
+html
+man

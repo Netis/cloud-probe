@@ -1,0 +1,22 @@
+BODY
+{
+    BACKGROUND-COLOR: white
+}
+
+H2
+{
+ color: white;
+ background-color: darkBlue;
+ font-family: arial,helvetica,sanserif;
+}
+
+H3
+{
+ text-decoration: underline;
+}
+
+DT
+{
+ font-weight: bold;
+}
+

@@ -12,8 +12,8 @@ Note: The default libpcap with TPACKET_V3 enabled has some performance issue. If
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 
 ```shell
-wget https://github.com/Netis/packet-agent/releases/download/v0.5.0/netis-packet-agent-0.5.0.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.5.0.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 
@@ -26,8 +26,8 @@ sudo apt-get install libpcap-dev wget
 
 2. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.5.0/netis-packet-agent-0.5.0_amd64.deb
-sudo dpkg -i netis-packet-agent-0.5.0_amd64.deb
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.6_amd64.deb
 ```
 
 3. If libpcap.so.1 not found when running pktminerg, create softlink for libpcap.so.1 in suitable directory.
@@ -49,8 +49,8 @@ yum install libpcap wget
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 
 ```shell
-wget https://github.com/Netis/packet-agent/releases/download/v0.5.0/netis-packet-agent-0.5.0.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.5.0.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 
@@ -77,13 +77,3 @@ Use example:
     C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
 ```
 
-## CentOS6 or CentOS 7
-1. Install the libpcap at first
-```shell
-yum install libpcap
-```
-2. Install the packet agent from RPM package. Please find the latest package form [Releases Page](https://github.com/Netis/packet-agent/releases).
-```shell
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.0/netis-packet-agent-0.3.0.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.0.el6.x86_64.rpm
-```

@@ -1,0 +1,3827 @@
+2017-07-13 08:48  sanchouss_
+	* bug 146; 
+	* bug 147 - Being prepared for Removing Deprecated Exception Specifications from C++17
+2016-11-11 18:48  sanchouss_
+
+	* Numerous fixes;
+	* Added .target property for the ConsoleAppender to allow printing to STDERR 
+	* Added method Category::shutdownForced(). It releases more memory than shutdown() by deleting all appenders. 
+	Category::shutdownForced() may be invoked several times, not only at the end of program.
+
+2015-03-28 18:48  sanchouss_
+	
+	* Added DailyRollingFileAppender.cpp
+
+2013-12-05 18:48  sanchouss_
+	
+	* Fixed bug#137. Adjusted git attributes for *.dsp files (bug #136)
+
+2013-11-27 18:48  sanchouss_
+	
+	* Migrated from cvs to git scm. Url is ssh://USERNAME@git.code.sf.net/p/log4cpp/codegit 
+
+	2012-10-15 18:48  sanchouss_
+	
+	* msvc10/ Converted solution for building from MSVC 2010 with small adjustments. Output is targeted 
+	into building directory instead of system32 dir (due to windows UAC restrictions)
+	* src/RollingFileAppender.cpp - resolved ambiguity of log10
+	
+2012-10-10 16:45  sanchouss_
+
+	* include/log4cpp/NDC.hh, src/NDC.cpp: small optimization to avoid invokation of thread-specific 
+	routines each time when a string is constructed from a log event in case if NDC feature is never used.
+	Tests show slight improvement when pthread_setspecific() is not called each time event is logged.
+
+2012-10-10 15:12  sanchouss_
+
+	* include/log4cpp/RollingFileAppender.hh, src/RollingFileAppender.cpp: 
+	[feature] number history files so that they can be lexicographically ordered by name properly.
+	Width of file extension is made constant and depends on count of backup files (i.e., 
+	for number of 15 backup files, extensions will be .01, .02, ..., .14, .15)
+
+2007-09-03 12:25  waffel
+
+	* configure.in: [feature] changed version to 1.0
+
+2007-09-03 11:15  waffel
+
+	* include/log4cpp/Makefile.am: [intern] added forgotten header
+	  file. make distcheck should work now
+
+2007-08-28 18:24  dark--angel
+
+	* tests/testbench.cpp: Fix missed ENDLINE
+
+2007-08-27 21:26  dark--angel
+
+	* include/log4cpp/CategoryStream.hh, src/CategoryStream.cpp,
+	  tests/testCategory.cpp, tests/testConfig.cpp, tests/testDLL.cpp,
+	  tests/testFixedContextCategory.cpp, tests/testPropertyConfig.cpp,
+	  tests/testmain.cpp: Removed CategoryStream end of line enum Fix
+	  eol and left manipulators
+
+2007-08-27 21:03  dark--angel
+
+	* include/log4cpp/Category.hh: ownAppenders must be virtual
+
+2007-08-27 20:28  dark--angel
+
+	* tests/jamfile: Added missed test to bjam file
+
+2007-08-27 20:27  dark--angel
+
+	* src/PatternLayout.cpp: Fixed %m formater
+
+2007-08-27 18:47  dark--angel
+
+	* src/BufferingAppender.cpp: Fix for Solaris 10
+
+2007-08-25 11:42  dark--angel
+
+	* Makefile.am, log4cpp.spec.in, src/Makefile.am: Scott Cantor
+	  Solaris 10 fixes
+
+2007-08-24 07:51  dark--angel
+
+	* m4/ACX_PTHREAD.m4: Fix thread tests for Solaris
+
+2007-08-20 11:55  dark--angel
+
+	* configure.in: Scott Cantor pointed out some inconsistenst between
+	  his configure script and my previous changes. Fixed.
+
+2007-08-19 12:58  dark--angel
+
+	* m4/ACX_PTHREAD.m4, configure.in: [no log message]
+
+2007-08-19 12:36  dark--angel
+
+	* configure.in: Fixed pthread. See
+	  https://mail.internet2.edu/wws/arc/shibboleth-users/2007-08/msg00077.html
+
+2007-08-19 12:30  dark--angel
+
+	* src/Makefile.am: Added localtime.cpp
+
+2007-08-19 12:24  dark--angel
+
+	* configure.in: Added localtime_r identify macros
+
+2007-08-19 12:20  dark--angel
+
+	* include/log4cpp/config-MinGW32.h,
+	  include/log4cpp/config-win32-stlport-boost.h,
+	  include/log4cpp/config-win32.h, src/Localtime.cpp,
+	  src/Localtime.hh, src/PatternLayout.cpp: Use localtime_r instead
+	  of localtime
+
+2007-08-02 15:20  dark--angel
+
+	* src/Appender.cpp: Fix wierd static initialization bug
+
+2007-07-07 18:19  dark--angel
+
+	* include/log4cpp/: Export.hh, TriggeringEventEvaluator.hh: Fix
+	  virtual destructor problem Fix exports for gcc when
+	  LOG4CPP_HAS_DLL defined
+
+2007-07-05 20:10  dark--angel
+
+	* tests/jamfile: Enabled all tests
+
+2007-07-05 20:08  dark--angel
+
+	* jamfile, tests/jamfile: Added Boost.Build build files.
+
+2007-07-05 20:06  dark--angel
+
+	* include/log4cpp/Category.hh, include/log4cpp/convenience.h,
+	  tests/test_convenience.cpp: Added some convenience macroses
+
+2007-07-03 19:19  dark--angel
+
+	* include/log4cpp/: CategoryStream.hh, Portability.hh,
+	  config-MinGW32.h, config-win32-stlport-boost.h, config-win32.h:
+	  Added support for MinGW32
+
+2007-07-03 19:15  dark--angel
+
+	* src/AppendersFactory.cpp: asio expected in boost 1.35
+
+2007-07-03 19:12  dark--angel
+
+	* src/SmtpAppender.cpp: asio expected in boost 1.35
+
+2007-07-03 12:30  dark--angel
+
+	* include/log4cpp/SmtpAppender.hh, src/SmtpAppender.cpp: asio will
+	  be in boost 1.35
+
+2007-07-03 11:17  dark--angel
+
+	* include/log4cpp/config-win32.h, src/MSThreads.cpp,
+	  src/PatternLayout.cpp, src/RemoteSyslogAppender.cpp,
+	  src/RollingFileAppender.cpp, src/SimpleConfigurator.cpp: fixes
+	  for Borland Builder 5.6.4
+
+2007-06-27 13:00  waffel
+
+	* include/log4cpp/FactoryParams.hh: [bug] fixed build problem under
+	  linux
+
+2006-10-16 19:43  dark--angel
+
+	* msvc7/: log4cpp/log4cpp.vcproj, log4cppLIB/log4cppLIB.vcproj:
+	  added boost variants to build
+
+2006-10-07 08:06  dark--angel
+
+	* src/AppendersFactory.cpp: Fix: Ifdef SmtpAppender registration
+	  code
+
+2006-10-07 07:43  dark--angel
+
+	* msvc7/: log4cpp/log4cpp.vcproj, log4cppLIB/log4cppLIB.vcproj:
+	  Added SmtpAppender
+
+2006-10-07 07:32  dark--angel
+
+	* include/log4cpp/SmtpAppender.hh, src/SmtpAppender.cpp: Added
+	  SmtpAppender
+
+2006-10-07 07:30  dark--angel
+
+	* include/log4cpp/HierarchyMaintainer.hh,
+	  src/HierarchyMaintainer.cpp: Added shutdown hooks to support
+	  threaded appenders on application shutdown
+
+2006-10-07 07:27  dark--angel
+
+	* include/log4cpp/FactoryParams.hh: Fix std::string converter
+
+2006-10-07 07:26  dark--angel
+
+	* src/AppendersFactory.cpp: Change appender names in registration
+	  part
+
+2006-09-30 11:44  dark--angel
+
+	* include/log4cpp/Makefile.am, src/Makefile.am: [no log message]
+
+2006-09-30 10:26  dark--angel
+
+	* include/log4cpp/FactoryParams.hh: [no log message]
+
+2006-09-30 10:11  dark--angel
+
+	* include/log4cpp/Makefile.am, src/Makefile.am: [no log message]
+
+2006-09-30 10:01  dark--angel
+
+	* configure.in: Remove debian line
+
+2006-09-30 09:51  dark--angel
+
+	* src/PatternLayout.cpp: [no log message]
+
+2006-09-30 09:47  dark--angel
+
+	* src/: IdsaAppender.cpp, SyslogAppender.cpp: [no log message]
+
+2006-09-30 08:03  dark--angel
+
+	* include/log4cpp/AppendersFactory.hh,
+	  include/log4cpp/BufferingAppender.hh,
+	  include/log4cpp/FactoryParams.hh,
+	  include/log4cpp/LayoutsFactory.hh,
+	  include/log4cpp/LevelEvaluator.hh,
+	  include/log4cpp/PassThroughLayout.hh,
+	  include/log4cpp/TriggeringEventEvaluator.hh,
+	  include/log4cpp/TriggeringEventEvaluatorFactory.hh,
+	  msvc7/log4cpp/log4cpp.vcproj, msvc7/log4cppLIB/log4cppLIB.vcproj,
+	  src/AbortAppender.cpp, src/AppendersFactory.cpp,
+	  src/BasicLayout.cpp, src/BufferingAppender.cpp,
+	  src/FactoryParams.cpp, src/FileAppender.cpp,
+	  src/IdsaAppender.cpp, src/LayoutsFactory.cpp,
+	  src/LevelEvaluator.cpp, src/NTEventLogAppender.cpp,
+	  src/PassThroughLayout.cpp, src/PatternLayout.cpp,
+	  src/RemoteSyslogAppender.cpp, src/RollingFileAppender.cpp,
+	  src/SimpleLayout.cpp, src/SyslogAppender.cpp,
+	  src/TriggeringEventEvaluatorFactory.cpp,
+	  src/Win32DebugAppender.cpp: Added Factories support. Added new
+	  PassThoughtLayout and BufferingAppender. Added triggering
+	  facility for BufferingAppender
+
+2006-03-11 13:19  waffel
+
+	* Makefile.am, include/log4cpp/Manipulator.hh: [intern] some
+	  cleanups
+
+2006-01-15 14:08  francisandre
+
+	* include/log4cpp/CategoryStream.hh: Add eol & endline enum to
+	  comply more on coding style as the iostream endl
+
+2005-10-19 12:51  waffel
+
+	* msvc7/log4cpp/log4cpp.vcproj: [intern] added missing additional
+	  include directory entry
+
+2005-10-17 10:03  waffel
+
+	* include/log4cpp/Priority.hh, src/Priority.cpp: [intern] changed
+	  wron LF to unix LF back
+
+2005-10-15 19:24  francisandre
+
+	* msvc7/log4cpp/log4cpp.vcproj: Put path into " " so that path with
+	  embedded spaces could work too
+
+2005-10-15 19:10  francisandre
+
+	* msvc7/log4cpp/log4cpp.vcproj: Change RC.exe to rc.exe so that all
+	  commands are in lower case
+
+2005-10-07 09:12  waffel
+
+	* msvc6/log4cpp/log4cpp.dsp: [bug] added forgotten
+	  AbortAppender.cpp entry
+
+2005-10-05 19:11  waffel
+
+	* msvc6/: msvc6.dsw, log4cpp/log4cpp.dsp,
+	  log4cppDLL/log4cppDLL.dsp, testCategory/testCategory.dsp,
+	  testDLL/testDLL.dsp, testMain/testMain.dsp, testNDC/testNDC.dsp,
+	  testNTEventLog/testNTEventLog.dsp, testPattern/testPattern.dsp,
+	  testPropConfig/testPropConfig.dsp: [bug] changed dos2unix file
+	  content and applied patch from Amanjit Gill
+
+2005-09-28 17:27  waffel
+
+	* include/log4cpp/Priority.hh, msvc6/msvc6.dsw,
+	  msvc6/log4cpp/log4cpp.dsp, msvc6/log4cppDLL/log4cppDLL.dsp,
+	  msvc6/testCategory/testCategory.dsp, msvc6/testDLL/testDLL.dsp,
+	  msvc6/testMain/testMain.dsp, msvc6/testNDC/testNDC.dsp,
+	  msvc6/testNTEventLog/testNTEventLog.dsp,
+	  msvc6/testPattern/testPattern.dsp, src/Priority.cpp: [intern]
+	  fixed msvc6 build system
+
+2005-07-29 13:11  waffel
+
+	* include/log4cpp/Makefile.am: [bug] added missing header
+
+2005-07-29 13:11  waffel
+
+	* configure.in: [intern] new version string
+
+2005-06-05 18:34  francisandre
+
+	* msvc7/.cvsignore: [no log message]
+
+2005-06-05 18:18  francisandre
+
+	* msvc7/log4cpp/.cvsignore: [no log message]
+
+2005-06-05 18:16  francisandre
+
+	* msvc7/log4cpp/log4cpp.vcproj: Surround file.mc path by quotes for
+	  handling embedded space.
+
+2005-06-01 21:08  waffel
+
+	* include/log4cpp/CategoryStream.hh: fixed template bug on linux
+
+2005-06-01 21:07  waffel
+
+	* include/log4cpp/Manipulator.hh: added newline at end of file
+
+2005-06-01 20:34  waffel
+
+	* ChangeLog: changes for release 0.3.5rc2
+
+2005-04-28 11:29  francisandre
+
+	* src/CategoryStream.cpp: Fix CategoryStream::eol(CategoryStream&)
+
+2005-04-28 10:38  francisandre
+
+	* src/CategoryStream.cpp, include/log4cpp/CategoryStream.hh,
+	  include/log4cpp/Manipulator.hh: Fix LOG4CPP_IMPORT for using
+	  log4cpp as dll Add missing CategoryStream::operator<<;
+
+2005-04-28 09:49  francisandre
+
+	* msvc7/log4cpp/log4cpp.vcproj: Add CategoryStream manipulators:
+	  width & left so that one can write categorystream << width(10) <<
+	  left;
+
+2005-04-28 09:44  francisandre
+
+	* include/log4cpp/CategoryStream.hh, src/CategoryStream.cpp: Add
+	  CategoryStream manipulators: eol & left so that one can write
+	  categorystream << width(10) << left << "log4cpp" << eol;
+
+2005-04-28 09:42  francisandre
+
+	* src/Manipulator.cpp, include/log4cpp/Manipulator.hh: Add
+	  CategoryStream manipulators: width & left so that one can write
+	  categorystream << width(10) << left;
+
+2005-04-23 20:03  francisandre
+
+	* msvc7/testPropConfig/log4cpp.property: no message
+
+2005-04-12 22:28  francisandre
+
+	* include/log4cpp/: config-win32-stlport-boost.h, config-win32.h,
+	  config-openvms.h: Updating version to 0.3.5
+
+2005-04-12 22:21  francisandre
+
+	* msvc7/: testCategory/testCategory.vcproj, testNDC/testNDC.vcproj,
+	  testPropConfig/testPropConfig.vcproj: no message
+
+2005-04-12 22:19  francisandre
+
+	* msvc7/log4cpp/log4cpp.vcproj: [no log message]
+
+2005-04-12 22:19  francisandre
+
+	* include/log4cpp/Priority.hh: set MESSAGE_SIZE to 8 instead of 10
+
+2005-04-12 22:18  francisandre
+
+	* src/CategoryStream.cpp, include/log4cpp/CategoryStream.hh: Add
+	  CategoryStream::width() member Add alias of EOL, eol as ENDOFLINE
+
+2005-04-12 22:15  francisandre
+
+	* src/SimpleLayout.cpp: Output priority literal as a MESSAGE_SIZE
+	  message, left alligned
+
+2005-04-12 21:16  francisandre
+
+	* src/SimpleLayout.cpp: Output priority literal as a MESSAGE_SIZE
+	  message, left alligned
+
+2005-04-12 21:13  francisandre
+
+	* src/RollingFileAppender.cpp: Avoid warning
+
+2005-04-12 21:13  francisandre
+
+	* src/RemoteSyslogAppender.cpp: use size_t instead of int
+
+2005-04-12 21:12  francisandre
+
+	* src/Priority.cpp: Align code
+
+2005-04-12 20:01  francisandre
+
+	* include/log4cpp/CategoryStream.hh: Add CategoryStream::width()
+	  member Add alias of EOL, eol as ENDOFLINE
+
+2005-04-12 20:00  francisandre
+
+	* include/log4cpp/Priority.hh: add constant that defines the
+	  maximum size of the Priority message so that one gets a clean
+	  alignment on ostream
+
+2005-04-12 19:58  francisandre
+
+	* include/log4cpp/config-win32.h: disable warning 4275 for vc7.1
+
+2005-04-12 19:58  francisandre
+
+	* include/log4cpp/NDC.hh: use size_t instead of int for getDepth
+
+2005-04-12 19:57  francisandre
+
+	* include/log4cpp/RemoteSyslogAppender.hh: use correct type SOCKET
+	  for win32
+
+2005-04-12 19:21  francisandre
+
+	* src/Priority.cpp: Align literals for a better visibility
+
+2005-04-12 19:16  francisandre
+
+	* src/TimeStamp.cpp: Add LOG4CPP_EXPORT for win32 dll
+
+2005-04-12 17:03  francisandre
+
+	* msvc7/: testPropConfig/testPropConfig.vcproj, msvc7.sln: Fix path
+	  of starting directory
+
+2005-04-12 16:56  francisandre
+
+	* tests/log4cpp.property: Fix type: JDEBUG to DEBUG
+
+2005-04-12 16:49  francisandre
+
+	* src/: NDC.cpp, PatternLayout.cpp, RollingFileAppender.cpp,
+	  snprintf.c: Changing return type of getDepth from int to size_t
+	  fix various size_t/int discrepancies
+
+2005-04-12 16:46  francisandre
+
+	* msvc7/log4cpp/log4cpp.vcproj: no message
+
+2005-04-12 16:15  francisandre
+
+	* msvc7/: testNDC/Makefile.am, testNDC/testNDC.vcproj, Makefile.am,
+	  NTEventLogCategories.mc, msvc7.sln, log4cppLIB/Makefile.am,
+	  log4cppLIB/log4cppLIB.vcproj,
+	  log4cpp_stlport_boost/log4cpp_stlport_boost.vcproj,
+	  log4cpp_stlport_boost/readme.txt, testDLL/Makefile.am,
+	  testDLL/testDLL.vcproj, testMain/Makefile.am,
+	  testMain/testMain.vcproj,
+	  testMain_stlport_boost/testMain_stlport_boost.vcproj,
+	  testNDC_stlport_boost/testNDC_stlport_boost.vcproj,
+	  testPattern/Makefile.am, testPattern/testPattern.vcproj,
+	  testPropConfig/log4cpp.property,
+	  testPropConfig/testPropConfig.vcproj, log4cpp/log4cpp.vcproj,
+	  testCategory/Makefile.am, testCategory/testCategory.vcproj,
+	  testNTEventLog/Makefile.am, testNTEventLog/testNTEventLog.vcproj,
+	  testNTEventLog_stlport_boost/testNTEventLog_stlport_boost.vcproj:
+	  partial port of log4cpp to MSVC 7.1 (except stl/boost)
+
+2005-03-24 10:34  bastiaan
+
+	* ChangeLog, log4cpp.m4, m4/BB_ENABLE_DOXYGEN.m4: fixed
+	  'underquoted definition' warning
+
+2004-01-27 11:27  bastiaan
+
+	* m4/ac_config_pkgconfig_in.m4: added
+
+2004-01-27 11:24  bastiaan
+
+	* Makefile.am, configure.in, log4cpp-config.in, log4cpp.pc.in,
+	  include/log4cpp/Filter.hh, m4/CREATE_GENERIC_CONFIG.m4,
+	  m4/ac_config_libconfig_in.m4: use ac_config_libconfig_in macro.
+
+2003-06-23 14:54  bastiaan
+
+	* ChangeLog, src/PatternLayout.cpp: added missing '%t' thread name
+	  specifier (support request #753974)
+
+2003-05-23 00:48  bastiaan
+
+	* ChangeLog: added support for configuring LocalSyslogAppenders.
+
+2003-05-23 00:45  bastiaan
+
+	* src/PropertyConfiguratorImpl.cpp: added support for configuring
+	  LocalSyslogAppenders.
+
+2003-05-18 22:21  bastiaan
+
+	* ChangeLog: fix for bug #648341
+
+2003-05-10 01:53  bastiaan
+
+	* tests/Makefile.am: added testNTEventLog.cpp to EXTRA_DIST (bug
+	  #718941)
+
+2003-05-10 01:43  bastiaan
+
+	* tests/testmain.cpp: have main() return 0; (bug #718941)
+
+2003-05-10 01:26  bastiaan
+
+	* src/PatternLayout.cpp: correct type of _minWidth and _maxWidth
+
+2003-05-10 01:24  bastiaan
+
+	* tests/testPattern.cpp: added test for bug #688715.
+
+2003-05-10 01:04  bastiaan
+
+	* src/PatternLayout.cpp: fix bounds problem on logging messages
+	  (bug #688715)
+
+2003-05-10 00:16  bastiaan
+
+	* include/log4cpp/PropertyConfigurator.hh: ConversionPattern
+	  instead of pattern (patch #692193).
+
+2003-05-09 11:25  bastiaan
+
+	* ChangeLog, Makefile.am, configure.in, log4cpp-config.in,
+	  log4cpp.pc.in, log4cpp.spec.in: added pkgconfig file
+
+2003-05-09 00:52  bastiaan
+
+	* ChangeLog, Makefile.am, NEWS, configure.in,
+	  include/log4cpp/Portability.hh: 0.2.8 release
+
+2003-05-09 00:48  bastiaan
+
+	* tests/: testFilter.cpp, testPriority.cpp, testbench.cpp: added
+	  missing 'std::' specifiers. (bug #530332)
+
+2003-05-09 00:48  bastiaan
+
+	* tests/Clock.cpp, log4cpp.spec.in: updated from -devel branch.
+
+2003-05-09 00:31  bastiaan
+
+	* src/SyslogAppender.cpp: fix format string bug. (bug #527475)
+
+2003-04-08 00:33  bastiaan
+
+	* ChangeLog, log4cpp.spec.in: added log4cpp.m4 to -devel package.
+
+2003-03-26 22:48  bastiaan
+
+	* src/HierarchyMaintainer.cpp: don't create a default appender for
+	  the root category. (bug #648341)
+
+2003-03-26 22:23  bastiaan
+
+	* ChangeLog: fixed bug #710164
+
+2003-03-26 22:21  bastiaan
+
+	* src/StringUtil.cpp: added \r and \n to whitespace characters.
+
+2003-03-26 22:21  bastiaan
+
+	* src/Properties.cpp: trim property keys and values. Fixes bug
+	  #710164.
+
+2003-03-23 22:28  bastiaan
+
+	* doc/html/index.html: added link to SuSE RPMS built by Pascal
+	  Bleser
+
+2003-03-18 13:49  dresnick
+
+	* include/log4cpp/config-win32-stlport-boost.h: Now using int64_t
+	  defined in boost.
+
+2003-03-11 10:08  dresnick
+
+	* include/log4cpp/: config-win32-stlport-boost.h, config-win32.h:
+	  Replaced including winsock2.h with the definition of u_long.
+
+2003-03-10 10:05  dresnick
+
+	* ChangeLog: Added boost threads and build for STLport (for MSVC
+	  6).
+
+2003-03-10 10:04  dresnick
+
+	* msvc6/log4cppDLL/log4cppDLL.dsp: Added abort appender.
+
+2003-03-10 10:02  dresnick
+
+	* src/PortabilityImpl.hh: Added abort to std:: namespace wrapping.
+
+2003-03-10 10:02  dresnick
+
+	* msvc6/log4cppDLL/log4cppDLL.rc: Updated version number.
+
+2003-03-10 10:02  dresnick
+
+	* include/log4cpp/config-win32.h: Added definition for in_addr_t
+
+2003-03-10 10:01  dresnick
+
+	* include/log4cpp/PatternLayout.hh: Doc fix.
+
+2003-03-10 09:58  dresnick
+
+	* include/log4cpp/NTEventLogAppender.hh,
+	  include/log4cpp/Portability.hh,
+	  include/log4cpp/config-win32-stlport-boost.h,
+	  include/log4cpp/threading/BoostThreads.hh, msvc6/msvc6.dsw,
+	  msvc6/log4cppDLL_stlport_boost/log4cppDLL_stlport_boost.dsp,
+	  msvc6/log4cppDLL_stlport_boost/log4cppDLL_stlport_boost.rc,
+	  msvc6/log4cppDLL_stlport_boost/readme.txt,
+	  msvc6/testMain_stlport_boost/testMain_stlport_boost.dsp,
+	  msvc6/testNDC_stlport_boost/testNDC_stlport_boost.dsp,
+	  msvc6/testNTEventLog_stlport_boost/testNTEventLog_stlport_boost.dsp,
+	  src/RollingFileAppender.cpp: Added boost threads (for version
+	  1.28.0), and build for using STLport 4.5.3. Tested under MSVC 6.
+
+2003-03-05 18:29  bastiaan
+
+	* ChangeLog, include/log4cpp/RemoteSyslogAppender.hh,
+	  src/RemoteSyslogAppender.cpp: use correct type for _ipAddr.
+	  Pointed out by Andrew Morrow. Current fix most likely breaks some
+	  platforms that don't define in_addr_t.
+
+2003-02-21 15:29  bastiaan
+
+	* ChangeLog, include/log4cpp/AbortAppender.hh,
+	  src/AbortAppender.cpp: added missing layout methods.
+
+2003-02-21 15:28  bastiaan
+
+	* src/PropertyConfiguratorImpl.cpp: added AbortAppender.
+
+2003-02-02 14:41  bastiaan
+
+	* tests/testbench.cpp: Added delete[] to make valgrind happy.
+
+2003-01-06 16:16  bastiaan
+
+	* ChangeLog, src/RemoteSyslogAppender.cpp: fixed handling of large
+	  messages and buffer deallocation in _append() as reported by
+	  Benety Goh.
+
+2002-11-29 15:38  bastiaan
+
+	* ChangeLog, log4cpp.spec.in: install HTML documentation in
+	  /var/www/html/manual/log4cpp.
+
+2002-11-28 19:15  bastiaan
+
+	* ChangeLog, include/log4cpp/threading/PThreads.hh: Fix Mutex copy
+	  bug (#645270) as suggested by Robert Ballarin.
+
+2002-11-20 19:25  aingram
+
+	* ChangeLog: Priority.hh: added LOG4CPP_EXPORT to export Priority
+	  class from the DLL (Win32 only)
+
+2002-11-20 19:23  aingram
+
+	* include/log4cpp/Priority.hh: added LOG4CPP_EXPORT to export
+	  Priority class from the DLL (Win32 only)
+
+2002-11-11 00:14  bastiaan
+
+	* ChangeLog, configure.in: corrected library version.
+
+2002-11-09 00:51  bastiaan
+
+	* ChangeLog, include/log4cpp/AbortAppender.hh,
+	  include/log4cpp/Makefile.am, src/AbortAppender.cpp,
+	  src/Makefile.am: Added AbortAppender.
+
+2002-11-08 01:01  bastiaan
+
+	* tests/testbench.cpp: Added tests.
+
+2002-10-29 22:38  bastiaan
+
+	* ChangeLog, configure.in, doc/html/index.html: Release as 0.3.4b
+
+2002-10-29 11:28  bastiaan
+
+	* ChangeLog, include/log4cpp/config-win32.h,
+	  src/PortabilityImpl.hh: added workarounds for abs() and
+	  strftime() and localtime() not being defined in std:: on MSVC6.
+	  See bug report #630334.
+
+2002-10-28 23:22  bastiaan
+
+	* ChangeLog, configure.in, doc/html/index.html: Release as 0.3.4
+
+2002-10-28 23:05  bastiaan
+
+	* src/: StringUtil.hh, StringUtil.cpp: fixed signed-vs-unsigned
+	  comparison warning. Let both trim() implementations return
+	  unsigned int.
+
+2002-10-28 22:48  bastiaan
+
+	* ChangeLog, tests/testPattern.cpp: added missing 'std::'.
+
+2002-10-28 00:28  bastiaan
+
+	* ChangeLog, src/PatternLayout.cpp: define static constant strings
+	  in TimeStampComponent outside class declaration.
+
+2002-10-27 23:53  bastiaan
+
+	* msvc6/log4cpp/log4cpp.dsp, bcb5/log4cpp/log4cpp.bpf,
+	  bcb5/log4cpp/log4cpp.bpr, bcb5/log4cpp/log4cpp.mak,
+	  msvc6/log4cppDLL/log4cppDLL.dsp: Added BasicConfigurator.
+
+2002-10-27 20:44  bastiaan
+
+	* src/PortabilityImpl.cpp: Added.
+
+2002-10-27 02:48  bastiaan
+
+	* ChangeLog, bcb5/log4cpp/log4cpp.bpf, bcb5/log4cpp/log4cpp.bpr,
+	  bcb5/log4cpp/log4cpp.mak, include/log4cpp/Appender.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/Log4cppCleanup.hh, include/log4cpp/Makefile.am,
+	  include/log4cpp/config-win32.h, msvc6/log4cpp/log4cpp.dsp,
+	  msvc6/log4cppDLL/log4cppDLL.dsp, src/Appender.cpp,
+	  src/HierarchyMaintainer.cpp, src/Log4cppCleanup.cpp,
+	  src/Makefile.am: removed Log4cppCleanup, it was kinda broken
+	  anyway.
+
+2002-10-27 02:38  bastiaan
+
+	* bcb5/log4cpp/log4cpp.bpf, bcb5/log4cpp/log4cpp.bpr,
+	  bcb5/log4cpp/log4cpp.mak, include/log4cpp/AppenderSkeleton.hh,
+	  include/log4cpp/Category.hh, include/log4cpp/CategoryStream.hh,
+	  include/log4cpp/Log4cppCleanup.hh, include/log4cpp/Makefile.am,
+	  include/log4cpp/OstringStream.hh,
+	  include/log4cpp/PatternLayout.hh, include/log4cpp/Portability.hh,
+	  msvc6/log4cpp/log4cpp.dsp, msvc6/log4cppDLL/log4cppDLL.dsp,
+	  src/BasicLayout.cpp, src/Category.cpp, src/FileAppender.cpp,
+	  src/HierarchyMaintainer.cpp, src/LayoutAppender.cpp,
+	  src/Makefile.am, src/OstringStream.cpp, src/PatternLayout.cpp,
+	  src/RollingFileAppender.cpp, src/SimpleLayout.cpp,
+	  src/StringUtil.cpp, src/StringUtil.hh: Moved
+	  OstringStream::vform() to StringUtil.  if no <sstream> available,
+	  define std::ostringstream.  Replaced all OstringStream occurences
+	  with std::ostringstream.
+
+2002-10-27 01:48  bastiaan
+
+	* ChangeLog, configure.in, doc/html/index.html: Release 0.3.3
+
+2002-10-27 01:45  bastiaan
+
+	* msvc6/log4cppDLL/Makefile.in: Generated file, should not be in
+	  CVS.
+
+2002-10-27 01:42  bastiaan
+
+	* ChangeLog, include/log4cpp/PatternLayout.hh,
+	  src/PatternLayout.cpp: added default conversion patterns.
+
+2002-10-27 00:26  bastiaan
+
+	* ChangeLog, src/NDC.cpp: added parentheses to return statement in
+	  _get() as suggested by Derrick Hastings to fix #415160.
+
+2002-10-26 20:30  bastiaan
+
+	* ChangeLog, include/log4cpp/config-win32.h,
+	  msvc6/log4cpp/log4cpp.dsp, msvc6/log4cppDLL/log4cppDLL.dsp,
+	  src/Appender.cpp, src/AppenderSkeleton.cpp,
+	  src/BasicConfigurator.cpp, src/BasicLayout.cpp, src/Category.cpp,
+	  src/CategoryStream.cpp, src/Configurator.cpp,
+	  src/FileAppender.cpp, src/Filter.cpp,
+	  src/FixedContextCategory.cpp, src/HierarchyMaintainer.cpp,
+	  src/IdsaAppender.cpp, src/LayoutAppender.cpp,
+	  src/Log4cppCleanup.cpp, src/LoggingEvent.cpp, src/Makefile.am,
+	  src/NDC.cpp, src/OstreamAppender.cpp, src/OstringStream.cpp,
+	  src/PatternLayout.cpp, src/PortabilityImpl.hh, src/Priority.cpp,
+	  src/Properties.hh, src/PropertyConfigurator.cpp,
+	  src/PropertyConfiguratorImpl.cpp,
+	  src/PropertyConfiguratorImpl.hh, src/RemoteSyslogAppender.cpp,
+	  src/RollingFileAppender.cpp, src/SimpleConfigurator.cpp,
+	  src/SimpleLayout.cpp, src/StringQueueAppender.cpp,
+	  src/StringUtil.hh, src/SyslogAppender.cpp,
+	  src/Win32DebugAppender.cpp: worked around header definition bug
+	  in MSVC by aliasing cstdlib/cstring functions in 'std::'. See
+	  #628211
+
+2002-10-19 02:11  bastiaan
+
+	* ChangeLog, include/log4cpp/PatternLayout.hh,
+	  src/PatternLayout.cpp: replaced PatternLayout implementation: it
+	  now preparses the message format for quicker layouting and
+	  implements format specifiers, e.g. '%-5p
+
+2002-10-19 02:09  bastiaan
+
+	* tests/testPattern.cpp:  added tests for format specifiers and
+	  more.
+
+2002-10-10 17:46  bastiaan
+
+	* ChangeLog, include/log4cpp/threading/MSThreads.hh: added
+	  #include<string>
+
+2002-10-05 23:34  bastiaan
+
+	* ChangeLog: updates to log4cpp.spec.in and doc/Makefile.am
+
+2002-10-05 23:32  bastiaan
+
+	* doc/Makefile.am: fix install location.
+
+2002-10-05 23:30  bastiaan
+
+	* log4cpp.spec.in: don't require log4cpp for log4cpp-doc.
+
+2002-10-05 16:30  bastiaan
+
+	* msvc6/Makefile.am: Added testMain subdir
+
+2002-10-05 16:10  bastiaan
+
+	* ChangeLog, configure.in: 0.3.2 release.
+
+2002-10-05 16:10  bastiaan
+
+	* doc/html/index.html: added notes for 0.3.2 and 0.3.2rc5
+
+2002-10-05 14:09  bastiaan
+
+	* ChangeLog, configure.in, msvc6/Makefile.am,
+	  msvc6/log4cppDLL/Makefile.am, msvc6/testDLL/Makefile.am,
+	  msvc6/testMain/Makefile.am, msvc6/testNTEventLog/Makefile.am,
+	  msvc6/testPattern/Makefile.am: Added missing makefiles.
+
+2002-09-26 21:00  bastiaan
+
+	* ChangeLog, src/StringUtil.hh: fix compilation problem on Sun CC
+	  5.3 (bug #614903).
+
+2002-09-18 16:11  bastiaan
+
+	* ChangeLog, src/PropertyConfiguratorImpl.cpp,
+	  src/SimpleConfigurator.cpp: multiply syslog facility value by 8.
+
+2002-09-18 11:14  bastiaan
+
+	* ChangeLog, src/RemoteSyslogAppender.cpp:  fixed log facility in
+	  _append(), as reported by Derek Atkins.
+
+2002-09-18 00:22  bastiaan
+
+	* ChangeLog, log4cpp.spec.in: fix relocatability of log4cpp-devel
+	  by patching lib/liblog4cpp.la and bin/log4cpp-config in %post.
+	  Unfortunately this results in 'rpm --verify' reporting these
+	  files as modified.
+
+2002-09-16 00:40  bastiaan
+
+	* ChangeLog, THANKS, configure.in, include/log4cpp/Appender.hh,
+	  include/log4cpp/AppenderSkeleton.hh, m4/BB_CHECK_PTHREADS.m4,
+	  m4/PETI_PEDANTIC_GCC.m4, src/FileAppender.cpp, src/Priority.cpp,
+	  src/Properties.cpp, src/PropertyConfiguratorImpl.hh,
+	  src/RemoteSyslogAppender.cpp, src/StringUtil.hh, tests/Clock.cpp,
+	  tests/Clock.hh, tests/testConfig.cpp,
+	  tests/testPropertyConfig.cpp, tests/testbench.cpp: Merged patch
+	  #605143, contributed by Harald Wellman: support for compilation
+	  in QNX Neutrino.
+
+2002-09-15 23:55  bastiaan
+
+	* include/log4cpp/threading/DummyThreads.hh,
+	  include/log4cpp/threading/MSThreads.hh,
+	  include/log4cpp/threading/OmniThreads.hh,
+	  include/log4cpp/threading/PThreads.hh, src/DummyThreads.cpp,
+	  src/MSThreads.cpp, src/OmniThreads.cpp, src/PThreads.cpp: moved
+	  bodies of getThreadId() to .cpp files.
+
+2002-09-15 23:54  bastiaan
+
+	* src/Makefile.am, msvc6/log4cpp/log4cpp.dsp,
+	  bcb5/log4cpp/log4cpp.bpf, bcb5/log4cpp/log4cpp.bpr,
+	  bcb5/log4cpp/log4cpp.mak, msvc6/log4cppDLL/log4cppDLL.dsp: dded
+	  *Threads.cpp files
+
+2002-09-05 21:25  bastiaan
+
+	* src/Win32DebugAppender.cpp: Added terminating newline to file.
+
+2002-09-05 13:18  bastiaan
+
+	* ChangeLog, src/PropertyConfiguratorImpl.cpp,
+	  tests/testConfig.log4cpp.properties: Merged patch #604991,
+	  contributed by Richard Brodie: support for setting additivity via
+	  properties file using
+	  'log4j.addivity.<categoryname>=[true|false]'.
+
+2002-08-19 07:26  dresnick
+
+	* msvc6/: log4cppDLL/log4cppDLL.dsp, log4cpp/log4cpp.dsp:
+	  src\Properties.hh added. Building of NTEventLogAppender.dll
+	  (message file) made a little more robust.
+
+2002-08-16 23:42  bastiaan
+
+	* src/: PropertyConfiguratorImpl.cpp, SimpleConfigurator.cpp: put
+	  #ifdef WIN32 around #include of NTEventLogAppender and
+	  Win32DebugAppender.
+
+2002-08-16 23:30  bastiaan
+
+	* doc/html/index.html: Added CVS section.
+
+2002-08-16 11:05  bastiaan
+
+	* ChangeLog, include/log4cpp/threading/Makefile.am: Added
+	  MSThreads.hh to Makefile.am
+
+2002-08-16 01:22  bastiaan
+
+	* configure.in: Upped release to 0.3.2rc3
+
+2002-08-16 01:19  bastiaan
+
+	* ChangeLog: Release 0.3.2rc3 (fixed some show stopping mess ups).
+
+2002-08-16 01:17  bastiaan
+
+	* include/log4cpp/threading/PThreads.hh: use reinterpret_cast<>.
+
+2002-08-16 01:17  bastiaan
+
+	* tests/testProperties.cpp: add std::.
+
+2002-08-14 23:52  bastiaan
+
+	* ChangeLog: Release as 0.3.2rc2
+
+2002-08-14 11:12  bastiaan
+
+	* include/log4cpp/: NTEventLogAppender.hh, Win32DebugAppender.hh:
+	  Added #error messages.
+
+2002-08-14 11:05  bastiaan
+
+	* ChangeLog, include/log4cpp/NTEventLogAppender.hh,
+	  include/log4cpp/Win32DebugAppender.hh:
+	  include/log4cpp/Win32DebugAppender.hh: added warnings about
+	  platform dependency.
+
+2002-08-14 11:04  bastiaan
+
+	* doc/Doxyfile.in: predefine 'WIN32' as suggested by David Resnick.
+
+2002-08-14 10:07  bastiaan
+
+	* ChangeLog, Makefile.am, include/log4cpp/Makefile.am,
+	  tests/Makefile.am: added distclean-local targets.
+
+2002-08-13 09:20  dresnick
+
+	* ChangeLog, include/log4cpp/PatternLayout.hh: Documentation fixes.
+
+2002-08-13 01:56  bastiaan
+
+	* Makefile.am: Fix distclean-local
+
+2002-08-13 01:38  bastiaan
+
+	* doc/Makefile.am: Finally fix uninstall?
+
+2002-08-13 01:16  bastiaan
+
+	* doc/Makefile.am: Fix typo in uninstall, I better go to bed now.
+
+2002-08-13 01:10  bastiaan
+
+	* doc/Makefile.am: Fix uninstall target.
+
+2002-08-13 01:00  bastiaan
+
+	* doc/Makefile.am: Fix uninstall.
+
+2002-08-13 00:41  bastiaan
+
+	* tests/: Makefile.am, log4cpp.properties,
+	  testConfig.log4cpp.properties, testProperties.properties: Added
+	  .properties files.
+
+2002-08-13 00:35  bastiaan
+
+	* doc/html/Makefile.am: Fix file paths.
+
+2002-08-13 00:31  bastiaan
+
+	* ChangeLog, configure.in, doc/Makefile.am, doc/html/Makefile.am:
+	  added doc/html to automake.
+
+2002-08-13 00:08  bastiaan
+
+	* doc/: Makefile.am, mainPage.txt: added mainPage.txt.
+
+2002-08-13 00:03  bastiaan
+
+	* doc/: Makefile.am, html/sflogo.png, html/index.html: Added
+	  SourceForge logo.
+
+2002-08-12 23:24  bastiaan
+
+	* ChangeLog: Release as 0.3.2rc2
+
+2002-08-12 23:21  bastiaan
+
+	* tests/: testCategory.cpp, testConfig.cpp, testDLL.cpp,
+	  testFilter.cpp, testPropConfig.cpp, testbench.cpp: Replaced
+	  #include "log4cpp/X" with #include <log4cpp/X>
+
+2002-08-12 23:20  bastiaan
+
+	* tests/Makefile.am: Added testProperties and testPropertyConfig.
+
+2002-08-12 23:19  bastiaan
+
+	* tests/: testProperties.cpp, testPropertyConfig.cpp: Added.
+
+2002-08-12 23:04  bastiaan
+
+	* doc/html/index.html: more documentation updates.
+
+2002-08-12 22:57  bastiaan
+
+	* src/Category.cpp: added lock to getAllAppenders().
+
+2002-08-12 22:25  bastiaan
+
+	* include/log4cpp/Portability.hh: added comments.
+
+2002-08-12 22:21  bastiaan
+
+	* msvc6/log4cppDLL/log4cppDLL.rc: update version and product info.
+
+2002-08-09 22:51  bastiaan
+
+	* ChangeLog, include/log4cpp/RollingFileAppender.hh: correct
+	  constness of constructor parameters, as pointed out by James
+	  Emery.
+
+2002-08-07 01:21  bastiaan
+
+	* ChangeLog, m4/CREATE_GENERIC_CONFIG.m4: fix log4cpp-config
+	  creation (use PACKAGE_TARNAME instead of PACKAGE)
+
+2002-08-07 01:13  bastiaan
+
+	* ChangeLog, INSTALL, README, doc/html/default.css,
+	  doc/html/index.html: converted most documentation to HTML.
+
+2002-08-06 23:32  bastiaan
+
+	* ChangeLog, configure.ac, configure.in: renamed configure.ac back
+	  to configure.in due to bug in libtoolize 1.4.2
+
+2002-08-06 10:33  dresnick
+
+	* ChangeLog, msvc6/log4cppDLL/log4cppDLL.rc,
+	  msvc6/log4cppDLL/resource.h: DLL version resource cleaned up.
+
+2002-08-06 01:28  bastiaan
+
+	* NEWS, doc/html/default.css, doc/html/index.html: Documentation
+	  updates.
+
+2002-08-05 07:31  dresnick
+
+	* ChangeLog, msvc6/log4cppDLL/log4cppDLL.dsp,
+	  msvc6/log4cppDLL/log4cppDLL.rc, msvc6/log4cppDLL/resource.h:
+	  Version property sheet added to DLL build.
+
+2002-08-05 07:26  dresnick
+
+	* msvc6/testPropConfig/testPropConfig.dsp: Test for
+	  PropertyConfigurator.
+
+2002-08-04 10:15  dresnick
+
+	* msvc6/msvc6.dsw, msvc6/log4cpp/log4cpp.dsp,
+	  msvc6/testDLL/testDLL.dsp, tests/log4cpp.property,
+	  tests/testPropConfig.cpp: Test for PropertyConfigurator added.
+
+2002-08-04 10:13  dresnick
+
+	* ChangeLog: Appenders added to PropertyConfigurator.
+
+2002-08-04 10:05  dresnick
+
+	* src/PropertyConfiguratorImpl.cpp: Added RollingFileAppender,
+	  NTEventLogAppender. Threshold attrib added for appenders. Invalid
+	  priority in configureCategory prints message of invalid_argument
+	  exception.
+
+2002-08-04 10:03  dresnick
+
+	* src/Priority.cpp: Surrounding quotes added around invalid
+	  priority in thrown invalid_argument exception.
+
+2002-08-04 01:38  bastiaan
+
+	* ChangeLog, doc/Doxyfile.in, doc/Makefile.am,
+	  doc/html/default.css, doc/html/index.html: added new index page
+	  and move Doxygen generated docs to api subdirectory.
+
+2002-08-02 15:10  bastiaan
+
+	* ChangeLog, src/LoggingEvent.cpp:  fill in the thread Id.
+
+2002-08-02 01:21  bastiaan
+
+	* ChangeLog: Added POSIX threads support, contributed by Emiliano
+	  Martin.
+
+2002-08-02 01:13  bastiaan
+
+	* include/log4cpp/threading/: Makefile.am, Threading.hh: add
+	  PThreads.hh
+
+2002-08-02 01:12  bastiaan
+
+	* include/log4cpp/threading/PThreads.hh: added POSIX threads
+	  support file contributed by Emiliano Martin.
+
+2002-08-02 01:12  bastiaan
+
+	* configure.ac: added test for POSIX threads.
+
+2002-08-02 01:12  bastiaan
+
+	* THANKS: added Emimiliano.
+
+2002-08-02 01:11  bastiaan
+
+	* m4/BB_CHECK_OMNITHREADS.m4: added 'thread safity' defines, needed
+	  at least for STL.
+
+2002-08-02 01:11  bastiaan
+
+	* m4/BB_CHECK_PTHREADS.m4: added. Crude initial pthreads check.
+	  Need to nick a good macro somewhere else :-)
+
+2002-07-31 01:10  bastiaan
+
+	* src/PropertyConfiguratorImpl.cpp: added 'append' property for
+	  FileAppender.
+
+2002-07-31 01:09  bastiaan
+
+	* m4/AC_CREATE_PREFIX_CONFIG_H.m4: removed a debug print statement.
+
+2002-07-31 01:07  bastiaan
+
+	* include/log4cpp/TimeStamp.hh: added some doxygen comments
+
+2002-07-23 00:12  bastiaan
+
+	* ChangeLog, src/Priority.cpp: put names[] in anonymous namespace
+	  instead of declaring it static. This should solve Solaris 8
+	  dynamic library problem (see patch #583905).
+
+2002-07-23 00:04  bastiaan
+
+	* ChangeLog: autoconf updates.
+
+2002-07-23 00:00  bastiaan
+
+	* configure.ac, log4cpp.spec.in, doc/Doxyfile.in, doc/Makefile.am,
+	  m4/AC_CREATE_PREFIX_CONFIG_H.m4, m4/AC_CXX_HAVE_SSTREAM.m4,
+	  m4/AC_CXX_NAMESPACES.m4, m4/BB_CHECK_OMNITHREADS.m4: updated AC
+	  macros and variables to autoconf 2.50.
+
+2002-07-22 23:58  bastiaan
+
+	* configure.in: renamed to configure.ac.
+
+2002-07-12 00:39  bastiaan
+
+	* ChangeLog, src/PropertyConfiguratorImpl.cpp,
+	  src/PropertyConfiguratorImpl.hh: use map.lower_bound() to
+	  determine begin and end for appender and category properties.
+
+2002-07-12 00:37  bastiaan
+
+	* ChangeLog, src/PatternLayout.cpp: use std::string::size_type
+	  instead of int.
+
+2002-07-10 10:40  dresnick
+
+	* ChangeLog: PatternLayout date formatting and minor (mainly MSVC6)
+	  adjustments.
+
+2002-07-10 10:38  dresnick
+
+	* msvc6/msvc6.dsw: testDLL and testPattern projects added.
+
+2002-07-10 10:36  dresnick
+
+	* msvc6/testPattern/testPattern.dsp, tests/testPattern.cpp: Tests
+	  PatternLayout, especially date formatting.
+
+2002-07-10 10:35  dresnick
+
+	* include/log4cpp/PatternLayout.hh, src/PatternLayout.cpp: log4j
+	  style date formatting added.
+
+2002-07-10 10:35  dresnick
+
+	* tests/testDLL.cpp, msvc6/testDLL/testDLL.dsp: Test of win32
+	  platform log4cpp dll, including export of container classes.
+
+2002-07-10 10:33  dresnick
+
+	* msvc6/: log4cpp/log4cpp.dsp, log4cppDLL/log4cppDLL.dsp:
+	  PropertyConfiguratorImpl.cpp and Properties.cpp added,
+	  ConfiguratorSkeleton.cpp removed.
+
+2002-07-10 01:19  bastiaan
+
+	* ChangeLog, src/PropertyConfiguratorImpl.cpp: fixed
+	  configureCategory() fix.
+
+2002-07-10 00:37  bastiaan
+
+	* ChangeLog, src/PropertyConfiguratorImpl.cpp,
+	  src/PropertyConfiguratorImpl.hh: renamed addAppenders() to
+	  configureCategory().	fixed configureCategory(): had a nested
+	  loop for priorities and appenders.  replaced find(property, '.')
+	  with StringUtil::split() in several places.
+
+2002-07-10 00:36  bastiaan
+
+	* src/: StringUtil.cpp, StringUtil.hh: added a more generic split()
+	  method taking an output_iterator instead of a vector to store the
+	  result.
+
+2002-07-06 23:28  bastiaan
+
+	* ChangeLog, src/PropertyConfiguratorImpl.cpp,
+	  src/PropertyConfiguratorImpl.hh: changed the way configuration is
+	  done: first instantatiate all Appenders defined in the config,
+	  then add them to Categories where necessary. Multiple Appenders
+	  per Category are now supported.  Currently doConfigure() leaks
+	  all Appenders, as they will be not be owned by any Categories.
+	  This will be fixed in the future by having the LoggerRepository
+	  maintain ownership of all Categories, Appenders, etc
+
+2002-07-05 19:10  bastiaan
+
+	* src/: StringUtil.cpp, StringUtil.hh: added split() method.
+
+2002-07-05 00:11  bastiaan
+
+	* ChangeLog, src/Properties.cpp, src/Properties.hh: added Log4j
+	  style variable substitution: ${NAME} will be substituted with
+	  environment variable NAME or if not found with property NAME.
+	  '${${}' denotes a literal '${' sequence.
+
+2002-07-04 00:28  bastiaan
+
+	* include/log4cpp/: PropertyConfigurator.hh, SimpleConfigurator.hh:
+	  Updated documentation.
+
+2002-07-04 00:25  bastiaan
+
+	* include/log4cpp/Makefile.am, src/Makefile.am: Added
+	  BasicConfigurator.
+
+2002-07-04 00:25  bastiaan
+
+	* ChangeLog, include/log4cpp/BasicConfigurator.hh,
+	  src/BasicConfigurator.cpp: added BasicConfiguator.
+
+2002-07-03 23:55  bastiaan
+
+	* ChangeLog, include/log4cpp/Category.hh,
+	  include/log4cpp/CategoryStream.hh,
+	  include/log4cpp/FixedContextCategory.hh: fixed documentation
+	  buglets.
+
+2002-07-03 18:12  bastiaan
+
+	* ChangeLog, src/PropertyConfiguratorImpl.cpp: use getString(),
+	  etc. to get properties.
+
+2002-07-03 17:53  bastiaan
+
+	* ChangeLog: Changes to PropertyConfigrator related classes.
+
+2002-07-03 17:52  bastiaan
+
+	* src/TimeStamp.cpp: replaced #include <string.h> with <cstring>.
+
+2002-07-03 17:51  bastiaan
+
+	* include/log4cpp/Makefile.am: Removed ConfiguratorSkeleton.hh
+
+2002-07-03 17:50  bastiaan
+
+	* src/Makefile.am: Added: StringUtil.hh, StringUtil.cpp,
+	  Properties,hh, Properties.cpp, PropertyConfiguratorImpl.hh,
+	  PropertyConfiguratorImpl.cpp.  Removed: ConfiguratorSkeleton.cpp
+
+2002-07-03 17:48  bastiaan
+
+	* m4/PETI_PEDANTIC_GCC.m4: remove -pedantic flag for g++ 2.96 to
+	  get rid of those iritating warnings about std IOstreams code.
+
+2002-07-03 17:46  bastiaan
+
+	* src/RollingFileAppender.cpp: fix signed/unsigned comparison
+	  warning.
+
+2002-07-03 17:42  bastiaan
+
+	* src/: StringUtil.cpp, StringUtil.hh: added, contains
+	  ConfiguratorSkeleton::trim().
+
+2002-07-03 17:31  bastiaan
+
+	* include/log4cpp/ConfiguratorSkeleton.hh,
+	  src/ConfiguratorSkeleton.cpp: removed
+
+2002-07-03 17:30  bastiaan
+
+	* include/log4cpp/PropertyConfigurator.hh,
+	  src/PropertyConfigurator.cpp: leave only 2 static configure()
+	  methods, like SimpleConfigurator. The actual implementation is
+	  now in PropertyConfiguratorImpl.
+
+2002-07-03 17:28  bastiaan
+
+	* src/: PropertyConfiguratorImpl.cpp, PropertyConfiguratorImpl.hh:
+	  added. This class is a merge of PropertyConfigurator and
+	  ConfiguratorSkeleton. ConfiguratorSkeleton is not generic enough
+	  to be exposed in the API.
+
+2002-07-03 17:27  bastiaan
+
+	* src/: Properties.cpp, Properties.hh: added, moved
+	  PropertyConfigurator::parseConfig() to load().
+
+2002-07-03 01:32  bastiaan
+
+	* ChangeLog, include/log4cpp/ConfiguratorSkeleton.hh,
+	  src/ConfiguratorSkeleton.cpp: changed property names to
+	  JavaBeans/log4j style.  Use the appender name as name (duh)
+	  instead of the 'name' property.  Don't set a layout if none have
+	  been specified.  Use std::string::size_type where applicable.
+	  Made some exception messages clearer.  Compacted the code a bit.
+
+2002-07-03 01:31  bastiaan
+
+	* include/log4cpp/RemoteSyslogAppender.hh,
+	  src/RemoteSyslogAppender.cpp:  accept '-1' for facility and
+	  portNumber, implying the 'default value'.
+
+2002-07-02 22:00  bastiaan
+
+	* ChangeLog, bcb5/log4cpp/log4cpp.bpf, bcb5/log4cpp/log4cpp.bpr,
+	  bcb5/log4cpp/log4cpp.mak, msvc6/log4cpp/log4cpp.dsp: added
+	  PropertyConfigurator files.
+
+2002-07-02 20:32  bastiaan
+
+	* ChangeLog, THANKS, include/log4cpp/Configurator.hh,
+	  include/log4cpp/ConfiguratorSkeleton.hh,
+	  include/log4cpp/Makefile.am,
+	  include/log4cpp/PropertyConfigurator.hh,
+	  include/log4cpp/SimpleConfigurator.hh, src/Configurator.cpp,
+	  src/ConfiguratorSkeleton.cpp, src/Makefile.am,
+	  src/PropertyConfigurator.cpp, src/RollingFileAppender.cpp,
+	  src/SimpleConfigurator.cpp: integrated PropertyConfigurator
+	  contributed by Alan Anderson <alan@rushmore.com>.
+
+2002-07-02 19:52  bastiaan
+
+	* include/log4cpp/NDC.hh: Fix documentation buglet.
+
+2002-07-02 15:34  bastiaan
+
+	* ChangeLog, include/log4cpp/Category.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  src/HierarchyMaintainer.cpp, src/Category.cpp: Changed return
+	  type of getCurrentCategories() to std:vector<Category>.  vector<>
+	  is more efficient than set<> and works around MSVC++ DLL export
+	  brain damage, see Microsoft Q168958.
+
+2002-06-19 15:50  bastiaan
+
+	* configure.in, src/Makefile.am: Upped version to 0.3.2rc1
+
+2002-06-19 15:45  bastiaan
+
+	* ChangeLog, NEWS: Upped version to 0.3.2rc1
+
+2002-06-19 15:30  bastiaan
+
+	* msvc6/Makefile.am: added NTEventLogCategories.
+
+2002-06-19 15:30  bastiaan
+
+	* include/log4cpp/Makefile.am: added NTEventLog.hh
+
+2002-06-19 15:30  bastiaan
+
+	* include/log4cpp/config-win32.h: #define LOG4CPP_SUPPLY_DLLMAIN
+
+2002-06-19 15:29  bastiaan
+
+	* src/DllMain.cpp: enclosed in #ifdef LOG4CPP_SUPPLY_DLLMAIN
+
+2002-06-19 15:28  bastiaan
+
+	* src/Makefile.am: added NTEventlog.cpp and DllMain.cpp to sources.
+
+2002-06-18 13:41  bastiaan
+
+	* THANKS: Added David Resnick and Aaron Ingram.
+
+2002-06-18 13:31  bastiaan
+
+	* ChangeLog, src/NDC.cpp, tests/testNDC.cpp: fix top level context
+	  falling off, if depth > 2.
+
+2002-06-18 00:43  aingram
+
+	* ChangeLog: * Fixed default port for syslog in
+	  SimpleConfigurator.cpp * Added a sample configuration file:
+	  log4cpp.cfg
+
+2002-06-18 00:42  aingram
+
+	* log4cpp.cfg: added a sample configuration file for
+	  SimpleConfigurator
+
+2002-06-18 00:09  aingram
+
+	* src/SimpleConfigurator.cpp: fixed default port for syslog
+
+2002-06-17 09:43  dresnick
+
+	* ChangeLog, include/log4cpp/Portability.hh,
+	  include/log4cpp/NTEventLogAppender.hh,
+	  include/log4cpp/config-win32.h,
+	  include/log4cpp/threading/MSThreads.hh,
+	  include/log4cpp/threading/Threading.hh,
+	  msvc6/NTEventLogCategories.mc, msvc6/msvc6.dsw,
+	  msvc6/log4cpp/log4cpp.dsp, msvc6/log4cppDLL/Makefile.am,
+	  msvc6/log4cppDLL/Makefile.in, msvc6/log4cppDLL/log4cppDLL.dsp,
+	  msvc6/testMain/testMain.dsp,
+	  msvc6/testNTEventLog/testNTEventLog.dsp, src/DllMain.cpp,
+	  src/NTEventLogAppender.cpp, src/SimpleConfigurator.cpp,
+	  tests/testNTEventLog.cpp: Merge of Aaron Ingrams MSThreads patch.
+	  Addition of NTEventLogAppender. See ChangeLog for more details.
+
+2002-06-07 11:30  legoater
+
+	* ChangeLog: Added aclocal support
+
+2002-06-03 23:14  legoater
+
+	* Makefile.am, log4cpp.m4: Added aclocal support
+
+2002-06-03 22:48  legoater
+
+	* tests/Clock.cpp: Added rdtscl() macro from <asm/msr.h> which
+	  disappeared on RedHat 7.3
+
+2002-05-22 16:19  bastiaan
+
+	* ChangeLog: Added aclocal support
+
+2002-05-22 16:19  bastiaan
+
+	* include/log4cpp/config-win32.h: fix compilation in Visual .NET.
+
+2002-05-12 15:06  bastiaan
+
+	* bcb5/log4cpp/log4cpp.bpf, bcb5/log4cpp/log4cpp.bpr,
+	  bcb5/log4cpp/log4cpp.mak, include/log4cpp/Makefile.am,
+	  include/log4cpp/Win32DebugAppender.hh, msvc6/log4cpp/log4cpp.dsp,
+	  src/Makefile.am, src/Win32DebugAppender.cpp: dded
+	  Win32DebugAppender contributed by Alan Anderson.
+
+2002-05-12 14:15  bastiaan
+
+	* ChangeLog, Makefile.am: convert *.bpg files to CRLF in
+	  dist.(Paulo Pizarro)
+
+2002-05-12 13:51  bastiaan
+
+	* src/RollingFileAppender.cpp, ChangeLog: explicitly remove oldest
+	  file in rollOver() because win98 cannot rename() to existing
+	  files. (Paulo Pizarro)
+
+2002-04-21 23:47  bastiaan
+
+	* ChangeLog, src/PatternLayout.cpp: #include <stdint.h> only if
+	  available.
+
+2002-04-21 23:47  bastiaan
+
+	* m4/AC_C_INT64_T.m4: added #define of HAVE_STDINT_H.
+
+2002-04-21 23:08  bastiaan
+
+	* ChangeLog, include/log4cpp/config-win32.h: added mode_t typedef.
+
+2002-04-09 21:44  bastiaan
+
+	* tests/Clock.cpp: test for i386 architecture on linux (patch
+	  #541608)
+
+2002-04-04 22:36  bastiaan
+
+	* ChangeLog, NEWS: Release 0.3.1
+
+2002-04-04 22:36  bastiaan
+
+	* m4/PETI_PEDANTIC_GCC.m4: add -Wno-unused to g++ options.
+
+2002-04-04 22:26  bastiaan
+
+	* bcb5/log4cpp/: log4cpp.bpf, log4cpp.bpr, log4cpp.mak: Added
+	  RollingFileAppender
+
+2002-04-04 22:25  bastiaan
+
+	* msvc6/log4cpp/log4cpp.dsp: Added RollingFileAppender and
+	  threading files.
+
+2002-04-04 22:03  bastiaan
+
+	* ChangeLog, configure.in: Increment version to 0.3.1.
+
+2002-04-04 21:47  bastiaan
+
+	* ChangeLog, src/Category.cpp: fix previous fix for bug #527467.
+
+2002-03-31 01:13  bastiaan
+
+	* include/log4cpp/Portability.hh: Disable exception specifier
+	  warnings (issue #536668)
+
+2002-03-29 00:47  bastiaan
+
+	* ChangeLog: compatilibty improvements.
+
+2002-03-29 00:46  bastiaan
+
+	* configure.in, include/log4cpp/Portability.hh: back out
+	  strcasecmp() stuff.
+
+2002-03-29 00:44  bastiaan
+
+	* src/PatternLayout.cpp: #include <stdint.h>
+
+2002-03-29 00:44  bastiaan
+
+	* m4/AC_C_INT64_T.m4: #include <stdint.h> and remove $GCC check.
+
+2002-03-22 23:37  bastiaan
+
+	* ChangeLog, THANKS, include/log4cpp/Makefile.am,
+	  include/log4cpp/RollingFileAppender.hh, src/Makefile.am,
+	  src/RollingFileAppender.cpp, src/SimpleConfigurator.cpp: added
+	  RollingFileAppender contributed by Paulo Pizarro
+	  <paulo.pizarro@digitro.com.br>
+
+2002-03-22 23:37  bastiaan
+
+	* NEWS: added warning.
+
+2002-03-22 22:30  bastiaan
+
+	* ChangeLog, include/log4cpp/FileAppender.hh, src/FileAppender.cpp:
+	  added 'append' and 'mode' options.
+
+2002-03-22 21:59  bastiaan
+
+	* include/log4cpp/threading/: BoostThreads.hh, Makefile.am: Added.
+
+2002-03-22 13:44  bastiaan
+
+	* tests/: testFilter.cpp, testPriority.cpp: Added missing std::
+	  specifiers.
+
+2002-03-21 00:35  bastiaan
+
+	* ChangeLog, src/Category.cpp: fix invalidated iterator usage. (bug
+	  #527467)
+
+2002-03-21 00:24  bastiaan
+
+	* ChangeLog, include/log4cpp/Appender.hh,
+	  include/log4cpp/Category.hh,
+	  include/log4cpp/FixedContextCategory.hh, src/Category.cpp,
+	  src/FixedContextCategory.cpp: added getAllAppenders() method.
+	  (feature request #527381)
+
+2002-03-21 00:11  bastiaan
+
+	* include/log4cpp/SimpleConfigurator.hh: Added documentation
+	  comments.
+
+2002-03-20 23:52  bastiaan
+
+	* ChangeLog, src/Log4cppCleanup.cpp: set variable to NULL after
+	  delete.  (feature request #527393)
+
+2002-03-20 23:19  bastiaan
+
+	* ChangeLog, include/log4cpp/SimpleConfigurator.hh,
+	  src/SimpleConfigurator.cpp: added configure(std::istream&)
+	  method. (feature request #527760)
+
+2002-03-17 16:55  bastiaan
+
+	* src/SyslogAppender.cpp, ChangeLog: fix format string bug. (bug
+	  #527475)
+
+2002-03-17 16:39  bastiaan
+
+	* ChangeLog, tests/testbench.cpp: added missing 'std::' specifiers.
+	  (bug #530332)
+
+2002-02-25 07:33  ytcheung
+
+	* src/FileAppender.cpp: only close the file descriptor if the file
+	  descriptor is not -1 set the file descriptor to -1 after closing
+	  it
+
+2002-02-25 07:17  ytcheung
+
+	* src/FileAppender.cpp: cosmetic changes in reopen()
+
+2002-02-22 06:10  ytcheung
+
+	* INSTALL: added detail instructions for compliation for OpenVMS
+
+2002-02-20 12:37  ytcheung
+
+	* src/FileAppender.cpp: Removed OpenVMS specific switches for
+	  open(). The previous switches make logging very slow.  For
+	  OpenVMS usage, users may have to modify this class to pass on
+	  additional switches to the open() call.
+
+2002-02-18 23:37  bastiaan
+
+	* ChangeLog: Release 0.3.0
+
+2002-02-18 23:36  bastiaan
+
+	* NEWS: release 0.3.0
+
+2002-02-18 23:36  bastiaan
+
+	* README: Added Status section
+
+2002-02-18 23:24  bastiaan
+
+	* INSTALL: added section about ./configure options
+
+2002-02-18 23:23  bastiaan
+
+	* configure.in: upped release to 0.3.0 and LT version to 4.0.0
+
+2002-02-18 23:13  bastiaan
+
+	* include/log4cpp/threading/OmniThreads.hh: added Doxyen comments.
+
+2002-02-18 23:12  bastiaan
+
+	* src/Appender.cpp: added missing Mutex
+
+2002-02-18 23:11  bastiaan
+
+	* src/OstringStream.cpp: fix typo
+
+2002-02-18 23:10  bastiaan
+
+	* tests/Clock.hh: replace "long long" with int64_t
+
+2002-02-18 00:33  bastiaan
+
+	* ChangeLog, INSTALL: added some platform specific build
+	  instructions.
+
+2002-02-11 23:14  bastiaan
+
+	* ChangeLog, include/log4cpp/Appender.hh, src/Appender.cpp: added
+	  Mutex for _allAppender map.
+
+2002-02-11 23:08  bastiaan
+
+	* ChangeLog, src/Appender.cpp, src/AppenderSkeleton.cpp,
+	  src/BasicLayout.cpp, src/Category.cpp, src/CategoryStream.cpp,
+	  src/FileAppender.cpp, src/Filter.cpp,
+	  src/FixedContextCategory.cpp, src/HierarchyMaintainer.cpp,
+	  src/IdsaAppender.cpp, src/LayoutAppender.cpp,
+	  src/Log4cppCleanup.cpp, src/LoggingEvent.cpp, src/NDC.cpp,
+	  src/OstreamAppender.cpp, src/OstringStream.cpp,
+	  src/PatternLayout.cpp, src/Priority.cpp,
+	  src/RemoteSyslogAppender.cpp, src/SimpleConfigurator.cpp,
+	  src/SimpleLayout.cpp, src/StringQueueAppender.cpp,
+	  src/SyslogAppender.cpp, src/TimeStamp.cpp: replaced #include""
+	  with #include<>
+
+2002-02-11 22:54  bastiaan
+
+	* include/log4cpp/TimeStamp.hh: added #include of Portability.hh
+
+2002-02-11 22:52  bastiaan
+
+	* ChangeLog, include/log4cpp/Appender.hh,
+	  include/log4cpp/AppenderSkeleton.hh,
+	  include/log4cpp/BasicLayout.hh, include/log4cpp/Category.hh,
+	  include/log4cpp/CategoryStream.hh,
+	  include/log4cpp/FileAppender.hh, include/log4cpp/Filter.hh,
+	  include/log4cpp/FixedContextCategory.hh,
+	  include/log4cpp/IdsaAppender.hh, include/log4cpp/Layout.hh,
+	  include/log4cpp/LayoutAppender.hh,
+	  include/log4cpp/Log4cppCleanup.hh,
+	  include/log4cpp/LoggingEvent.hh, include/log4cpp/NDC.hh,
+	  include/log4cpp/OstreamAppender.hh,
+	  include/log4cpp/OstringStream.hh,
+	  include/log4cpp/PatternLayout.hh, include/log4cpp/Portability.hh,
+	  include/log4cpp/Priority.hh,
+	  include/log4cpp/RemoteSyslogAppender.hh,
+	  include/log4cpp/SimpleConfigurator.hh,
+	  include/log4cpp/SimpleLayout.hh,
+	  include/log4cpp/StringQueueAppender.hh,
+	  include/log4cpp/SyslogAppender.hh: Replaced #include"" with
+	  #include<>
+
+2002-02-11 00:27  bastiaan
+
+	* ChangeLog: Mulithread support updates.
+
+2002-02-11 00:25  bastiaan
+
+	* configure.in: integrated check of omnithreads.
+
+2002-02-11 00:23  bastiaan
+
+	* src/: Category.cpp, FixedContextCategory.cpp,
+	  HierarchyMaintainer.cpp, NDC.cpp: added threadsafety provisions.
+
+2002-02-11 00:21  bastiaan
+
+	* include/log4cpp/: Category.hh, FixedContextCategory.hh,
+	  HierarchyMaintainer.hh, Makefile.am, NDC.hh: Added threadsafety
+	  provisions.
+
+2002-02-11 00:15  bastiaan
+
+	* include/log4cpp/threading/DummyThreads.hh: ScopedLock is now an
+	  integer.
+
+2002-02-11 00:13  bastiaan
+
+	* m4/BB_CHECK_OMNITHREADS.m4: added.
+
+2002-02-08 01:22  bastiaan
+
+	* include/log4cpp/threading/: DummyThreads.hh, Threading.hh: Added.
+
+2002-02-08 01:22  bastiaan
+
+	* include/log4cpp/threading/OmniThreads.hh: Correct file name.
+
+2002-02-08 00:51  bastiaan
+
+	* include/log4cpp/threading/OmniThreads.hh: Added.
+
+2002-02-06 10:44  ytcheung
+
+	* src/FileAppender.cpp: Add some OpenVMS specific parameters when
+	  opening a file.  The changes allow other users to perform a
+	  type/continuous on the log file, a unix equivalent of tail -f.
+
+2002-02-05 23:53  bastiaan
+
+	* ChangeLog, src/AppenderSkeleton.cpp: doAppend(): correct
+	  comparison of _threshold against event priority (bug #513481).
+
+2002-02-05 23:52  bastiaan
+
+	* tests/Clock.cpp: add missing 'std::'.
+
+2002-01-28 01:41  bastiaan
+
+	* ChangeLog: Release 0.2.7
+
+2002-01-28 01:41  bastiaan
+
+	* configure.in: upped version to 0.2.7.
+
+2002-01-28 01:40  bastiaan
+
+	* bcb5/testPattern/Makefile.am: set EXTRA_DIST.
+
+2002-01-28 01:32  bastiaan
+
+	* NEWS: set release date for 0.2.7, added bug #506907 fixed.
+
+2002-01-28 01:27  bastiaan
+
+	* ChangeLog, configure.in: dded bcb5/testConfig/Makefile to
+	  AC_OUTPUT
+
+2002-01-28 01:26  bastiaan
+
+	* include/log4cpp/FixedContextCategory.hh: removed superfluous
+	  class qualification for ownsAppender().
+
+2002-01-28 01:18  bastiaan
+
+	* tests/testbench.cpp: added more measurements, using crude
+	  cut&paste of code.
+
+2002-01-25 10:23  bastiaan
+
+	* ChangeLog, configure.in, src/SimpleConfigurator.cpp: fix bug
+	  #506907 (MSVC++ compile failure)  with ::dup(fileno(stdout))
+	  upped version to 0.2.7rc2
+
+2002-01-25 09:49  uwej
+
+	* ChangeLog, bcb5/Makefile.am, bcb5/bcb5.bpg, bcb5/bcb5.mak,
+	  bcb5/log4cpp/log4cpp.bpf, bcb5/log4cpp/log4cpp.bpr,
+	  bcb5/log4cpp/log4cpp.mak, bcb5/testCategory/testCategory.bpr,
+	  bcb5/testConfig/Makefile.am, bcb5/testConfig/testConfig.bpf,
+	  bcb5/testConfig/testConfig.bpr, bcb5/testConfig/testConfig.mak,
+	  bcb5/testFixedContextCategory/testFixedContextCategory.bpr,
+	  bcb5/testNDC/testNDC.bpr, bcb5/testPattern/testPattern.bpr,
+	  bcb5/testPattern/testPattern.mak, bcb5/testmain/testmain.bpr,
+	  src/SimpleConfigurator.cpp, tests/testConfig.cpp: Port to BCB5
+	  for 0.2.7 RC 1
+
+2002-01-22 01:01  bastiaan
+
+	* ChangeLog: updates to NEWS and src/FixedContextCategory.cpp.
+
+2002-01-22 01:01  bastiaan
+
+	* NEWS: added summary for 0.2.7 release
+
+2002-01-22 01:00  bastiaan
+
+	* src/FixedContextCategory.cpp: Added missing
+	  getAppender(Appender*).
+
+2002-01-22 00:33  bastiaan
+
+	* ChangeLog: updates for multiple Appender support.
+
+2002-01-22 00:32  bastiaan
+
+	* include/log4cpp/FixedContextCategory.hh,
+	  src/FixedContextCategory.cpp: sync methods for multiple Appender
+	  support.
+
+2002-01-22 00:32  bastiaan
+
+	* include/log4cpp/Category.hh: update doxygen comments.
+
+2002-01-22 00:29  bastiaan
+
+	* src/: HierarchyMaintainer.cpp, SimpleConfigurator.cpp: replaced
+	  setAppender() with addAppender().
+
+2002-01-22 00:07  bastiaan
+
+	* tests/: testFixedContextCategory.cpp, testPattern.cpp,
+	  testbench.cpp, testmain.cpp: replaced setAppender() with
+	  addAppender().
+
+2002-01-21 11:41  bastiaan
+
+	* ChangeLog: Updates to Category.cpp, testCategory.cpp and
+	  configure.in.
+
+2002-01-21 11:40  bastiaan
+
+	* src/Category.cpp: fix ownsAppender() methods.
+
+2002-01-21 11:40  bastiaan
+
+	* tests/testCategory.cpp: rename appender 'default' to 'default2'.
+
+2002-01-21 11:39  bastiaan
+
+	* configure.in: upped version to 0.2.7rc1 and LT_VERSION to 3:1:2
+
+2002-01-21 00:34  bastiaan
+
+	* ChangeLog, THANKS, include/log4cpp/Category.hh, src/Category.cpp,
+	  tests/testCategory.cpp: merged in support for multiple Appenders,
+	  contributed by Brendan B. Boerner.
+
+2002-01-17 22:57  bastiaan
+
+	* ChangeLog, include/log4cpp/Makefile.am,
+	  include/log4cpp/RollingFileAppender.hh, src/Makefile.am,
+	  src/RollingFileAppender.cpp: removed RollingFileAppender, to be
+	  replaced with DailyRollingFileAppender.
+
+2002-01-17 13:55  bastiaan
+
+	* ChangeLog, include/log4cpp/Category.hh,
+	  include/log4cpp/HierarchyMaintainer.hh, src/Category.cpp,
+	  src/HierarchyMaintainer.cpp: added Category::exits(std::string).
+
+2002-01-16 17:27  bastiaan
+
+	* ChangeLog, src/SimpleConfigurator.cpp: added 'stdout' and
+	  'stderr' appenders.
+
+2002-01-16 13:51  bastiaan
+
+	* ChangeLog, include/log4cpp/Category.hh, src/Category.cpp: fix bug
+	  #504314: added missing log methods for priority 'fatal'.
+
+2002-01-10 17:45  bastiaan
+
+	* include/log4cpp/RemoteSyslogAppender.hh, ChangeLog: added
+	  SyslogFacility type.
+
+2002-01-10 13:21  bastiaan
+
+	* include/log4cpp/: config-win32.h, Portability.hh: have stricmp()
+	  but not strcasecmp().
+
+2002-01-10 13:20  bastiaan
+
+	* configure.in: added check for strcasecmp() and stricmp().
+
+2002-01-10 01:25  bastiaan
+
+	* ChangeLog, THANKS, include/log4cpp/Makefile.am,
+	  include/log4cpp/RollingFileAppender.hh, src/Makefile.am,
+	  src/RollingFileAppender.cpp: added RollingFileAppender
+	  contributed by Alex Tapaccos.
+
+2002-01-09 13:31  bastiaan
+
+	* ChangeLog, src/SimpleConfigurator.cpp: skip all whitespace before
+	  PatternLayout pattern, not just one.
+
+2002-01-08 17:05  bastiaan
+
+	* ChangeLog, src/SimpleConfigurator.cpp: fix screwy fix for Bug
+	  #500766, now using Alex' method. (Obsoletes Patch #500832).
+
+2002-01-08 13:03  bastiaan
+
+	* ChangeLog, src/SimpleConfigurator.cpp: skip space before
+	  PatternLayout pattern (Bug #500766).
+
+2002-01-04 20:34  bastiaan
+
+	* ChangeLog, include/log4cpp/RemoteSyslogAppender.hh,
+	  include/log4cpp/SyslogAppender.hh, src/PatternLayout.cpp,
+	  src/RemoteSyslogAppender.cpp, src/SyslogAppender.cpp: inherit
+	  from LayoutApppender instead of AppenderSkeleton (Bug #499524).
+
+2002-01-04 20:31  bastiaan
+
+	* include/log4cpp/config-win32.h: fix int64_t for Borland compiler.
+
+2002-01-04 13:09  bastiaan
+
+	* ChangeLog: Fixes for OpenVMS from Tony Cheung.
+
+2002-01-04 13:08  bastiaan
+
+	* include/log4cpp/config-openvms.h: #include <inttypes.h> for
+	  int64_t.
+
+2002-01-04 13:07  bastiaan
+
+	* src/PatternLayout.cpp: doFormat(): removed superfluous return
+	  statement.
+
+2002-01-03 17:00  bastiaan
+
+	* tests/testFilter.cpp: added.
+
+2002-01-03 16:59  bastiaan
+
+	* ChangeLog: fix to Filter.hh and addition of testFilter.
+
+2002-01-03 16:57  bastiaan
+
+	* tests/Makefile.am: Added testFilter to tests.
+
+2002-01-03 16:56  bastiaan
+
+	* include/log4cpp/Filter.hh: decide() is NOT abstract.
+
+2001-12-22 00:40  bastiaan
+
+	* ChangeLog, configure.in: Upped release to 0.2.6b
+
+2001-12-21 13:16  bastiaan
+
+	* ChangeLog, src/Priority.cpp, tests/Makefile.am,
+	  tests/testPriority.cpp: src/Priority.cpp: getPriorityValue(): fix
+	  bug in numerical input handling.  tests/Makefile.am: added very
+	  simple test for Priority.  tests/testPriority.cpp: added.
+
+2001-12-13 14:04  bastiaan
+
+	* ChangeLog, src/OstringStream.cpp: use portable_vsnprintf(), not
+	  portable_snprintf().
+
+2001-12-11 22:10  bastiaan
+
+	* ChangeLog: Release 0.2.6
+
+2001-12-11 22:06  bastiaan
+
+	* include/log4cpp/config-win32.h: #define LOG4CPP_USE_CLEANUP.
+
+2001-12-11 22:06  bastiaan
+
+	* NEWS: Release 0.2.6
+
+2001-12-11 22:04  bastiaan
+
+	* TODO: Mark PatternLayout and SimpleConfigurator as done.
+
+2001-12-11 11:14  bastiaan
+
+	* ChangeLog: Fixes for MSVC and doc-dist.
+
+2001-12-11 11:13  bastiaan
+
+	* include/log4cpp/config-win32.h: #define int64_t as __int64,
+	  #define LOG4CPP_MISSING_INT64_OSTREAM_OP
+
+2001-12-11 11:12  bastiaan
+
+	* src/PatternLayout.cpp: workaround missing << operator for int64_t
+	  on MSVC.
+
+2001-12-11 11:12  bastiaan
+
+	* src/TimeStamp.cpp: fix ref typo for timeb struct.
+
+2001-12-11 11:10  bastiaan
+
+	* Makefile.am: exclude CVS subdir from doc-dist tar ball.
+
+2001-11-30 13:40  bastiaan
+
+	* ChangeLog, include/log4cpp/Appender.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/Log4cppCleanup.hh, src/Appender.cpp,
+	  src/HierarchyMaintainer.cpp, src/Log4cppCleanup.cpp: #define
+	  LOG4CPP_USE_CLEANUP.
+
+2001-11-30 13:39  bastiaan
+
+	* include/log4cpp/Makefile.am: added config-openvms.h to headers.
+
+2001-11-30 13:38  bastiaan
+
+	* tests/testbench.cpp: use TimeStamp instead of ::time().
+
+2001-11-30 00:49  bastiaan
+
+	* include/config-win32.h: Moved to include/log4cpp/config-win32.h
+
+2001-11-30 00:49  bastiaan
+
+	* ChangeLog: Fixes for TimeStamp and src/Makefile.am
+
+2001-11-30 00:48  bastiaan
+
+	* src/Makefile.am: added snprintf.c to noinst_HEADERS.
+
+2001-11-30 00:47  bastiaan
+
+	* include/log4cpp/TimeStamp.hh: moved class description to the
+	  correct location.
+
+2001-11-30 00:37  bastiaan
+
+	* ChangeLog, THANKS: Added Tony Cheung.
+
+2001-11-29 16:17  bastiaan
+
+	* ChangeLog, Makefile.am, configure.in, openvms/Makefile.am: Added
+	  openvms build dir.
+
+2001-11-29 13:03  bastiaan
+
+	* include/log4cpp/Portability.hh: use config-openvms.h based on
+	  __OPENVMS__ flag.
+
+2001-11-29 13:03  bastiaan
+
+	* src/snprintf.c: replaced static_cast with C-style cast: this file
+	  should remain C only.
+
+2001-11-29 01:02  bastiaan
+
+	* ChangeLog: Added portable snprintf().  Added config.h for
+	  OpenVMS.
+
+2001-11-29 01:02  bastiaan
+
+	* src/OstringStream.cpp: Added some #includes for portable
+	  snprintf().
+
+2001-11-29 00:52  bastiaan
+
+	* include/log4cpp/config-openvms.h: Added.
+
+2001-11-29 00:29  bastiaan
+
+	* src/OstringStream.cpp: replace alternative snprintf with one in
+	  snprintf.c.
+
+2001-11-29 00:28  bastiaan
+
+	* src/snprintf.c: add static cast from void* to const char*.
+
+2001-11-29 00:18  bastiaan
+
+	* src/snprintf.c: Initial revision
+
+2001-11-29 00:18  bastiaan
+
+	* src/snprintf.c: import of Mark Martinecs portable snprintf() 2.2
+
+2001-11-27 01:46  bastiaan
+
+	* include/log4cpp/config-win32.h: sync with #defines in
+	  include/log4cpp/config.h.
+
+2001-11-27 01:45  bastiaan
+
+	* ChangeLog: updates to tests/Makefile.am and tests/testConfig.cpp
+
+2001-11-27 01:44  bastiaan
+
+	* tests/testConfig.cpp: read $srcdir for location of log4cpp.init
+	  in order to fix distcheck target.
+
+2001-11-27 01:44  bastiaan
+
+	* tests/Makefile.am: made log4cpp.init check_DATA.
+
+2001-11-27 00:47  bastiaan
+
+	* ChangeLog: Changes to msvc6 & bcb5 project files,
+	  RemoteSyslogAppender and SimpleConfigurator.
+
+2001-11-27 00:45  bastiaan
+
+	* src/SimpleConfigurator.cpp: added support for
+	  RemoteSyslogAppender.
+
+2001-11-27 00:44  bastiaan
+
+	* bcb5/log4cpp/: log4cpp.bpf, log4cpp.bpr: Added TimeStamp class.
+
+2001-11-27 00:43  bastiaan
+
+	* msvc6/log4cpp/log4cpp.dsp: Added TimeStamp, PatternLayout and
+	  SimpleConfigurator classes.
+
+2001-11-27 00:43  bastiaan
+
+	* include/log4cpp/RemoteSyslogAppender.hh: replaced #defines with
+	  enum.
+
+2001-11-26 02:15  bastiaan
+
+	* ChangeLog: Added and integrated new TimeStamp class.
+
+2001-11-26 02:15  bastiaan
+
+	* tests/testPattern.cpp: included '%r' in test pattern.
+
+2001-11-26 02:15  bastiaan
+
+	* include/log4cpp/LoggingEvent.hh,
+	  include/log4cpp/PatternLayout.hh, src/BasicLayout.cpp,
+	  src/LoggingEvent.cpp, src/PatternLayout.cpp: Use new TimeStamp
+	  class.
+
+2001-11-26 02:14  bastiaan
+
+	* configure.in: added test for 'ftime()' function.
+
+2001-11-26 02:14  bastiaan
+
+	* include/log4cpp/Makefile.am, include/log4cpp/TimeStamp.hh,
+	  src/Makefile.am, src/TimeStamp.cpp: added micro second precise
+	  time stamp.
+
+2001-11-23 19:06  bastiaan
+
+	* ChangeLog, include/log4cpp/Makefile.am, src/Makefile.am:
+	  integrated SimpleConfigurator in autoconf.
+
+2001-11-23 19:04  bastiaan
+
+	* tests/: Makefile.am, log4cpp.init, testConfig.cpp: added test for
+	  SimpleConfigurator.
+
+2001-11-23 19:03  bastiaan
+
+	* src/SimpleConfigurator.cpp: added support for comments in config
+	  file (starting with a '#'). added support for SyslogAppender. use
+	  Priority::getPriorityValue() to convert priorities.
+
+2001-11-22 14:02  bastiaan
+
+	* ChangeLog: Updates to FixedContextCategory and m4 macro.
+
+2001-11-09 11:34  bastiaan
+
+	* m4/CREATE_GENERIC_CONFIG.m4: escape $*
+
+2001-11-09 10:58  bastiaan
+
+	* tests/testFixedContextCategory.cpp: Use contructor for
+	  FixedContextCategory instead of assignment.
+
+2001-11-09 10:57  bastiaan
+
+	* tests/testPattern.cpp: Removed carriage returns.
+
+2001-11-08 10:59  bastiaan
+
+	* ChangeLog, m4/CREATE_GENERIC_CONFIG.m4: Fix /bin/sh
+	  incompatibility on Solaris.
+
+2001-11-05 18:03  bastiaan
+
+	* ChangeLog, include/log4cpp/Category.hh: Added private copy
+	  constructor and assignment operator (pointed out by Shane Baker).
+
+2001-11-01 13:01  bastiaan
+
+	* ChangeLog, include/log4cpp/Category.hh, src/Category.cpp: in
+	  setAppender(Appender*): allow NULL Appender parameter.
+
+2001-10-24 18:49  bastiaan
+
+	* ChangeLog: updates for configure.in, Priority and PatternLayout.
+
+2001-10-24 18:44  bastiaan
+
+	* include/log4cpp/Priority.hh, src/Priority.cpp: Added
+	  getPriorityValue() method.
+
+2001-10-24 18:42  bastiaan
+
+	* configure.in: Added bcb5/testPattern/Makefile to AC_OUTPUT.
+
+2001-10-23 13:46  bastiaan
+
+	* src/PatternLayout.cpp: Added support for sstream predating c++
+	  stream libraries.
+
+2001-10-23 11:15  bastiaan
+
+	* bcb5/testPattern/Makefile.am: Added empty Makefile.am
+
+2001-10-05 14:51  uwej
+
+	* ChangeLog, bcb5/Makefile.am, bcb5/bcb5.bpg, bcb5/bcb5.mak,
+	  bcb5/log4cpp/log4cpp.bpf, bcb5/log4cpp/log4cpp.bpr,
+	  bcb5/log4cpp/log4cpp.mak, bcb5/testCategory/testCategory.bpr,
+	  bcb5/testFixedContextCategory/testFixedContextCategory.bpr,
+	  bcb5/testNDC/testNDC.bpr, bcb5/testPattern/testPattern.bpf,
+	  bcb5/testPattern/testPattern.bpr,
+	  bcb5/testPattern/testPattern.mak, bcb5/testmain/testmain.bpr,
+	  include/log4cpp/SimpleConfigurator.hh,
+	  include/log4cpp/config-win32.h, src/PatternLayout.cpp,
+	  src/RemoteSyslogAppender.cpp, src/SimpleConfigurator.cpp,
+	  tests/testPattern.cpp: Verify port to Borland C++; see ChangeLog
+	  for details
+
+2001-10-05 00:39  bastiaan
+
+	* ChangeLog, include/log4cpp/SimpleConfigurator.hh,
+	  src/SimpleConfigurator.cpp: Added simple configurator class
+	  contributed by Glenn Scott. Not usable yet.
+
+2001-10-04 23:42  bastiaan
+
+	* src/Priority.cpp: getPriorityName(): use index 'priority' instead
+	  of 'priority - 1'.
+
+2001-10-04 23:33  bastiaan
+
+	* ChangeLog, include/log4cpp/LoggingEvent.hh, src/Priority.cpp:
+	  src/Priority.cpp: fix conversion from PriorityLevel to
+	  PriorityName.
+
+2001-10-04 00:42  bastiaan
+
+	* ChangeLog: PatternLayout integration changes.
+
+2001-10-04 00:35  bastiaan
+
+	* include/log4cpp/LoggingEvent.hh: Made all strings true member
+	  variables. Coincidentally fixes PatternLayout.
+
+2001-10-04 00:14  bastiaan
+
+	* Makefile.am, autogen.sh, configure.in, config/config.guess,
+	  config/config.sub, config/ltmain.sh, config/missing,
+	  config/mkinstalldirs, include/log4cpp/Makefile.am,
+	  include/log4cpp/PatternLayout.hh, m4/AC_C_INT64_T.m4,
+	  src/Makefile.am, src/PatternLayout.cpp, tests/Makefile.am:
+	  Integrated PatternLayout with autoconf. Does not pass make check
+	  yet, grrr.
+
+2001-09-19 10:23  bastiaan
+
+	* ChangeLog, include/log4cpp/PatternLayout.hh,
+	  src/PatternLayout.cpp, tests/testPattern.cpp: Added PatternLayout
+	  contributed by Glenn Scott. Is not in autoconf setup yet.
+
+2001-09-19 10:19  bastiaan
+
+	* THANKS: Added Glenn Scott.
+
+2001-09-18 17:42  bastiaan
+
+	* ChangeLog, configure.in, m4/AC_FUNC_SNPRINTF.m4: Relax snprintf()
+	  check: full C99 compliancy is not needed.  Added checks for
+	  -lsocket and -lnsl
+
+2001-09-18 16:35  bastiaan
+
+	* ChangeLog, include/config.h.in: Updates for 0.2.6
+
+2001-09-18 16:33  bastiaan
+
+	* Makefile.am: Fix EXTRA_DIST m4 inclusion.
+
+2001-09-18 16:32  bastiaan
+
+	* THANKS: Added Walter Stroebel.
+
+2001-09-18 15:53  bastiaan
+
+	* bcb5/log4cpp/: log4cpp.bpf, log4cpp.bpr, log4cpp.mak: Added
+	  RemoteSyslogAppender.
+
+2001-09-18 15:52  bastiaan
+
+	* configure.in: Set requirement for Autoconf 2.50.  Bumped version
+	  to 0.2.6.  Incremented LT_VERSION to 2:0:1.
+
+2001-09-18 15:51  bastiaan
+
+	* include/log4cpp/LayoutAppender.hh: Made BasicLayout the
+	  DefaultLayoutType.
+
+2001-09-18 15:50  bastiaan
+
+	* include/log4cpp/FixedContextCategory.hh: Added default value for
+	  context parameter in constructor.
+
+2001-09-18 15:50  bastiaan
+
+	* config/Makefile.am: Added newline to keep broken tar utilities
+	  happy.
+
+2001-09-18 15:49  bastiaan
+
+	* include/log4cpp/Priority.hh: Fix workaround for #define DEBUG.
+
+2001-08-23 23:39  bastiaan
+
+	* ChangeLog, include/log4cpp/Priority.hh: Added workaround for
+	  #define DEBUG in EDK.h on Win32.
+
+2001-07-24 02:10  bastiaan
+
+	* tests/testbench.cpp: Fixed core dump caused by reusing the same
+	  Layout for two Appenders.
+
+2001-07-18 15:46  jhenyal
+
+	* src/RemoteSyslogAppender.cpp: Removed a printf and broke up long
+	  messages
+
+2001-07-18 15:42  jhenyal
+
+	* src/RemoteSyslogAppender.cpp: Removed a printf and broke up long
+	  messages
+
+2001-07-17 15:06  jhenyal
+
+	* src/RemoteSyslogAppender.cpp: RemoteSyslogAppender is functional
+
+2001-07-17 14:39  jhenyal
+
+	* src/RemoteSyslogAppender.cpp: Debugging
+
+2001-07-17 14:17  jhenyal
+
+	* src/SyslogAppender.cpp: Bug in SyslogAppender corrected.
+
+2001-07-17 14:12  jhenyal
+
+	* msvc6/log4cpp/log4cpp.dsp, src/RemoteSyslogAppender.cpp:
+	  Debugging
+
+2001-07-17 13:33  jhenyal
+
+	* include/log4cpp/RemoteSyslogAppender.hh,
+	  src/RemoteSyslogAppender.cpp: Debugging
+
+2001-07-17 13:27  jhenyal
+
+	* src/RemoteSyslogAppender.cpp: Debugging
+
+2001-07-17 12:34  jhenyal
+
+	* include/log4cpp/RemoteSyslogAppender.hh,
+	  src/RemoteSyslogAppender.cpp: Added RemoteSyslogAppender
+
+2001-07-17 11:09  jhenyal
+
+	* include/log4cpp/Makefile.am, src/Makefile.am: Adding
+	  RemoteSyslogAppender
+
+2001-07-17 10:56  jhenyal
+
+	* include/log4cpp/RemoteSyslogAppender.hh,
+	  src/RemoteSyslogAppender.cpp: Adding RemoteSyslog
+
+2001-07-17 10:12  jhenyal
+
+	* include/log4cpp/RemoteSyslogAppender.hh,
+	  src/RemoteSyslogAppender.cpp: Adding RemoteSyslogAppender
+
+2001-07-16 14:50  uwej
+
+	* ChangeLog, bcb5/Makefile.am, bcb5/bcb5.mak,
+	  bcb5/log4cpp/Makefile.am, bcb5/log4cpp/log4cpp.bpf,
+	  bcb5/log4cpp/log4cpp.bpr, bcb5/log4cpp/log4cpp.mak,
+	  bcb5/testCategory/Makefile.am,
+	  bcb5/testCategory/testCategory.mak,
+	  bcb5/testFixedContextCategory/Makefile.am,
+	  bcb5/testFixedContextCategory/testFixedContextCategory.mak,
+	  bcb5/testNDC/Makefile.am, bcb5/testNDC/testNDC.mak,
+	  bcb5/testmain/Makefile.am, bcb5/testmain/testmain.mak: Added
+	  makefiles for Borland make, adjusted project files to compile
+	  CategoryStream.cpp
+
+2001-06-17 23:34  bastiaan
+
+	* ChangeLog, include/log4cpp/Category.hh,
+	  include/log4cpp/CategoryStream.hh, include/log4cpp/Makefile.am,
+	  src/Category.cpp, src/CategoryStream.cpp, src/Makefile.am: Put
+	  CategoryStream class into its own files.
+
+2001-06-11 23:03  bastiaan
+
+	* ChangeLog, include/log4cpp/Makefile.am: Remove
+	  include/log4cpp/config.h.
+
+2001-06-11 23:03  bastiaan
+
+	* m4/AC_CREATE_PREFIX_CONFIG_H.m4: Fix to overwrite
+	  include/log4cpp/config.h instead of append to it.
+
+2001-06-11 01:12  bastiaan
+
+	* ChangeLog, Makefile.am: fix typos in debian and doc-dir targets.
+
+2001-06-11 01:02  bastiaan
+
+	* ChangeLog, Makefile.am: only include *.m4 files in m4/ in dist.
+
+2001-06-11 00:51  bastiaan
+
+	* ChangeLog, NEWS: Release as 0.2.5.
+
+2001-06-08 01:11  bastiaan
+
+	* ChangeLog, configure.in, include/log4cpp/config-win32.h: Upped
+	  version number to 0.2.5.  Upped LT_VERSION to 1:0:0.
+
+2001-06-08 01:10  bastiaan
+
+	* m4/AC_ECHO_MKFILE.m4: removed.
+
+2001-06-08 01:06  bastiaan
+
+	* m4/: AC_AS_DIRNAME.m4, AC_AS_MKDIR_P.m4: removed.
+
+2001-06-08 01:01  bastiaan
+
+	* config/Makefile.am: Recreated after accidental deletion.
+
+2001-06-08 00:58  bastiaan
+
+	* config/: Makefile.am, config.guess, config.sub, install-sh,
+	  ltconfig, ltmain.sh, missing, mkinstalldirs: Deleted generated
+	  files.
+
+2001-06-08 00:53  bastiaan
+
+	* m4/AC_CREATE_PREFIX_CONFIG_H.m4: replace ECHO_MKFILE with
+	  AS_DIRNAME.
+
+2001-06-07 22:17  bastiaan
+
+	* msvc6/log4cpp/log4cpp.dsp, ChangeLog, tests/testmain.cpp: renamed
+	  Config.hh to Portability.hh.
+
+2001-06-07 22:11  bastiaan
+
+	* ChangeLog, include/log4cpp/Config.hh,
+	  include/log4cpp/Makefile.am, include/log4cpp/OstringStream.hh,
+	  include/log4cpp/Portability.hh, src/Appender.cpp,
+	  src/AppenderSkeleton.cpp, src/BasicLayout.cpp, src/Category.cpp,
+	  src/FileAppender.cpp, src/Filter.cpp,
+	  src/FixedContextCategory.cpp, src/HierarchyMaintainer.cpp,
+	  src/IdsaAppender.cpp, src/LayoutAppender.cpp,
+	  src/Log4cppCleanup.cpp, src/LoggingEvent.cpp, src/NDC.cpp,
+	  src/OstreamAppender.cpp, src/OstringStream.cpp, src/Priority.cpp,
+	  src/SimpleLayout.cpp, src/StringQueueAppender.cpp,
+	  src/SyslogAppender.cpp: renamed Config.hh to Portability.hh.
+
+2001-06-07 20:54  bastiaan
+
+	* ChangeLog: Fixes for set methods in Category and Filter.
+
+2001-06-07 20:54  bastiaan
+
+	* src/Category.cpp: (setAppender): check whether old and new
+	  Appender are the same object.
+
+2001-06-07 20:53  bastiaan
+
+	* src/Filter.cpp: (setChainedFilter): check whether old and new
+	  Filter are the same object.
+
+2001-06-07 19:37  bastiaan
+
+	* ChangeLog: LayoutAppender updates.
+
+2001-06-07 19:36  bastiaan
+
+	* src/LayoutAppender.cpp: use DefaultLayoutType to construct new
+	  Layouts.  check whether old Layout and new Layout are the same
+	  object.
+
+2001-06-07 19:35  bastiaan
+
+	* include/log4cpp/LayoutAppender.hh: typedef SimpleLayout as
+	  DefaultLayoutType.
+
+2001-06-06 22:41  bastiaan
+
+	* include/log4cpp/AppenderSkeleton.hh,
+	  include/log4cpp/BasicLayout.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/IdsaAppender.hh,
+	  include/log4cpp/Log4cppCleanup.hh,
+	  include/log4cpp/LoggingEvent.hh,
+	  include/log4cpp/OstreamAppender.hh,
+	  include/log4cpp/OstringStream.hh, include/log4cpp/Priority.hh,
+	  include/log4cpp/SimpleLayout.hh,
+	  include/log4cpp/SyslogAppender.hh, ChangeLog: Documentation
+	  updates.
+
+2001-06-06 14:40  uwej
+
+	* ChangeLog: commited config-win32.h and testmain
+
+2001-06-06 14:36  uwej
+
+	* tests/testmain.cpp: added #ifdefs to make it compile with bcb
+
+2001-06-06 14:35  uwej
+
+	* include/log4cpp/config-win32.h: added defines
+
+2001-06-06 12:18  uwej
+
+	* bcb5/: log4cpp/log4cpp.bpr, testCategory/testCategory.bpr,
+	  testFixedContextCategory/testFixedContextCategory.bpr,
+	  testNDC/testNDC.bpr, testmain/testmain.bpr: no message
+
+2001-06-06 00:43  bastiaan
+
+	* ChangeLog, include/log4cpp/Config-win32.hh,
+	  include/log4cpp/Makefile.am, include/log4cpp/config-win32.h:
+	  Added Config.hh, config-win32.h Removed Config-win32.hh
+
+2001-06-06 00:13  bastiaan
+
+	* include/log4cpp/Config.hh: Added to CVS since it is no longer
+	  generated by autoconf.
+
+2001-06-04 14:25  bastiaan
+
+	* ChangeLog: Added AC_CREATE_GENERIC_CONFIG, obsoleted
+	  log4cpp-config.in.
+
+2001-06-04 14:25  bastiaan
+
+	* configure.in: added AC_CREATE_GENERIC_CONFIG, obsoleted
+	  log4cpp-config.in.
+
+2001-06-04 14:24  bastiaan
+
+	* Makefile.am: removed config.h copy from dist-hook.
+
+2001-06-04 14:23  bastiaan
+
+	* m4/CREATE_GENERIC_CONFIG.m4: Added.
+
+2001-06-03 15:43  bastiaan
+
+	* include/config.h.in: config.h.in is generated by autoheader,
+	  removed from repository.
+
+2001-06-03 15:42  bastiaan
+
+	* ChangeLog, configure.in, include/config.h.in: added
+	  AC_CREATE_PREFIX_CONFIG_H for creation of
+	  include/log4cpp/config.h (which has been removed from
+	  AM_CONFIG_HEADER).
+
+2001-06-03 15:41  bastiaan
+
+	* include/log4cpp/: Config.hh.in, Makefile.am: Config.hh.in:
+	  removed Config.hh: copied from Config.hh.in. include
+	  <log4cpp/config.h> and remove LOG4CPP_* defines.  Makefile.am:
+	  added config.h, removed Config.hh.in.
+
+2001-06-03 15:40  bastiaan
+
+	* src/: Appender.cpp, AppenderSkeleton.cpp, BasicLayout.cpp,
+	  Category.cpp, FileAppender.cpp, Filter.cpp,
+	  FixedContextCategory.cpp, HierarchyMaintainer.cpp,
+	  IdsaAppender.cpp, LayoutAppender.cpp, Log4cppCleanup.cpp,
+	  LoggingEvent.cpp, NDC.cpp, OstreamAppender.cpp,
+	  OstringStream.cpp, Priority.cpp, SimpleLayout.cpp,
+	  StringQueueAppender.cpp, SyslogAppender.cpp: added inclusion of
+	  <log4cpp/Config.hh>, prefixed autoconf #ifdefs with LOG4CPP_.
+
+2001-06-03 15:39  bastiaan
+
+	* m4/: AC_AS_DIRNAME.m4, AC_AS_MKDIR_P.m4,
+	  AC_CREATE_PREFIX_CONFIG_H.m4, AC_CXX_HAVE_SSTREAM.m4,
+	  AC_ECHO_MKFILE.m4: Added.
+
+2001-06-01 19:56  bastiaan
+
+	* ChangeLog, include/config.h.in, include/log4cpp/Priority.hh,
+	  tests/Makefile.am, tests/testErrorCollision.cpp: Priority.hh:
+	  #define ERROR workaround try 3, put fix inside
+	  LOG4CPP_FIX_ERROR_COLLISION switch.
+	  tests/testErrorCollision.cpp, tests/Makefile.am: added test for
+	  #define ERROR workaround.
+
+2001-05-30 00:56  bastiaan
+
+	* ChangeLog, Makefile.am, THANKS, configure.in, bcb5/Makefile.am,
+	  bcb5/bcb5.bpg, bcb5/log4cpp/Makefile.am,
+	  bcb5/log4cpp/log4cpp.bpf, bcb5/log4cpp/log4cpp.bpr,
+	  bcb5/testCategory/Makefile.am,
+	  bcb5/testCategory/testCategory.bpf,
+	  bcb5/testCategory/testCategory.bpr,
+	  bcb5/testFixedContextCategory/Makefile.am,
+	  bcb5/testFixedContextCategory/testFixedContextCategory.bpf,
+	  bcb5/testFixedContextCategory/testFixedContextCategory.bpr,
+	  bcb5/testNDC/Makefile.am, bcb5/testNDC/testNDC.bpf,
+	  bcb5/testNDC/testNDC.bpr, bcb5/testmain/Makefile.am,
+	  bcb5/testmain/testmain.bpf, bcb5/testmain/testmain.bpr,
+	  include/config-win32.h, include/log4cpp/Appender.hh,
+	  include/log4cpp/AppenderSkeleton.hh,
+	  include/log4cpp/BasicLayout.hh, include/log4cpp/Category.hh,
+	  include/log4cpp/Config-win32.hh, include/log4cpp/Export.hh,
+	  include/log4cpp/FileAppender.hh, include/log4cpp/Filter.hh,
+	  include/log4cpp/FixedContextCategory.hh,
+	  include/log4cpp/Layout.hh, include/log4cpp/LayoutAppender.hh,
+	  include/log4cpp/LoggingEvent.hh, include/log4cpp/NDC.hh,
+	  include/log4cpp/OstreamAppender.hh,
+	  include/log4cpp/OstringStream.hh,
+	  include/log4cpp/SimpleLayout.hh,
+	  include/log4cpp/StringQueueAppender.hh, src/AppenderSkeleton.cpp,
+	  src/Category.cpp, src/FileAppender.cpp,
+	  src/HierarchyMaintainer.cpp, src/OstreamAppender.cpp,
+	  tests/testCategory.cpp, tests/testFixedContextCategory.cpp: Merge
+	  of Borland support patch by Uwe J�ger <jaeger@varial.de>.
+
+2001-05-30 00:04  bastiaan
+
+	* ChangeLog: #define ERROR workaround try 2.
+
+2001-05-29 23:18  bastiaan
+
+	* include/log4cpp/Priority.hh: Hopefully fixed Win32 #define ERROR
+	  misery now.
+
+2001-05-28 02:29  bastiaan
+
+	* ChangeLog, include/log4cpp/Priority.hh: #define ERROR workaround.
+
+2001-05-23 17:03  bastiaan
+
+	* ChangeLog, Makefile.am, log4cpp.spec.in: log4cpp.spec.in: run
+	  ldconfig after install or uninstall. Upped release# to 3.
+	  Makefile.am: in rpm target corrected top_srcdir variable name.
+
+2001-05-18 23:57  bastiaan
+
+	* ChangeLog: Fixed distcheck and check target.	Added m4 subdir.
+	  Started adding throw() specifiers.
+
+2001-05-18 23:49  bastiaan
+
+	* acinclude.m4, autogen.sh, configure.in, m4/.cvsignore,
+	  m4/AC_CXX_HAVE_SSTREAM.m4, m4/AC_CXX_NAMESPACES.m4,
+	  m4/AC_FUNC_SNPRINTF.m4, m4/BB_ENABLE_DOXYGEN.m4,
+	  m4/PETI_PEDANTIC_GCC.m4: Created separate 'm4' directory for
+	  autoconf macros. Most come from the autoconf macro archive:
+	  http://cryp.to/autoconf-archive/
+
+2001-05-18 23:22  bastiaan
+
+	* include/log4cpp/Category.hh, include/log4cpp/Config.hh,
+	  include/log4cpp/FixedContextCategory.hh,
+	  include/log4cpp/OstringStream.hh, include/log4cpp/Priority.hh,
+	  src/Category.cpp, src/FixedContextCategory.cpp, src/Priority.cpp:
+	  Started adding throw() specifications to methods.
+
+2001-05-18 23:17  bastiaan
+
+	* Makefile.am, tests/Makefile.am: Fixed check target: it now runs
+	  testNDC, testCategory and testFixedContextCategory for testing.
+
+2001-05-18 22:32  bastiaan
+
+	* Makefile.am, doc/Doxyfile.in, doc/Makefile.am, src/Makefile.am,
+	  tests/Makefile.am: Fixed distcheck target. Now we can do better
+	  checking for a release.
+
+2001-05-18 13:45  bastiaan
+
+	* include/config.h.in, include/log4cpp/Config.hh,
+	  include/log4cpp/Priority.hh, src/OstringStream.cpp: Added FATAL
+	  priority as alias to EMERG.  Added inclusion of config.h in
+	  OstringStream.cpp.
+
+2001-05-14 18:20  bastiaan
+
+	* log4cpp.spec.in: Added log4cpp-config to devel RPM.
+
+2001-05-07 00:48  bastiaan
+
+	* acinclude.m4, configure.in, src/OstringStream.cpp: Added autoconf
+	  check for working snprintf.
+
+2001-05-07 00:22  bastiaan
+
+	* include/log4cpp/Makefile.am: Add Config.hh.in to dist target.
+
+2001-05-07 00:21  bastiaan
+
+	* acinclude.m4, configure.in, include/log4cpp/Config.hh.in: Use
+	  macros from http://cryp.to/autoconf-archive/ and get rid of ugly
+	  generation of inclode/log4cpp/Config.hh in configure.in.
+
+2001-05-04 23:24  bastiaan
+
+	* include/config.h, Makefile.am: Fix dist tar ball for MSVC++
+	  platform: dist-hook adds CR to line endings for .ds? files and
+	  copies config.h.in to config.h.
+
+2001-05-04 14:57  bastiaan
+
+	* tests/: testCategory.cpp, testFixedContextCategory.cpp,
+	  testNDC.cpp, testNDCMain.cpp: Return 0 at end of main().
+
+2001-05-04 13:55  bastiaan
+
+	* include/log4cpp/IdsaAppender.hh, src/IdsaAppender.cpp: string ->
+	  std::string.
+
+2001-04-26 20:22  bastiaan
+
+	* msvc6/: testCategory/testCategory.dsp, testNDC/testNDC.dsp:
+	  Merged Steve Ostlinds patch.
+
+2001-04-23 13:46  legoater
+
+	* include/log4cpp/FixedContextCategory.hh,
+	  include/log4cpp/StringQueueAppender.hh,
+	  src/FixedContextCategory.cpp: Added std:: to improve portability
+	  on Compaq Tru64 C++
+
+2001-04-21 23:50  bastiaan
+
+	* ChangeLog, Makefile.am: Added 'debian' target to Makefile for
+	  building Debian packages.
+
+2001-04-21 00:49  bastiaan
+
+	* ChangeLog: Rerelease 0.2.4b
+
+2001-04-21 00:41  bastiaan
+
+	* msvc6/: msvc6.dsw, log4cpp/log4cpp.dsp,
+	  testCategory/testCategory.dsp, testNDC/testNDC.dsp: Stripped '\r'
+	  characters from files: CVS will add them again on windows anyway.
+	  Added StringQueueAppender and FixedContextCategory to
+	  log4cpp.dsp.
+
+2001-04-19 22:31  bastiaan
+
+	* msvc6/log4cpp/log4cpp.dsp: Added StringQueueAppnder and
+	  FixedContextCategory classes.
+
+2001-04-19 22:12  bastiaan
+
+	* ChangeLog, include/config.h, msvc6/Makefile.am,
+	  msvc6/log4cpp/Makefile.am, msvc6/testCategory/Makefile.am,
+	  msvc6/testNDC/Makefile.am: Added files in debian and msvc6
+	  subdirs to EXTRA_DIST in Makefile.am.
+
+2001-04-18 23:50  bastiaan
+
+	* include/log4cpp/FixedContextCategory.hh: Moved the class
+	  description to the correct place.
+
+2001-04-18 19:25  bastiaan
+
+	* ChangeLog, Makefile.am, configure.in, msvc6/Makefile.am,
+	  msvc6/log4cpp/Makefile.am, msvc6/testCategory/Makefile.am,
+	  msvc6/testNDC/Makefile.am: Added debian and msvc6 subdirs to
+	  autconf config: they were missing in the dist target.
+
+2001-04-17 22:36  bastiaan
+
+	* Makefile.am, log4cpp.spec.in, include/log4cpp/Category.hh,
+	  include/log4cpp/FixedContextCategory.hh,
+	  include/log4cpp/Makefile.am, src/Category.cpp,
+	  src/FixedContextCategory.cpp, src/Makefile.am, tests/Makefile.am,
+	  tests/testFixedContextCategory.cpp: Added FixedContextCategory
+	  and corresponding text class.
+
+2001-04-15 02:36  bastiaan
+
+	* include/log4cpp/Category.hh, src/Category.cpp: Made Category
+	  constructor protected instead of private and made relevant
+	  methods virtual. Now it's possible to subclass Category, at the
+	  slightly higer cost of some virtual method invocations.
+
+2001-04-14 01:03  bastiaan
+
+	* doc/Makefile.am: Removed all explicit mentions of 'log4cpp'. Now
+	  the same Makefile.am can be reused in the cppunit project.
+
+2001-04-13 17:27  bastiaan
+
+	* log4cpp.spec.in: Changed license from GPL to LGPL.
+
+2001-04-12 09:04  bastiaan
+
+	* ChangeLog, README: Merged Marcel Harkema's patch for Debian
+	  package support.
+
+2001-04-11 22:44  bastiaan
+
+	* ChangeLog, Makefile.am, log4cpp.spec.in: Separated API docs from
+	  devel RPM, into a doc RPM.
+
+2001-04-11 22:19  bastiaan
+
+	* include/log4cpp/Config.hh, include/log4cpp/Makefile.am,
+	  include/log4cpp/StringQueueAppender.hh, src/Makefile.am,
+	  src/StringQueueAppender.cpp: Added StringQueueAppender class.
+
+2001-04-11 22:19  bastiaan
+
+	* THANKS: Added Marcel Harkema.
+
+2001-04-11 22:17  bastiaan
+
+	* include/log4cpp/NDC.hh: Added doxygen documentation comments.
+
+2001-04-11 00:37  bastiaan
+
+	* tests/: NDCTest.hh, testNDCMain.cpp: First attempt to automate
+	  testing using CppUnit.  Needs CppUnit 1.5.3 + patch #403542 (see
+	  sourceforge page).
+
+2001-04-10 16:39  bastiaan
+
+	* tests/Clock.cpp: Make it compile on other platforms than Linux
+	  and Tru64.
+
+2001-04-10 09:18  bastiaan
+
+	* ChangeLog: Rerelease as 0.2.3b
+
+2001-04-10 08:49  bastiaan
+
+	* msvc6/log4cpp/log4cpp.dsp: Fix bug #415059.
+
+2001-04-10 08:46  bastiaan
+
+	* configure.in, include/log4cpp/Config.hh: Fix bug #415056. (remove
+	  using namespace std;)
+
+2001-04-09 20:21  bastiaan
+
+	* ChangeLog: Add bug #414958 to fixed bugs.
+
+2001-04-09 20:15  bastiaan
+
+	* include/log4cpp/Config.hh, src/OstringStream.cpp: Changed
+	  strprintf() to vstrprintf() to fix bug #414958.
+
+2001-04-09 19:43  bastiaan
+
+	* tests/testCategory.cpp: Added test line for printf style logging:
+	  ie. info("%s%d", "bla", 123)
+
+2001-04-09 19:10  bastiaan
+
+	* ChangeLog, THANKS: Updated for release 0.2.3.
+
+2001-04-09 14:33  bastiaan
+
+	* include/log4cpp/Config.hh, include/log4cpp/Hints.hh,
+	  include/log4cpp/StreamUtil.hh, src/Hints.cpp, src/StreamUtil.cpp:
+	  Removed obsolete Hints and StreamUtil files.
+
+2001-04-09 00:35  bastiaan
+
+	* src/LoggingEvent.cpp: Type of priority is Priority::Value.
+
+2001-04-09 00:28  bastiaan
+
+	* include/log4cpp/Filter.hh: Changed links to <code> items.
+
+2001-04-08 03:50  bastiaan
+
+	* ChangeLog, INSTALL, README, configure.in, include/config.h: Upped
+	  version number to 0.2.3.
+
+2001-04-08 03:49  bastiaan
+
+	* include/log4cpp/Appender.hh, include/log4cpp/AppenderSkeleton.hh,
+	  src/AppenderSkeleton.cpp: Fixed spelling of 'threshold'.
+
+2001-04-08 03:49  bastiaan
+
+	* include/log4cpp/Filter.hh: Added DoxyGen comments.
+
+2001-04-08 03:31  bastiaan
+
+	* src/Log4cppCleanup.cpp: Put debug print statements inside
+	  #ifdefs. Should become calls to a 'LogLog' class.
+
+2001-04-06 00:12  bastiaan
+
+	* src/OstringStream.cpp: Fixed memory leak: Bug tracker item
+	  #412008.
+
+2001-04-05 23:27  bastiaan
+
+	* msvc6/: log4cpp/log4cpp.dsp, testCategory/testCategory.dsp,
+	  testNDC/testNDC.dsp: Integrated Steve Ostlinds patch for 0.2.3
+
+2001-04-05 22:42  bastiaan
+
+	* TODO: Marked two items as done.
+
+2001-04-02 22:46  bastiaan
+
+	* src/FileAppender.cpp: Got rid of c_str() in _append().
+
+2001-03-28 18:51  legoater
+
+	* include/log4cpp/OstringStream.hh, src/Appender.cpp,
+	  src/HierarchyMaintainer.cpp, src/OstringStream.cpp,
+	  tests/testCategory.cpp: MSVC++ porting update
+
+2001-03-28 08:58  legoater
+
+	* include/log4cpp/Config.hh: Added Config.hh for MSVC++.
+
+2001-03-27 18:14  legoater
+
+	* tests/: Clock.cpp, Clock.hh: Fixed portability problems.
+
+2001-03-27 14:32  legoater
+
+	* src/Log4cppCleanup.cpp, src/OstringStream.cpp, tests/Clock.cpp:
+	  Ported to Tru64 C++ V6.2.
+
+2001-03-26 21:51  legoater
+
+	* configure.in, include/log4cpp/Appender.hh,
+	  include/log4cpp/AppenderSkeleton.hh, include/log4cpp/Category.hh,
+	  include/log4cpp/Hints.hh, include/log4cpp/Log4cppCleanup.hh,
+	  include/log4cpp/Makefile.am, include/log4cpp/OstringStream.hh,
+	  src/BasicLayout.cpp, src/Category.cpp, src/FileAppender.cpp,
+	  src/Filter.cpp, src/HierarchyMaintainer.cpp, src/Hints.cpp,
+	  src/LayoutAppender.cpp, src/Log4cppCleanup.cpp, src/Makefile.am,
+	  src/OstringStream.cpp, src/SimpleLayout.cpp: Enhanced
+	  configuration system.
+
+2001-03-22 22:09  bastiaan
+
+	* include/log4cpp/Category.hh, src/Category.cpp,
+	  tests/testCategory.cpp: Changed CategoryStream::Separator to type
+	  enum. This should also resolve the 'ambiguous operators' problem
+	  with MSVC6.0.  Fixed bug in CategoryStream::operator<<: it was
+	  not logging messages in case it needed to alloc a new
+	  ostringstream.
+
+2001-03-14 23:33  bastiaan
+
+	* include/log4cpp/Appender.hh, include/log4cpp/AppenderSkeleton.hh,
+	  include/log4cpp/Filter.hh, include/log4cpp/Makefile.am,
+	  src/AppenderSkeleton.cpp, src/Filter.cpp, src/Makefile.am: Added
+	  Filter class, for customized filtering of LoggingEvents in
+	  Appender.
+
+2001-03-14 01:28  bastiaan
+
+	* include/log4cpp/Appender.hh, include/log4cpp/AppenderSkeleton.hh,
+	  include/log4cpp/IdsaAppender.hh,
+	  include/log4cpp/LayoutAppender.hh, include/log4cpp/Makefile.am,
+	  include/log4cpp/SyslogAppender.hh, src/Appender.cpp,
+	  src/AppenderSkeleton.cpp, src/IdsaAppender.cpp,
+	  src/LayoutAppender.cpp, src/Makefile.am, src/SyslogAppender.cpp:
+	  Split Appender in Appender and AppenderSkeleton, analogous to
+	  log4j. AppenderSkeleton contains / will contain an implementation
+	  of LoggingEvent filtering.
+
+2001-03-14 00:37  bastiaan
+
+	* include/log4cpp/Appender.hh, include/log4cpp/Category.hh,
+	  include/log4cpp/FileAppender.hh, include/log4cpp/Hints.hh,
+	  include/log4cpp/IdsaAppender.hh, include/log4cpp/LoggingEvent.hh,
+	  include/log4cpp/OstreamAppender.hh, include/log4cpp/Priority.hh,
+	  include/log4cpp/SyslogAppender.hh, src/Appender.cpp,
+	  src/Category.cpp, src/FileAppender.cpp, src/IdsaAppender.cpp,
+	  src/Log4cppCleanup.cpp, src/OstreamAppender.cpp,
+	  src/SyslogAppender.cpp: Added Priority tresholds to Appender,
+	  from now on, derived classs should implement _append() and not
+	  doAppend().  typedeffed Priority::Value and replaced appropriate
+	  occurences of 'int' with it.
+
+2001-03-12 22:27  legoater
+
+	* log4cpp-config.in: [no log message]
+
+2001-03-12 22:22  legoater
+
+	* Makefile.am, configure.in, include/config.h, include/config.h.in,
+	  include/log4cpp/Hints.hh, include/log4cpp/Makefile.am,
+	  include/log4cpp/config.h, include/log4cpp/config.h.in,
+	  src/IdsaAppender.cpp, src/Makefile.am, src/StreamUtil.cpp,
+	  src/SyslogAppender.cpp: Changed log4cpp configuration system.
+
+2001-03-12 20:24  bastiaan
+
+	* configure.in: Check for doxygen and dot only when needed.
+
+2001-03-12 10:35  bastiaan
+
+	* src/SimpleLayout.cpp: Forgot 'return' in format().
+
+2001-03-12 02:46  bastiaan
+
+	* ChangeLog, include/log4cpp/Appender.hh,
+	  include/log4cpp/Category.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/Log4cppCleanup.hh, include/log4cpp/Makefile.am,
+	  src/Appender.cpp, src/Category.cpp, src/HierarchyMaintainer.cpp,
+	  src/Log4cppCleanup.cpp, src/Makefile.am, tests/testCategory.cpp,
+	  tests/testbench.cpp: Added cleanup mechanism. Now log4cpp frees
+	  all memory upon exit, via the destructor of a static
+	  Log4cppCleanup instance.
+
+2001-03-11 22:42  bastiaan
+
+	* Makefile.am, configure.in, doc/Doxyfile.in,
+	  include/log4cpp/FileAppender.hh,
+	  include/log4cpp/LayoutAppender.hh, include/log4cpp/Makefile.am,
+	  include/log4cpp/OstreamAppender.hh, src/FileAppender.cpp,
+	  src/LayoutAppender.cpp, src/Makefile.am, src/OstreamAppender.cpp,
+	  tests/testCategory.cpp, tests/testbench.cpp, tests/testmain.cpp:
+	  Added abstract class LayoutAppender, the superclass of all
+	  Appenders that use a layout.	Changed memory management for
+	  Layout: a LayoutAppender owns its Layout, therefore it is illegal
+	  from now on to set the same Layout instance to two Appenders.
+	  Added autoconf options for doxygen: --enable-doxygen,
+	  --enable-dot, enable-html-docs, --enable-latex-docs.
+
+2001-03-08 09:26  legoater
+
+	* tests/.cvsignore: CVS repository cleanup.
+
+2001-03-08 09:23  legoater
+
+	* tests/: Clock.cpp, Clock.hh: Added CPU clock support with
+	  CLOCK_USE_CPU environment variable.
+
+2001-03-08 09:22  legoater
+
+	* include/log4cpp/Makefile.am, tests/Makefile.am: Fixed .hh files
+	  distribution.
+
+2001-03-08 00:30  bastiaan
+
+	* include/log4cpp/Appender.hh, include/log4cpp/BasicLayout.hh,
+	  include/log4cpp/Layout.hh, include/log4cpp/SimpleLayout.hh,
+	  include/log4cpp/config.h, src/Appender.cpp, src/BasicLayout.cpp,
+	  src/FileAppender.cpp, src/OstreamAppender.cpp,
+	  src/SimpleLayout.cpp, src/SyslogAppender.cpp,
+	  tests/testbench.cpp: Changed Layout::format() to return a
+	  std::string instead of a char *.  Set a default Layout (currently
+	  SimpleLayout) in File- and OstreamAppender until application sets
+	  one.
+
+2001-03-07 23:17  bastiaan
+
+	* ChangeLog, include/log4cpp/Hints.hh,
+	  include/log4cpp/StreamUtil.hh, include/log4cpp/config.h,
+	  src/BasicLayout.cpp, src/Category.cpp, src/Hints.cpp,
+	  src/Makefile.am, src/SimpleLayout.cpp, src/StreamUtil.cpp:
+	  Separated StreamUtil class from Hints.  Removed StreamUtil::str()
+	  and use ostringstream::str() everywhere.
+
+2001-03-06 15:29  legoater
+
+	* include/log4cpp/Makefile.am: Added config.h in install.
+
+2001-03-06 15:28  legoater
+
+	* .cvsignore: CVS repository cleanup.
+
+2001-03-05 15:19  legoater
+
+	* .cvsignore, aclocal.m4, configure: CVS repository cleanup.
+
+2001-03-05 15:10  legoater
+
+	* include/log4cpp/.cvsignore, src/.cvsignore, src/stamp-h.in: CVS
+	  repository cleanup.
+
+2001-03-05 15:02  legoater
+
+	* doc/.cvsignore: CVS repository cleanup.
+
+2001-03-05 15:00  legoater
+
+	* doc/.cvsignore, src/.cvsignore: CVS repository cleanup
+
+2001-03-05 14:57  legoater
+
+	* .cvsignore, Makefile.in, configure, config/.cvsignore,
+	  config/Makefile.in, doc/.cvsignore, doc/Makefile.in,
+	  include/.cvsignore, include/Makefile.in,
+	  include/log4cpp/.cvsignore, include/log4cpp/Makefile.in,
+	  include/log4cpp/config.h, src/.cvsignore, src/Makefile.in,
+	  tests/.cvsignore, tests/Makefile.in: CVS repository clean up.
+
+2001-03-04 17:41  bastiaan
+
+	* Makefile.am, Makefile.in, configure, configure.in,
+	  config/Makefile.in, doc/Makefile.am, doc/Makefile.in,
+	  include/Makefile.in, include/log4cpp/Category.hh,
+	  include/log4cpp/Hints.hh, include/log4cpp/Makefile.in,
+	  include/log4cpp/config.h, include/log4cpp/config.h.in,
+	  src/BasicLayout.cpp, src/Category.cpp, src/Hints.cpp,
+	  src/IdsaAppender.cpp, src/Makefile.in, src/SimpleLayout.cpp,
+	  src/SyslogAppender.cpp, src/config.h, src/config.h.in,
+	  tests/Makefile.in: Started transition from ostrstream to
+	  ostringstream: Added autoconf tests for new iostreams.
+	  Hints.hh/cpp do no longer check for compilers and compiler
+	  versions to decide on the iostream version, but use the defines
+	  from config.h Moved config.h from src to include/log4cpp, because
+	  it's needed by other header files (Hints.hh)
+
+2001-03-04 00:17  bastiaan
+
+	* THANKS: Added Marc and Lynn.
+
+2001-03-04 00:11  bastiaan
+
+	* ChangeLog, NEWS, configure.in: Upped version to 0.2.2
+
+2001-03-03 22:49  bastiaan
+
+	* msvc6/msvc6.dsw, msvc6/testCategory/testCategory.dsp,
+	  msvc6/testNDC/testNDC.dsp, tests/Makefile.am, tests/Makefile.in,
+	  tests/testCategory.cpp: Added testCategory class, derived from
+	  testmain, but focussing only on Category.  Also added MSVC++
+	  project files for testCategory and testNDC.
+
+2001-03-03 20:59  bastiaan
+
+	* Makefile.am, Makefile.in, doc/Makefile.am, doc/Makefile.in: Added
+	  doc-dist target. It creates a tar ball containing the Doxygen
+	  generated HTML docs.
+
+2001-03-03 20:26  bastiaan
+
+	* doc/html/: Appender_cpp.html, BasicLayout_cpp.html,
+	  Category_cpp.html, FileAppender_cpp.html,
+	  HierarchyMaintainer_cpp.html, Hints_cpp.html, Hints_hh.html,
+	  IdsaAppender_cpp.html, IdsaAppender_hh-source.html,
+	  IdsaAppender_hh.html, LoggingEvent_cpp.html, NDC_cpp.html,
+	  OstreamAppender_cpp.html, Priority_cpp.html,
+	  SimpleLayout_cpp.html, SyslogAppender_cpp.html,
+	  class_log4cpp__IdsaAppender-members.html,
+	  class_log4cpp__IdsaAppender.gif,
+	  class_log4cpp__IdsaAppender.html, Appender_cpp-source.html,
+	  BasicLayout_cpp-source.html, Category_cpp-source.html,
+	  FileAppender_cpp-source.html,
+	  HierarchyMaintainer_cpp-source.html, Hints_cpp-source.html,
+	  Hints_hh-source.html, IdsaAppender_cpp-source.html,
+	  LoggingEvent_cpp-source.html, NDC_cpp-source.html,
+	  OstreamAppender_cpp-source.html, Priority_cpp-source.html,
+	  SimpleLayout_cpp-source.html, SyslogAppender_cpp-source.html,
+	  struct_log4cpp__CategoryStream__Separator.html,
+	  struct_log4cpp__LoggingEvent-members.html,
+	  struct_log4cpp__LoggingEvent.html,
+	  struct_log4cpp__NDC__DiagnosticContext-members.html,
+	  struct_log4cpp__NDC__DiagnosticContext.html: Removing generated
+	  documentation from repository.
+
+2001-02-28 11:33  legoater
+
+	* .cvsignore: Added .cvsignore file.
+
+2001-02-28 11:26  legoater
+
+	* autogen.sh: Added autoconf setup script.
+
+2001-02-28 11:24  legoater
+
+	* config/.cvsignore, doc/.cvsignore, include/.cvsignore,
+	  include/log4cpp/.cvsignore, src/.cvsignore, tests/.cvsignore:
+	  Added .cvsignore files
+
+2001-02-27 19:14  bastiaan
+
+	* src/config.h: Added config.h with safe defaults for the
+	  ./configure impaired.
+
+2001-02-26 23:26  bastiaan
+
+	* include/log4cpp/LoggingEvent.hh: Made threadName a member to keep
+	  MSVC++ from crashing.
+
+2001-02-25 16:48  bastiaan
+
+	* ChangeLog, msvc6/msvc6.dsw, msvc6/log4cpp/log4cpp.dsp: Add msvc
+	  dir, workspace and project file.
+
+2001-02-24 01:40  bastiaan
+
+	* Makefile.in, configure, configure.in, doc/html/Appender_cpp.html,
+	  doc/html/BasicLayout_cpp.html, doc/html/Category_cpp.html,
+	  doc/html/FileAppender_cpp.html,
+	  doc/html/HierarchyMaintainer_cpp.html, doc/html/Hints_cpp.html,
+	  doc/html/Hints_hh.html, doc/html/IdsaAppender_cpp.html,
+	  doc/html/IdsaAppender_hh-source.html,
+	  doc/html/IdsaAppender_hh.html, doc/html/LoggingEvent_cpp.html,
+	  doc/html/NDC_cpp.html, doc/html/OstreamAppender_cpp.html,
+	  doc/html/Priority_cpp.html, doc/html/SimpleLayout_cpp.html,
+	  doc/html/SyslogAppender_cpp.html,
+	  doc/html/class_log4cpp__IdsaAppender-members.html,
+	  doc/html/class_log4cpp__IdsaAppender.html,
+	  include/log4cpp/Appender.hh, include/log4cpp/Hints.hh,
+	  include/log4cpp/LoggingEvent.hh, src/Category.cpp,
+	  src/FileAppender.cpp, src/HierarchyMaintainer.cpp, src/Hints.cpp,
+	  src/OstreamAppender.cpp, src/SyslogAppender.cpp, src/config.h.in:
+	  Merged in changes for Win32 MSVC6 support from Owen Lynn.
+
+2001-02-16 16:01  bastiaan
+
+	* include/log4cpp/LoggingEvent.hh, src/LoggingEvent.cpp: Moved
+	  #include <time.h> from LoggingEvent.cpp to LoggingEvent.hh
+
+2001-02-15 19:47  bastiaan
+
+	* ChangeLog, README: Updated license info to GNU Lesser General
+	  Public License.
+
+2001-02-15 14:38  bastiaan
+
+	* COPYING, ChangeLog, NEWS, configure, configure.in: Incremented
+	  version to 0.2.1. Changed license to LGPL.
+
+2001-01-25 18:05  legoater
+
+	* src/Category.cpp, include/log4cpp/Category.hh: added EMER, ALERT,
+	  CRIT and NOTICE shortcuts methods.
+
+2000-12-22 23:25  bastiaan
+
+	* Makefile.in, aclocal.m4, configure, configure.in: Added
+	  log4cpp.spec to AC_OUTPUT in configure.in
+
+2000-12-22 14:22  legoater
+
+	* log4cpp.spec.in, tests/Clock.cpp, tests/Clock.hh,
+	  tests/testbench.cpp: [no log message]
+
+2000-12-22 10:50  bastiaan
+
+	* ChangeLog, Makefile.am, Makefile.in, TODO, aclocal.m4, configure,
+	  configure.in, doc/Makefile.am, doc/Makefile.in,
+	  doc/html/Appender_cpp-source.html, doc/html/Appender_cpp.html,
+	  doc/html/Appender_hh-source.html, doc/html/Appender_hh.html,
+	  doc/html/BasicLayout_cpp-source.html,
+	  doc/html/BasicLayout_cpp.html,
+	  doc/html/BasicLayout_hh-source.html,
+	  doc/html/BasicLayout_hh.html, doc/html/Category_cpp-source.html,
+	  doc/html/Category_cpp.html, doc/html/Category_hh-source.html,
+	  doc/html/Category_hh.html, doc/html/FileAppender_cpp-source.html,
+	  doc/html/FileAppender_cpp.html,
+	  doc/html/FileAppender_hh-source.html,
+	  doc/html/FileAppender_hh.html,
+	  doc/html/HierarchyMaintainer_cpp-source.html,
+	  doc/html/HierarchyMaintainer_cpp.html,
+	  doc/html/HierarchyMaintainer_hh-source.html,
+	  doc/html/HierarchyMaintainer_hh.html,
+	  doc/html/Hints_cpp-source.html, doc/html/Hints_cpp.html,
+	  doc/html/Hints_hh-source.html, doc/html/Hints_hh.html,
+	  doc/html/IdsaAppender_cpp-source.html,
+	  doc/html/IdsaAppender_cpp.html,
+	  doc/html/IdsaAppender_hh-source.html,
+	  doc/html/IdsaAppender_hh.html, doc/html/Layout_hh-source.html,
+	  doc/html/Layout_hh.html, doc/html/LoggingEvent_cpp-source.html,
+	  doc/html/LoggingEvent_cpp.html,
+	  doc/html/LoggingEvent_hh-source.html,
+	  doc/html/LoggingEvent_hh.html, doc/html/NDC_cpp-source.html,
+	  doc/html/NDC_cpp.html, doc/html/NDC_hh-source.html,
+	  doc/html/NDC_hh.html, doc/html/OstreamAppender_cpp-source.html,
+	  doc/html/OstreamAppender_cpp.html,
+	  doc/html/OstreamAppender_hh-source.html,
+	  doc/html/OstreamAppender_hh.html,
+	  doc/html/Priority_cpp-source.html, doc/html/Priority_cpp.html,
+	  doc/html/Priority_hh-source.html, doc/html/Priority_hh.html,
+	  doc/html/SimpleLayout_cpp-source.html,
+	  doc/html/SimpleLayout_cpp.html,
+	  doc/html/SimpleLayout_hh-source.html,
+	  doc/html/SimpleLayout_hh.html,
+	  doc/html/SyslogAppender_cpp-source.html,
+	  doc/html/SyslogAppender_cpp.html,
+	  doc/html/SyslogAppender_hh-source.html,
+	  doc/html/SyslogAppender_hh.html, doc/html/annotated.html,
+	  doc/html/class_log4cpp__Appender-members.html,
+	  doc/html/class_log4cpp__Appender.gif,
+	  doc/html/class_log4cpp__Appender.html,
+	  doc/html/class_log4cpp__BasicLayout-members.html,
+	  doc/html/class_log4cpp__BasicLayout.gif,
+	  doc/html/class_log4cpp__BasicLayout.html,
+	  doc/html/class_log4cpp__Category-members.html,
+	  doc/html/class_log4cpp__Category.html,
+	  doc/html/class_log4cpp__CategoryStream-members.html,
+	  doc/html/class_log4cpp__CategoryStream.html,
+	  doc/html/class_log4cpp__CategoryStream__Separator.html,
+	  doc/html/class_log4cpp__FileAppender-members.html,
+	  doc/html/class_log4cpp__FileAppender.gif,
+	  doc/html/class_log4cpp__FileAppender.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer-members.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer.html,
+	  doc/html/class_log4cpp__IdsaAppender-members.html,
+	  doc/html/class_log4cpp__IdsaAppender.gif,
+	  doc/html/class_log4cpp__IdsaAppender.html,
+	  doc/html/class_log4cpp__Layout-members.html,
+	  doc/html/class_log4cpp__Layout.gif,
+	  doc/html/class_log4cpp__Layout.html,
+	  doc/html/class_log4cpp__LoggingEvent-members.html,
+	  doc/html/class_log4cpp__LoggingEvent.html,
+	  doc/html/class_log4cpp__NDC-members.html,
+	  doc/html/class_log4cpp__NDC.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext-members.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext.html,
+	  doc/html/class_log4cpp__OstreamAppender-members.html,
+	  doc/html/class_log4cpp__OstreamAppender.gif,
+	  doc/html/class_log4cpp__OstreamAppender.html,
+	  doc/html/class_log4cpp__Priority-members.html,
+	  doc/html/class_log4cpp__Priority.html,
+	  doc/html/class_log4cpp__SimpleLayout-members.html,
+	  doc/html/class_log4cpp__SimpleLayout.gif,
+	  doc/html/class_log4cpp__SimpleLayout.html,
+	  doc/html/class_log4cpp__SyslogAppender-members.html,
+	  doc/html/class_log4cpp__SyslogAppender.gif,
+	  doc/html/class_log4cpp__SyslogAppender.html,
+	  doc/html/doxygen.css, doc/html/doxygen.gif, doc/html/files.html,
+	  doc/html/functions.html, doc/html/hierarchy.html,
+	  doc/html/index.html, doc/html/namespace_log4cpp.html,
+	  doc/html/namespaces.html, doc/html/null.gif,
+	  doc/html/struct_log4cpp__CategoryStream__Separator.html,
+	  doc/html/struct_log4cpp__LoggingEvent-members.html,
+	  doc/html/struct_log4cpp__LoggingEvent.html,
+	  doc/html/struct_log4cpp__NDC__DiagnosticContext-members.html,
+	  doc/html/struct_log4cpp__NDC__DiagnosticContext.html,
+	  src/Hints.cpp, tests/Makefile.am, tests/Makefile.in: Merged in
+	  patches from Cedric Le Goater: fixed --with-idsa added RPM spec
+	  file added testbench
+
+	  Also update of regenerated API docs.	Added TODO file.
+
+2000-12-18 23:28  bastiaan
+
+	* ChangeLog, configure, configure.in, include/log4cpp/Makefile.am,
+	  include/log4cpp/Makefile.in, src/IdsaAppender.cpp,
+	  src/Makefile.am, src/Makefile.in, src/config.h.in: Added
+	  --with-idsa switch to configure. Probably screwed Cedrics hacks
+	  in autoconf.
+
+2000-12-14 22:57  bastiaan
+
+	* include/log4cpp/IdsaAppender.hh, src/IdsaAppender.cpp: Added
+	  IdsaAppender class for logging to Marc Welz's Idsa system.
+
+2000-12-13 22:43  bastiaan
+
+	* configure, configure.in, config/ltconfig, config/ltmain.sh,
+	  include/log4cpp/Appender.hh, include/log4cpp/Category.hh,
+	  include/log4cpp/HierarchyMaintainer.hh, include/log4cpp/Hints.hh,
+	  include/log4cpp/Layout.hh, include/log4cpp/Makefile.am,
+	  include/log4cpp/Makefile.in, include/log4cpp/NDC.hh,
+	  include/log4cpp/OstreamAppender.hh, src/BasicLayout.cpp,
+	  src/Category.cpp, src/HierarchyMaintainer.cpp, src/Hints.cpp,
+	  src/Makefile.am, src/Makefile.in, src/OstreamAppender.cpp,
+	  src/SimpleLayout.cpp, tests/testNDC.cpp, tests/testmain.cpp:
+	  Integrated Cedric Le Goaters patches for Tru64 support and better
+	  g++-3 compliance.
+
+2000-12-12 22:49  bastiaan
+
+	* include/log4cpp/NDC.hh: Making NDC() and ~NDC() protected was
+	  overly paranoid. They're public now.
+
+2000-12-12 00:20  bastiaan
+
+	* Makefile, configure, configure.in, include/log4cpp/Appender.hh,
+	  include/log4cpp/Category.hh, include/log4cpp/FileAppender.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/Layout.hh, include/log4cpp/LoggingEvent.hh,
+	  include/log4cpp/NDC.hh, include/log4cpp/OstreamAppender.hh,
+	  include/log4cpp/Priority.hh, include/log4cpp/SyslogAppender.hh,
+	  src/Appender.cpp, src/BasicLayout.cpp, src/Category.cpp,
+	  src/FileAppender.cpp, src/HierarchyMaintainer.cpp,
+	  src/LoggingEvent.cpp, src/Makefile, src/NDC.cpp,
+	  src/OstreamAppender.cpp, src/Priority.cpp, src/SimpleLayout.cpp,
+	  src/SyslogAppender.cpp: Merged in patches for Tru64.	Renamed
+	  string to std::string Renumbered library version to 0.2.0
+	  (instead of 1.0.0)
+
+2000-12-11 11:15  bastiaan
+
+	* Makefile, Makefile.am, Makefile.in, src/Makefile: Added forgotten
+	  Makefile templates in topdir.
+
+2000-12-10 04:24  bastiaan
+
+	* AUTHORS, INSTALL, NEWS, THANKS, aclocal.m4, configure,
+	  configure.in, doxygen.config, config/Makefile.am,
+	  config/Makefile.in, config/config.guess, config/config.sub,
+	  config/install-sh, config/ltconfig, config/ltmain.sh,
+	  config/missing, config/mkinstalldirs, doc/Doxyfile.in,
+	  doc/Makefile.am, doc/Makefile.in, include/Makefile.am,
+	  include/Makefile.in, include/log4cpp/Appender.hh,
+	  include/log4cpp/BasicLayout.hh, include/log4cpp/Category.hh,
+	  include/log4cpp/FileAppender.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/Layout.hh, include/log4cpp/LoggingEvent.hh,
+	  include/log4cpp/Makefile.am, include/log4cpp/Makefile.in,
+	  include/log4cpp/NDC.hh, include/log4cpp/OstreamAppender.hh,
+	  include/log4cpp/Priority.hh, include/log4cpp/SimpleLayout.hh,
+	  include/log4cpp/SyslogAppender.hh, src/Appender.cpp,
+	  src/BasicLayout.cpp, src/Category.cpp, src/FileAppender.cpp,
+	  src/HierarchyMaintainer.cpp, src/LoggingEvent.cpp,
+	  src/Makefile.am, src/Makefile.in, src/NDC.cpp,
+	  src/OstreamAppender.cpp, src/Priority.cpp, src/SimpleLayout.cpp,
+	  src/SyslogAppender.cpp, src/config.h.in, src/stamp-h.in,
+	  tests/Makefile.am, tests/Makefile.in: Integrated
+	  autoconf/automake setup contributed by Cedric Le Goater
+	  <cedric@legoater.com>.
+
+2000-12-10 04:18  bastiaan
+
+	* CHANGELOG, ChangeLog: Renamed CHANGELOG to ChangeLog for GNU
+	  conformance.
+
+2000-12-10 04:16  bastiaan
+
+	* COPYING, LICENSE: Renamed LICENSE file for GNU conformance.
+
+2000-12-10 04:15  bastiaan
+
+	* src/testNDC.cpp, src/testmain.cpp, tests/testNDC.cpp,
+	  tests/testmain.cpp: Moved tests to separate test directory.
+
+2000-12-09 00:38  bastiaan
+
+	* doc/html/Appender_hh-source.html, doc/html/Appender_hh.html,
+	  doc/html/BasicLayout_hh-source.html,
+	  doc/html/BasicLayout_hh.html, doc/html/Category_hh-source.html,
+	  doc/html/Category_hh.html, doc/html/FileAppender_hh-source.html,
+	  doc/html/FileAppender_hh.html,
+	  doc/html/HierarchyMaintainer_hh-source.html,
+	  doc/html/HierarchyMaintainer_hh.html,
+	  doc/html/Layout_hh-source.html, doc/html/Layout_hh.html,
+	  doc/html/LoggingEvent_hh-source.html,
+	  doc/html/LoggingEvent_hh.html, doc/html/NDC_hh-source.html,
+	  doc/html/NDC_hh.html, doc/html/OstreamAppender_hh-source.html,
+	  doc/html/OstreamAppender_hh.html,
+	  doc/html/Priority_hh-source.html, doc/html/Priority_hh.html,
+	  doc/html/SimpleLayout_hh-source.html,
+	  doc/html/SimpleLayout_hh.html,
+	  doc/html/SyslogAppender_hh-source.html,
+	  doc/html/SyslogAppender_hh.html, doc/html/annotated.html,
+	  doc/html/class_log4cpp__Appender-members.html,
+	  doc/html/class_log4cpp__Appender.html,
+	  doc/html/class_log4cpp__BasicLayout-members.html,
+	  doc/html/class_log4cpp__BasicLayout.html,
+	  doc/html/class_log4cpp__Category-members.html,
+	  doc/html/class_log4cpp__Category.html,
+	  doc/html/class_log4cpp__CategoryStream-members.html,
+	  doc/html/class_log4cpp__CategoryStream.html,
+	  doc/html/class_log4cpp__CategoryStream__Separator.html,
+	  doc/html/class_log4cpp__FileAppender-members.html,
+	  doc/html/class_log4cpp__FileAppender.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer-members.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer.html,
+	  doc/html/class_log4cpp__Layout-members.html,
+	  doc/html/class_log4cpp__Layout.html,
+	  doc/html/class_log4cpp__LoggingEvent-members.html,
+	  doc/html/class_log4cpp__LoggingEvent.html,
+	  doc/html/class_log4cpp__NDC-members.html,
+	  doc/html/class_log4cpp__NDC.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext-members.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext.html,
+	  doc/html/class_log4cpp__OstreamAppender-members.html,
+	  doc/html/class_log4cpp__OstreamAppender.html,
+	  doc/html/class_log4cpp__Priority-members.html,
+	  doc/html/class_log4cpp__Priority.html,
+	  doc/html/class_log4cpp__SimpleLayout-members.html,
+	  doc/html/class_log4cpp__SimpleLayout.html,
+	  doc/html/class_log4cpp__SyslogAppender-members.html,
+	  doc/html/class_log4cpp__SyslogAppender.html, doc/html/files.html,
+	  doc/html/functions.html, doc/html/hierarchy.html,
+	  doc/html/index.html, doc/html/namespace_log4cpp.html,
+	  doc/html/namespaces.html, include/log4cpp/Category.hh,
+	  src/Category.cpp, src/testmain.cpp: Added log message terminator
+	  (CategoryStream::ENDLINE) to CategoryStream, so you can stream
+	  multiple objects into one message.
+
+2000-12-08 11:42  bastiaan
+
+	* include/log4cpp/NDC.hh: ~NDC() is now public if g++ <= 2.95 is
+	  used. g++ 2.96 and up can keep the protected destructor. Bug
+	  reported by Louis Bayle.
+
+2000-12-08 01:29  bastiaan
+
+	* doc/html/Appender_hh-source.html, doc/html/Appender_hh.html,
+	  doc/html/BasicLayout_hh-source.html,
+	  doc/html/BasicLayout_hh.html, doc/html/Category_hh-source.html,
+	  doc/html/Category_hh.html, doc/html/FileAppender_hh-source.html,
+	  doc/html/FileAppender_hh.html,
+	  doc/html/HierarchyMaintainer_hh-source.html,
+	  doc/html/HierarchyMaintainer_hh.html,
+	  doc/html/Layout_hh-source.html, doc/html/Layout_hh.html,
+	  doc/html/LoggingEvent_hh-source.html,
+	  doc/html/LoggingEvent_hh.html, doc/html/NDC_hh-source.html,
+	  doc/html/NDC_hh.html, doc/html/OstreamAppender_hh-source.html,
+	  doc/html/OstreamAppender_hh.html,
+	  doc/html/Priority_hh-source.html, doc/html/Priority_hh.html,
+	  doc/html/SimpleLayout_hh-source.html,
+	  doc/html/SimpleLayout_hh.html,
+	  doc/html/SyslogAppender_hh-source.html,
+	  doc/html/SyslogAppender_hh.html, doc/html/annotated.html,
+	  doc/html/class_log4cpp__Appender-members.html,
+	  doc/html/class_log4cpp__Appender.html,
+	  doc/html/class_log4cpp__BasicLayout-members.html,
+	  doc/html/class_log4cpp__BasicLayout.html,
+	  doc/html/class_log4cpp__Category-members.html,
+	  doc/html/class_log4cpp__Category.html,
+	  doc/html/class_log4cpp__CategoryStream-members.html,
+	  doc/html/class_log4cpp__CategoryStream.html,
+	  doc/html/class_log4cpp__FileAppender-members.html,
+	  doc/html/class_log4cpp__FileAppender.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer-members.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer.html,
+	  doc/html/class_log4cpp__Layout-members.html,
+	  doc/html/class_log4cpp__Layout.html,
+	  doc/html/class_log4cpp__LoggingEvent-members.html,
+	  doc/html/class_log4cpp__LoggingEvent.html,
+	  doc/html/class_log4cpp__NDC-members.html,
+	  doc/html/class_log4cpp__NDC.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext-members.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext.html,
+	  doc/html/class_log4cpp__OstreamAppender-members.html,
+	  doc/html/class_log4cpp__OstreamAppender.html,
+	  doc/html/class_log4cpp__Priority-members.html,
+	  doc/html/class_log4cpp__Priority.html,
+	  doc/html/class_log4cpp__SimpleLayout-members.html,
+	  doc/html/class_log4cpp__SimpleLayout.html,
+	  doc/html/class_log4cpp__SyslogAppender-members.html,
+	  doc/html/class_log4cpp__SyslogAppender.html, doc/html/files.html,
+	  doc/html/functions.html, doc/html/hierarchy.html,
+	  doc/html/index.html, doc/html/namespace_log4cpp.html,
+	  doc/html/namespaces.html, include/log4cpp/Category.hh,
+	  src/Category.cpp, src/testmain.cpp: Added CategoryStream class,
+	  which allows applications to stream objects to Category.
+
+2000-12-07 22:27  bastiaan
+
+	* CHANGELOG: Release 0.1
+
+2000-12-07 22:08  bastiaan
+
+	* doc/html/Appender_hh-source.html, doc/html/Appender_hh.html,
+	  doc/html/BasicLayout_hh-source.html,
+	  doc/html/BasicLayout_hh.html, doc/html/Category_hh-source.html,
+	  doc/html/Category_hh.html, doc/html/FileAppender_hh-source.html,
+	  doc/html/FileAppender_hh.html,
+	  doc/html/HierarchyMaintainer_hh-source.html,
+	  doc/html/HierarchyMaintainer_hh.html,
+	  doc/html/Layout_hh-source.html, doc/html/Layout_hh.html,
+	  doc/html/LoggingEvent_hh-source.html,
+	  doc/html/LoggingEvent_hh.html, doc/html/NDC_hh-source.html,
+	  doc/html/NDC_hh.html, doc/html/OstreamAppender_hh-source.html,
+	  doc/html/OstreamAppender_hh.html,
+	  doc/html/Priority_hh-source.html, doc/html/Priority_hh.html,
+	  doc/html/SimpleLayout_hh-source.html,
+	  doc/html/SimpleLayout_hh.html,
+	  doc/html/SyslogAppender_hh-source.html,
+	  doc/html/SyslogAppender_hh.html, doc/html/annotated.html,
+	  doc/html/class_log4cpp__Appender-members.html,
+	  doc/html/class_log4cpp__Appender.gif,
+	  doc/html/class_log4cpp__Appender.html,
+	  doc/html/class_log4cpp__BasicLayout-members.html,
+	  doc/html/class_log4cpp__BasicLayout.html,
+	  doc/html/class_log4cpp__Category-members.html,
+	  doc/html/class_log4cpp__Category.html,
+	  doc/html/class_log4cpp__FileAppender-members.html,
+	  doc/html/class_log4cpp__FileAppender.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer-members.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer.html,
+	  doc/html/class_log4cpp__Layout-members.html,
+	  doc/html/class_log4cpp__Layout.html,
+	  doc/html/class_log4cpp__LoggingEvent-members.html,
+	  doc/html/class_log4cpp__LoggingEvent.html,
+	  doc/html/class_log4cpp__NDC-members.html,
+	  doc/html/class_log4cpp__NDC.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext-members.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext.html,
+	  doc/html/class_log4cpp__OstreamAppender-members.html,
+	  doc/html/class_log4cpp__OstreamAppender.gif,
+	  doc/html/class_log4cpp__OstreamAppender.html,
+	  doc/html/class_log4cpp__Priority-members.html,
+	  doc/html/class_log4cpp__Priority.html,
+	  doc/html/class_log4cpp__SimpleLayout-members.html,
+	  doc/html/class_log4cpp__SimpleLayout.html,
+	  doc/html/class_log4cpp__SyslogAppender-members.html,
+	  doc/html/class_log4cpp__SyslogAppender.gif,
+	  doc/html/class_log4cpp__SyslogAppender.html, doc/html/files.html,
+	  doc/html/functions.html, doc/html/hierarchy.html,
+	  doc/html/index.html, doc/html/namespace_log4cpp.html,
+	  doc/html/namespaces.html, include/log4cpp/Appender.hh,
+	  include/log4cpp/SyslogAppender.hh, src/Category.cpp,
+	  src/FileAppender.cpp, src/HierarchyMaintainer.cpp, src/Makefile,
+	  src/SyslogAppender.cpp, src/testmain.cpp: Added OstreamAppender
+	  and SyslogAppender.
+
+2000-12-06 22:45  bastiaan
+
+	* include/log4cpp/OstreamAppender.hh, src/Makefile,
+	  src/OstreamAppender.cpp, src/testmain.cpp: Added OstreamAppender,
+	  a simple Appender that logs to ostreams.
+
+2000-12-05 23:12  bastiaan
+
+	* doxygen.config: Added missing doxygen config.
+
+2000-12-05 23:09  bastiaan
+
+	* Makefile, doc/html/Appender_hh-source.html,
+	  doc/html/Appender_hh.html, doc/html/BasicLayout_hh-source.html,
+	  doc/html/BasicLayout_hh.html, doc/html/Category_hh-source.html,
+	  doc/html/Category_hh.html, doc/html/FileAppender_hh-source.html,
+	  doc/html/FileAppender_hh.html,
+	  doc/html/HierarchyMaintainer_hh-source.html,
+	  doc/html/HierarchyMaintainer_hh.html,
+	  doc/html/Layout_hh-source.html, doc/html/Layout_hh.html,
+	  doc/html/LoggingEvent_hh-source.html,
+	  doc/html/LoggingEvent_hh.html, doc/html/NDC_hh-source.html,
+	  doc/html/NDC_hh.html, doc/html/Priority_hh-source.html,
+	  doc/html/Priority_hh.html, doc/html/SimpleLayout_hh-source.html,
+	  doc/html/SimpleLayout_hh.html, doc/html/annotated.html,
+	  doc/html/class_log4cpp__Appender-members.html,
+	  doc/html/class_log4cpp__Appender.gif,
+	  doc/html/class_log4cpp__Appender.html,
+	  doc/html/class_log4cpp__BasicLayout-members.html,
+	  doc/html/class_log4cpp__BasicLayout.gif,
+	  doc/html/class_log4cpp__BasicLayout.html,
+	  doc/html/class_log4cpp__Category-members.html,
+	  doc/html/class_log4cpp__Category.html,
+	  doc/html/class_log4cpp__FileAppender-members.html,
+	  doc/html/class_log4cpp__FileAppender.gif,
+	  doc/html/class_log4cpp__FileAppender.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer-members.html,
+	  doc/html/class_log4cpp__HierarchyMaintainer.html,
+	  doc/html/class_log4cpp__Layout-members.html,
+	  doc/html/class_log4cpp__Layout.gif,
+	  doc/html/class_log4cpp__Layout.html,
+	  doc/html/class_log4cpp__LoggingEvent-members.html,
+	  doc/html/class_log4cpp__LoggingEvent.html,
+	  doc/html/class_log4cpp__NDC-members.html,
+	  doc/html/class_log4cpp__NDC.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext-members.html,
+	  doc/html/class_log4cpp__NDC__DiagnosticContext.html,
+	  doc/html/class_log4cpp__Priority-members.html,
+	  doc/html/class_log4cpp__Priority.html,
+	  doc/html/class_log4cpp__SimpleLayout-members.html,
+	  doc/html/class_log4cpp__SimpleLayout.gif,
+	  doc/html/class_log4cpp__SimpleLayout.html, doc/html/doxygen.css,
+	  doc/html/doxygen.gif, doc/html/files.html,
+	  doc/html/functions.html, doc/html/hierarchy.html,
+	  doc/html/index.html, doc/html/namespace_log4cpp.html,
+	  doc/html/namespaces.html, doc/html/null.gif,
+	  include/log4cpp/Category.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/Layout.hh, include/log4cpp/LoggingEvent.hh,
+	  src/Category.cpp, src/HierarchyMaintainer.cpp: Added doxygen
+	  generated API docs. Most text is a verbatim copy of the log4j
+	  docs.
+
+2000-12-05 01:15  bastiaan
+
+	* include/log4cpp/BasicLayout.hh, include/log4cpp/NDC.hh,
+	  include/log4cpp/SimpleLayout.hh, src/BasicLayout.cpp,
+	  src/Category.cpp, src/Makefile, src/NDC.cpp, src/testNDC.cpp,
+	  src/testmain.cpp: Added BasicLayout and NDC class
+
+2000-12-04 00:53  bastiaan
+
+	* CHANGELOG, INSTALL, LICENSE, README, include/log4cpp/Appender.hh,
+	  include/log4cpp/Category.hh, include/log4cpp/FileAppender.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/Layout.hh, include/log4cpp/LoggingEvent.hh,
+	  include/log4cpp/Priority.hh, include/log4cpp/SimpleLayout.hh,
+	  src/Appender.cpp, src/Category.cpp, src/FileAppender.cpp,
+	  src/HierarchyMaintainer.cpp, src/LoggingEvent.cpp, src/Makefile,
+	  src/Priority.cpp, src/SimpleLayout.cpp, src/testmain.cpp: First
+	  import of log4cpp.
+
+2000-12-04 00:53  bastiaan
+
+	* CHANGELOG, INSTALL, LICENSE, README, include/log4cpp/Appender.hh,
+	  include/log4cpp/Category.hh, include/log4cpp/FileAppender.hh,
+	  include/log4cpp/HierarchyMaintainer.hh,
+	  include/log4cpp/Layout.hh, include/log4cpp/LoggingEvent.hh,
+	  include/log4cpp/Priority.hh, include/log4cpp/SimpleLayout.hh,
+	  src/Appender.cpp, src/Category.cpp, src/FileAppender.cpp,
+	  src/HierarchyMaintainer.cpp, src/LoggingEvent.cpp, src/Makefile,
+	  src/Priority.cpp, src/SimpleLayout.cpp, src/testmain.cpp: Initial
+	  revision
+

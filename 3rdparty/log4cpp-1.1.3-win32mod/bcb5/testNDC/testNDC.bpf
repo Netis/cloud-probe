@@ -1,0 +1,6 @@
+USEUNIT("..\..\tests\testNDC.cpp");
+USELIB("..\log4cpp\log4cpp.lib");
+//---------------------------------------------------------------------------
+This file is used by the project manager only and should be treated like the project file
+
+main

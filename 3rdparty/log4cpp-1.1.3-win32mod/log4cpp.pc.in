@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: @PACKAGE@
+Description: C++ library for flexible logging, modeled after Log4j
+Version: @VERSION@
+Libs: -L${libdir} @log4cpp_libs@
+Cflags: -I${includedir} @log4cpp_cflags@

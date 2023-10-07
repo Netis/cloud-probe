@@ -11,12 +11,12 @@ if [ "$2" == "nocompare" ]; then
 fi
 
 rm -rf gredump.pcap
-rm -rf pktminer_dump.pcap
+rm -rf dump
 
 tcpreplay --pps=50 -i $NIC xml.pcap &
 
 ../bin/gredump -i $NIC -o gredump.pcap &
-../bin/pktminerg -i $NIC -r 172.16.14.249 -c 1000 --dump &
+../bin/pktminerg "-i $NIC -r 172.16.14.249 -c 1000 --dump ./dump/ --interval 0" &
 
 sleep 30
 
@@ -25,7 +25,7 @@ killall pktminerg
 killall gredump
 
 if [ "$COMPARE" == "compare" ]; then
-    ../bin/pcapcompare pktminer_dump.pcap gredump.pcap
+    ../bin/pcapcompare ./dump/$NIC/pktminerg_dump.pcap gredump.pcap
 fi
 
 

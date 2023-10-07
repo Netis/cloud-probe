@@ -1,8 +1,3 @@
-#ifdef WIN32
-#include <WinSock2.h>
-#else
-#include <arpa/inet.h>
-#endif
 #include <iostream>
 #include <csignal>
 #include <ctime>
@@ -21,7 +16,7 @@ int vxlan_frame_match(const void* data, int size, uint32_t vni)
     if(size < 8)
         return -1;
     if(ntohl(((uint32_t*)data)[0]) == 0x08000000 &&
-    (ntohl(((uint32_t*)data)[1]) >> 8) == vni)
+        (ntohl(((uint32_t*)data)[1]) >> 8) == vni)
         return 0;
     return -1;
 }
@@ -29,14 +24,14 @@ int vxlan_frame_match(const void* data, int size, uint32_t vni)
 int main(int argc, const char* argv[]) {
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
-    ("version,v", "show version.")
-    ("help,h", "show help.")
-    ("vni,n", boost::program_options::value<uint32_t>()->value_name("VNI"), "vxlan vni filter.")
-    ("output,o", boost::program_options::value<std::string>()->value_name("OUT_PCAP"), "output pcap file");
+            ("version,v", "show version.")
+            ("help,h", "show help.")
+            ("vni,n", boost::program_options::value<uint32_t>()->value_name("VNI"), "vxlan vni filter.")
+            ("output,o", boost::program_options::value<std::string>()->value_name("OUT_PCAP"), "output pcap file");
 
     boost::program_options::variables_map vm;
     uint32_t vni;
-    int sock;
+    socket_t sock;
     pcap_t* cap;
     pcap_dumper_t* dump;
     sockaddr_in addr;
@@ -107,7 +102,7 @@ int main(int argc, const char* argv[]) {
     addr.sin_family = AF_INET;
     if(bind(sock, (const sockaddr*)&addr, sizeof(addr)) < 0)
     {
-        close(sock);
+        socket_close(sock);
         pcap_dump_close(dump);
         pcap_close(cap);
         return -1;
@@ -119,7 +114,6 @@ int main(int argc, const char* argv[]) {
 #else
     setsockopt(sock, SOL_SOCKET, SOCK_NONBLOCK, &noblock, sizeof(noblock));
 #endif
-
     buff.resize(UINT16_MAX);
 
     std::signal(SIGINT, [](int){
@@ -139,7 +133,7 @@ int main(int argc, const char* argv[]) {
         timeout.tv_usec = 50000;
         FD_ZERO(&rset);
         FD_SET(sock, &rset);
-        if(select(sock + 1, &rset, 0, 0, &timeout) > 0)
+        if(select(int(sock + 1), &rset, 0, 0, &timeout) > 0)
         {
             addr_len = sizeof(addr);
             if((ret = recvfrom(sock, (char*)&*buff.begin(), UINT16_MAX, 0, (sockaddr*)&addr, &addr_len)) > 0)
