@@ -6,12 +6,13 @@ import zmq
 import time
 from struct import pack, unpack, calcsize
 from docopt import docopt
-from IPy import IP
+#from IPy import IP
 
 
 
 
 PKT_SERVER = 'tcp://127.0.0.1:5556'
+#PKT_SERVER = 'ipc:///tmp/pktminerg_5556'
 TIME_OUT = 5000
 
 DIAG_TYPE_SLICE = 0

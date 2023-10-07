@@ -33,6 +33,9 @@ extern int sys_ioprio_get(int, int);
 #elif defined(__ia64__)
 #define __NR_ioprio_set         1274
 #define __NR_ioprio_get         1275
+#elif defined(__aarch64__)
+#define __NR_ioprio_set         30
+#define __NR_ioprio_get         31
 #else
 #error "Unsupported arch"
 #endif

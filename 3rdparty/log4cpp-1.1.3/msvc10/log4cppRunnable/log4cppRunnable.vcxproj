@@ -1,0 +1,338 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug with Boost|Win32">
+      <Configuration>Debug with Boost</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release with Boost|Win32">
+      <Configuration>Release with Boost</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{8C796FDD-5BB9-41D5-8471-FFC897C8C486}</ProjectGuid>
+    <RootNamespace>log4cpp</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.40219.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Debug\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Release\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'">$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'">$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'">true</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'">$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'">$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'">false</LinkIncremental>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_DLL;_USRDLL;LOG4CPP_HAS_DLL;LOG4CPP_BUILD_DLL;MSVC_MEMORY_LEAK_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)log4cpp.pdb</ProgramDatabaseFile>
+      <SubSystem>Console</SubSystem>
+      <ImportLibrary>$(OutDir)log4cpp.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy ..\..\tests\log4cpp.property .</Command>
+      <Command>copy ..\..\tests\log4cpp.nt.property .</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_DLL;_USRDLL;LOG4CPP_HAS_DLL;LOG4CPP_BUILD_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <AdditionalIncludeDirectories>../../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <RegisterOutput>false</RegisterOutput>
+      <AdditionalDependencies>ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ShowProgress>NotSet</ShowProgress>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <ImportLibrary>$(OutDir)log4cpp.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy ..\..\tests\log4cpp.property .</Command>
+      <Command>copy ..\..\tests\log4cpp.nt.property .</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_DLL;_USRDLL;LOG4CPP_HAS_DLL;LOG4CPP_BUILD_DLL;LOG4CPP_HAVE_BOOST;MSVC_MEMORY_LEAK_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)log4cpp.pdb</ProgramDatabaseFile>
+      <SubSystem>Console</SubSystem>
+      <ImportLibrary>$(OutDir)log4cpp.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy ..\..\tests\log4cpp.property .</Command>
+      <Command>copy ..\..\tests\log4cpp.nt.property .</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_DLL;_USRDLL;LOG4CPP_HAS_DLL;LOG4CPP_BUILD_DLL;LOG4CPP_HAVE_BOOST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <RegisterOutput>false</RegisterOutput>
+      <AdditionalDependencies>ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ShowProgress>NotSet</ShowProgress>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <ImportLibrary>$(OutDir)log4cpp.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy ..\..\tests\log4cpp.property .</Command>
+      <Command>copy ..\..\tests\log4cpp.nt.property .</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="..\..\include\log4cpp\threading\BoostThreads.hh" />
+    <None Include="..\..\include\log4cpp\threading\DummyThreads.hh" />
+    <None Include="..\..\include\log4cpp\threading\MSThreads.hh" />
+    <None Include="..\..\include\log4cpp\threading\OmniThreads.hh" />
+    <None Include="..\..\include\log4cpp\threading\PThreads.hh" />
+    <None Include="..\..\include\log4cpp\threading\Threading.hh" />
+    <None Include="..\..\include\log4cpp\AbortAppender.hh" />
+    <None Include="..\..\include\log4cpp\Appender.hh" />
+    <None Include="..\..\include\log4cpp\AppendersFactory.hh" />
+    <None Include="..\..\include\log4cpp\AppenderSkeleton.hh" />
+    <None Include="..\..\include\log4cpp\BasicConfigurator.hh" />
+    <None Include="..\..\include\log4cpp\BasicLayout.hh" />
+    <None Include="..\..\include\log4cpp\BufferingAppender.hh" />
+    <None Include="..\..\include\log4cpp\Category.hh" />
+    <None Include="..\..\include\log4cpp\CategoryStream.hh" />
+    <None Include="..\..\include\log4cpp\Configurator.hh" />
+    <None Include="..\..\include\log4cpp\Export.hh" />
+    <None Include="..\..\include\log4cpp\FactoryParams.hh" />
+    <None Include="..\..\include\log4cpp\FileAppender.hh" />
+    <None Include="..\..\include\log4cpp\Filter.hh" />
+    <None Include="..\..\include\log4cpp\FixedContextCategory.hh" />
+    <None Include="..\..\include\log4cpp\HierarchyMaintainer.hh" />
+    <None Include="..\..\include\log4cpp\IdsaAppender.hh" />
+    <None Include="..\..\include\log4cpp\Layout.hh" />
+    <None Include="..\..\include\log4cpp\LayoutAppender.hh" />
+    <None Include="..\..\include\log4cpp\LayoutsFactory.hh" />
+    <None Include="..\..\include\log4cpp\LevelEvaluator.hh" />
+    <None Include="..\..\src\Localtime.hh" />
+    <None Include="..\..\include\log4cpp\LoggingEvent.hh" />
+    <None Include="..\..\include\log4cpp\Manipulator.hh" />
+    <None Include="..\..\include\log4cpp\NDC.hh" />
+    <None Include="..\..\include\log4cpp\NTEventLogAppender.hh" />
+    <CustomBuild Include="..\NTEventLogCategories.mc">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'">"$(VS100COMNTOOLS)vsvars32.bat" if not exist $(OutDir) md $(OutDir)
+mc.exe -h "$(OutDir)" -r "$(OutDir)" "$(ProjectDir)..\%(Filename).mc"
+rc.exe -r -fo "$(OutDir)%(Filename).res" "$(OutDir)%(Filename).rc"
+link.exe /MACHINE:IX86 -dll -noentry -out:"$(OutDir)NTEventLogAppender.dll" "$(OutDir)%(Filename).res"
+</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug with Boost|Win32'">$(OutDir)NTEventLogAppender.dll;%(Outputs)</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">"$(VS100COMNTOOLS)vsvars32.bat" if not exist $(OutDir) md $(OutDir)
+mc.exe -h "$(OutDir)" -r "$(OutDir)" "$(ProjectDir)..\%(Filename).mc"
+rc.exe -r -fo "$(OutDir)%(Filename).res" "$(OutDir)%(Filename).rc"
+link.exe /MACHINE:IX86 -dll -noentry -out:"$(OutDir)NTEventLogAppender.dll" "$(OutDir)%(Filename).res"
+</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)NTEventLogAppender.dll;%(Outputs)</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'">"$(VS100COMNTOOLS)vsvars32.bat" if not exist $(OutDir) md $(OutDir)
+mc.exe -h $(OutDir) -r $(OutDir) $(ProjectDir)..\%(Filename).mc
+RC.exe -r -fo $(OutDir)%(Filename).res $(OutDir)%(Filename).rc
+link.exe /MACHINE:IX86 -dll -noentry -out:$(OutDir)NTEventLogAppender.dll $(OutDir)%(Filename).res
+</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release with Boost|Win32'">$(OutDir)NTEventLogAppender.dll;%(Outputs)</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">"$(VS100COMNTOOLS)vsvars32.bat" if not exist $(OutDir) md $(OutDir)
+mc.exe -h $(OutDir) -r $(OutDir) $(ProjectDir)..\%(Filename).mc
+RC.exe -r -fo $(OutDir)%(Filename).res $(OutDir)%(Filename).rc
+link.exe /MACHINE:IX86 -dll -noentry -out:$(OutDir)NTEventLogAppender.dll $(OutDir)%(Filename).res
+</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(OutDir)NTEventLogAppender.dll;%(Outputs)</Outputs>
+    </CustomBuild>
+    <None Include="..\..\include\log4cpp\OstreamAppender.hh" />
+    <None Include="..\..\include\log4cpp\PassThroughLayout.hh" />
+    <None Include="..\..\include\log4cpp\PatternLayout.hh" />
+    <None Include="..\..\include\log4cpp\Portability.hh" />
+    <None Include="..\..\src\PortabilityImpl.hh" />
+    <None Include="..\..\include\log4cpp\Priority.hh" />
+    <None Include="..\..\src\Properties.hh" />
+    <None Include="..\..\include\log4cpp\PropertyConfigurator.hh" />
+    <None Include="..\..\src\PropertyConfiguratorImpl.hh" />
+    <None Include="..\..\include\log4cpp\RemoteSyslogAppender.hh" />
+    <None Include="..\..\include\log4cpp\RollingFileAppender.hh" />
+    <None Include="..\..\include\log4cpp\DailyRollingFileAppender.hh" />
+    <None Include="..\..\include\log4cpp\SimpleConfigurator.hh" />
+    <None Include="..\..\include\log4cpp\SimpleLayout.hh" />
+    <None Include="..\..\include\log4cpp\SmtpAppender.hh" />
+    <None Include="..\..\include\log4cpp\StringQueueAppender.hh" />
+    <None Include="..\..\src\StringUtil.hh" />
+    <None Include="..\..\include\log4cpp\SyslogAppender.hh" />
+    <None Include="..\..\include\log4cpp\TimeStamp.hh" />
+    <None Include="..\..\include\log4cpp\TriggeringEventEvaluator.hh" />
+    <None Include="..\..\include\log4cpp\TriggeringEventEvaluatorFactory.hh" />
+    <None Include="..\..\include\log4cpp\Win32DebugAppender.hh" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\AbortAppender.cpp" />
+    <ClCompile Include="..\..\src\Appender.cpp" />
+    <ClCompile Include="..\..\src\AppendersFactory.cpp" />
+    <ClCompile Include="..\..\src\AppenderSkeleton.cpp" />
+    <ClCompile Include="..\..\src\BasicConfigurator.cpp" />
+    <ClCompile Include="..\..\src\BasicLayout.cpp" />
+    <ClCompile Include="..\..\src\BufferingAppender.cpp" />
+    <ClCompile Include="..\..\src\Category.cpp" />
+    <ClCompile Include="..\..\src\CategoryStream.cpp" />
+    <ClCompile Include="..\..\src\Configurator.cpp" />
+    <ClCompile Include="..\..\src\DailyRollingFileAppender.cpp" />
+    <ClCompile Include="..\..\src\DllMain.cpp" />
+    <ClCompile Include="..\..\src\DummyThreads.cpp" />
+    <ClCompile Include="..\..\src\FactoryParams.cpp" />
+    <ClCompile Include="..\..\src\FileAppender.cpp" />
+    <ClCompile Include="..\..\src\Filter.cpp" />
+    <ClCompile Include="..\..\src\FixedContextCategory.cpp" />
+    <ClCompile Include="..\..\src\HierarchyMaintainer.cpp" />
+    <ClCompile Include="..\..\src\IdsaAppender.cpp" />
+    <ClCompile Include="..\..\src\LayoutAppender.cpp" />
+    <ClCompile Include="..\..\src\LayoutsFactory.cpp" />
+    <ClCompile Include="..\..\src\LevelEvaluator.cpp" />
+    <ClCompile Include="..\..\src\Localtime.cpp" />
+    <ClCompile Include="..\..\src\LoggingEvent.cpp" />
+    <ClCompile Include="..\..\src\Manipulator.cpp" />
+    <ClCompile Include="..\..\src\MSThreads.cpp" />
+    <ClCompile Include="..\..\src\NDC.cpp" />
+    <ClCompile Include="..\..\src\NTEventLogAppender.cpp" />
+    <ClCompile Include="..\..\src\OmniThreads.cpp" />
+    <ClCompile Include="..\..\src\OstreamAppender.cpp" />
+    <ClCompile Include="..\..\src\PassThroughLayout.cpp" />
+    <ClCompile Include="..\..\src\PatternLayout.cpp" />
+    <ClCompile Include="..\..\src\PortabilityImpl.cpp" />
+    <ClCompile Include="..\..\src\Priority.cpp" />
+    <ClCompile Include="..\..\src\Properties.cpp" />
+    <ClCompile Include="..\..\src\PropertyConfigurator.cpp" />
+    <ClCompile Include="..\..\src\PropertyConfiguratorImpl.cpp" />
+    <ClCompile Include="..\..\src\PThreads.cpp" />
+    <ClCompile Include="..\..\src\RemoteSyslogAppender.cpp" />
+    <ClCompile Include="..\..\src\RollingFileAppender.cpp" />
+    <ClCompile Include="..\..\src\SimpleConfigurator.cpp" />
+    <ClCompile Include="..\..\src\SimpleLayout.cpp" />
+    <ClCompile Include="..\..\src\SmtpAppender.cpp" />
+    <ClCompile Include="..\..\src\snprintf.c" />
+    <ClCompile Include="..\..\src\StringQueueAppender.cpp" />
+    <ClCompile Include="..\..\src\StringUtil.cpp" />
+    <ClCompile Include="..\..\src\SyslogAppender.cpp" />
+    <ClCompile Include="..\..\src\TimeStamp.cpp" />
+    <ClCompile Include="..\..\src\TriggeringEventEvaluatorFactory.cpp" />
+    <ClCompile Include="..\..\src\Win32DebugAppender.cpp" />
+    <ClCompile Include="..\..\tests\testPropConfig.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\include\log4cpp\config-openvms.h" />
+    <ClInclude Include="..\..\include\log4cpp\config-win32-stlport-boost.h" />
+    <ClInclude Include="..\..\include\log4cpp\config-win32.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

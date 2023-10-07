@@ -1,0 +1,5 @@
+.cvsignore
+Makefile
+Makefile.in
+stamp-h
+stamp-h.in

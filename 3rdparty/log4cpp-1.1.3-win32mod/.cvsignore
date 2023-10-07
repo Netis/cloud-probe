@@ -1,0 +1,11 @@
+.cvsignore
+config.log
+config.cache
+configure
+libtool
+config.status
+Makefile
+Makefile.in
+log4cpp.spec
+aclocal.m4
+bin

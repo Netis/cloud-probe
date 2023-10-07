@@ -1,0 +1,22 @@
+project log4cpp/tests : requirements <source>..//log4cpp ;
+
+import testing ;
+
+test-suite log4cpp :
+  [ run testCategory.cpp ]
+  [ run testFixedContextCategory.cpp ]
+  [ run testNDC.cpp ]
+  [ run testDLL.cpp ]
+  [ run testPattern.cpp ]
+  [ run testErrorCollision.cpp ]
+  [ run testPriority.cpp ]
+  [ run testFilter.cpp ]
+  [ run testProperties.cpp ../src/Properties.cpp ../src/StringUtil.cpp : : : <include>../src ]
+  [ run testConfig.cpp ]
+  [ run testPropertyConfig.cpp ]
+  [ run testmain.cpp ]
+  [ run testPropConfig.cpp ]
+  [ run test_convenience.cpp ]
+  [ run testRollingFileAppender.cpp ]
+  [ run testDailyRollingFileAppender.cpp ]
+  ;

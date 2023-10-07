@@ -1,0 +1,38 @@
+# property configurator test file
+
+log4cpp.rootCategory=,EBUG, rootAppender
+log4cpp.category.sub1=DEBUG, A1, A2, stderrAppender, stdoutAppender
+log4cpp.category.sub1.sub2=DEBUG, A3
+
+log4cpp.appender.rootAppender=ConsoleAppender
+log4cpp.appender.rootAppender.layout=BasicLayout
+
+log4cpp.appender.A1=FileAppender
+log4cpp.appender.A1.fileName=A1.log
+log4cpp.appender.A1.layout=PatternLayout
+log4cpp.appender.A1.layout.ConversionPattern=The message %m at time %d, thread %t%n
+
+log4cpp.appender.A2=FileAppender
+log4cpp.appender.A2.threshold=WARN
+log4cpp.appender.A2.fileName=A2.log
+log4cpp.appender.A2.layout=PatternLayout
+log4cpp.appender.A2.layout.ConversionPattern=The message %m at time %d, thread %t%n
+
+log4cpp.appender.A3=RollingFileAppender
+log4cpp.appender.A3.fileName=A3.log
+log4cpp.appender.A3.maxFileSize=80
+log4cpp.appender.A3.maxBackupIndex=1
+log4cpp.appender.A3.layout=PatternLayout
+log4cpp.appender.A3.layout.ConversionPattern=The message %m at time %d{%H:%M}%n
+
+log4cpp.appender.stderrAppender=ConsoleAppender
+log4cpp.appender.stderrAppender.layout=PatternLayout
+log4cpp.appender.stderrAppender.layout.ConversionPattern=stderr: %m%n
+log4cpp.appender.stderrAppender.target=stdErr
+log4cpp.appender.stderrAppender.threshold=ERROR
+
+log4cpp.appender.stdoutAppender=ConsoleAppender
+log4cpp.appender.stdoutAppender.layout=PatternLayout
+log4cpp.appender.stdoutAppender.layout.ConversionPattern=stdout: %m%n
+log4cpp.appender.stdoutAppender.target=StdOut
+log4cpp.appender.stdoutAppender.threshold=ERROR

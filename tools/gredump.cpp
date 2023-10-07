@@ -1,4 +1,4 @@
-#ifdef WIN32
+#ifdef _WIN32
 	#include <WinSock2.h>
 #else
 	#include <arpa/inet.h>
@@ -93,6 +93,7 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
     nCount -= iphdrlen;
 
     uint32_t keybit;
+    uint32_t cache_ul = 0;
     bool bHasCache;
     std::shared_ptr<ipfrag_cache_t> cache=nullptr;
     std::tuple<uint32_t, uint32_t, uint16_t> key = std::make_tuple(ip_src, ip_dst, ipidenti);
@@ -121,8 +122,8 @@ void PcapHanler(GreHandleBuff *buff, const struct pcap_pkthdr *h, const uint8_t 
                 std::memcpy((void*)(cache->ipfrag_buff + fragOffset * 8), p, (size_t)nCount);
                 cache->pkthdr.len += nCount - 8;
                 cache->pkthdr.caplen += nCount - 8;
-                memcpy(&keybit, cache->ipfrag_buff + 4, sizeof(uint32_t));
-                keybit = ntohl(keybit);
+                memcpy(&cache_ul, cache->ipfrag_buff + 4, sizeof(cache_ul));
+                keybit = ntohl(cache_ul);
                 if (buff->grekey==0 || buff->grekey==keybit) {
                     pcap_dump((u_char*)buff->dumper, &cache->pkthdr, (const uint8_t*)(cache->ipfrag_buff + 8));
                     buff->dumpCount++;
@@ -226,6 +227,7 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
+    int ret;
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* pcap_handle;
 
@@ -239,7 +241,7 @@ int main(int argc, const char* argv[]) {
         auto pcapGuard = MakeGuard([pcap_handle]() {
             pcap_close(pcap_handle);
         });
-        int ret = pcap_activate(pcap_handle);
+        ret = pcap_activate(pcap_handle);
         if (ret != 0) {
             std::cerr << "Capture error: " << pcap_geterr(pcap_handle) << std::endl;
             return 1;
@@ -327,7 +329,7 @@ int main(int argc, const char* argv[]) {
         nCount = vm["count"].as<int>();
     }
 
-    pcap_loop(pcap_handle, nCount, [](uint8_t *user, const struct pcap_pkthdr *h, const uint8_t *data) {
+    ret = pcap_loop(pcap_handle, nCount, [](uint8_t *user, const struct pcap_pkthdr *h, const uint8_t *data) {
         GreHandleBuff* buff = (GreHandleBuff*)user;
         PcapHanler(buff, h, data);
     }, (uint8_t*)&grehandlebuff);

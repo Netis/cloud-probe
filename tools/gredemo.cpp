@@ -1,13 +1,8 @@
-#ifdef WIN32
-	#include <WinSock2.h>
-	#define IPPROTO_GRE 47
-#else
-	#include <arpa/inet.h>
-#endif
 #include <iostream>
 #include <fstream>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include "../src/dep.h"
 
 typedef struct PktHdr {
     uint32_t tv_sec;  // epoc seconds
@@ -95,10 +90,9 @@ int main(int argc, const char* argv[]) {
     // gre socket
     struct sockaddr_in remote_addr;
     remote_addr.sin_family = AF_INET;
-    remote_addr.sin_addr.s_addr = inet_addr(remote_ip.c_str());
-
-    int sockfd;
-    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_GRE))==-1) {
+    inet_pton(AF_INET, remote_ip.c_str(), &remote_addr.sin_addr.s_addr);
+    socket_t sockfd;
+    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_GRE)) == -1) {
         std::cout << "create socket fd failed!" << std::endl;
         return 1;
     }
@@ -114,9 +108,11 @@ int main(int argc, const char* argv[]) {
 
     // read pcap header
     pkthdr_t pktHdr;
+    char pkt_header[16];
+    uint32_t cache_ul = 0;
     while(1) {
         try {
-            fs.read((char*)&pktHdr, sizeof(pkthdr_t));
+            fs.read(pkt_header, sizeof(pkt_header));
             if ((fs.rdstate() & std::ifstream::failbit) != 0) {
                 if ( (fs.rdstate() & std::ifstream::eofbit) != 0 ) {
                     std::cout << "reach the end of pcap file!" << std::endl;
@@ -129,12 +125,18 @@ int main(int argc, const char* argv[]) {
             std::cout << "Exception read file, " << e.what() << std::endl;
             return 1;
         }
-
         if (isBigEndian) {
-            pktHdr.tv_sec = ntohl(pktHdr.tv_sec);
-            pktHdr.tv_usec = ntohl(pktHdr.tv_usec);
-            pktHdr.caplen = ntohl(pktHdr.caplen);
-            pktHdr.len = ntohl(pktHdr.len);
+            memcpy(&cache_ul, pkt_header, sizeof(cache_ul));
+            pktHdr.tv_sec = ntohl(cache_ul);
+            pktHdr.tv_usec = ntohl(*((uint32_t*)(pkt_header+4)));
+            pktHdr.caplen = ntohl(*((uint32_t*)(pkt_header+8)));
+            pktHdr.len = ntohl(*((uint32_t*)(pkt_header+12)));
+        } else {
+            memcpy(&cache_ul, pkt_header, sizeof(cache_ul));
+            pktHdr.tv_sec = cache_ul;
+            pktHdr.tv_usec = *((uint32_t*)(pkt_header+4));
+            pktHdr.caplen = *((uint32_t*)(pkt_header+8));
+            pktHdr.len = *((uint32_t*)(pkt_header+12));
         }
 
         // read pcap

@@ -15,7 +15,7 @@ if (NOT WIN32)
 endif ()
 # set PKTMINERG_MAJOR_VERSION, PKTMINERG_MINOR_VERSION, etc.
 set(PKTMINERG_MAJOR_VERSION "0")
-set(PKTMINERG_MINOR_VERSION "6")
+set(PKTMINERG_MINOR_VERSION "7")
 set(PKTMINERG_PATCH_VERSION "0")
 set(PKTMINERG_VERSION_STRING "${PKTMINERG_MAJOR_VERSION}.${PKTMINERG_MINOR_VERSION}.${PKTMINERG_PATCH_VERSION}")
 
@@ -81,7 +81,7 @@ if (UNIX)
 
     INCLUDE(FindBoost)
     set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem)
+    find_package(Boost 1.41.0 REQUIRED COMPONENTS program_options system filesystem date_time)
 
     find_package(cppzmq)
     message("Boost_INCLUDE_DIRS: " ${Boost_INCLUDE_DIRS})
@@ -230,6 +230,27 @@ set(SOURCE_FILES_PKTMINERG
         ${PROJECT_SOURCE_DIR}/src/pktminerg.cpp
         )
 
+set(SOURCE_FILES_DAEMON_BASE
+        ${PROJECT_SOURCE_DIR}/src/daemonManager.cpp
+        ${PROJECT_SOURCE_DIR}/src/timer_tasks.cpp
+        ${PROJECT_SOURCE_DIR}/src/logfilecontext.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/Daemon.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/Agent.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/Error.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/ModelBase.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/NetworkInterface.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/PacketAgentData.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/PacketChannelMetrics.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/PacketAgentLogs.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/Label.cpp
+        ${PROJECT_SOURCE_DIR}/src/restful/model/Report.cpp
+        )
+
+set(SOURCE_FILES_DAEMON
+        ${SOURCE_FILES_DAEMON_BASE}
+        ${PROJECT_SOURCE_DIR}/src/agentdaemon.cpp
+        )
+
 
 # about install
 set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/netis)
@@ -311,6 +332,28 @@ else ()
     target_link_libraries(pktminerg ${BOOST_LIB} ${PCAP_LIB} ${LOG4CPP_LIB} ${SOCKET_LIB} ${ZMQ_LIB})	
 endif()
 
+# bin -- probedaemon
+include_directories(
+        ${PROJECT_SOURCE_DIR}/src/restful/api
+        ${PROJECT_SOURCE_DIR}/src/restful/model
+)
+if(UNIX)
+    add_executable(probedaemon ${SOURCE_FILES_DAEMON})
+    target_link_libraries(probedaemon
+            -lz
+            ${BOOST_LIB}
+            ${DEP_ROOT}/lib/libcurl.a
+            ${DEP_ROOT}/lib/libglog.a
+            ${DEP_ROOT}/lib/libssl.a
+            ${DEP_ROOT}/lib/libcrypto.a
+            ${DEP_ROOT}/lib/liblog4cpp.a
+            pthread
+	    -ldl
+            ${ZMQ_LIB})
+    target_include_directories(probedaemon PRIVATE
+            ${DEP_ROOT}/include)
+endif()
+
 if (UNIX AND NOT APPLE)
     # test
     include_directories(${PROJECT_SOURCE_DIR}/test)
@@ -335,6 +378,10 @@ if (UNIX AND NOT APPLE)
             pthread
 	    ${DEP_ROOT}/lib/libpcap.a
             ${ZMQ_LIB} 
+            ${DEP_ROOT}/lib/libcurl.a 
+            ${DEP_ROOT}/lib/libglog.a 
+            ${DEP_ROOT}/lib/libssl.a 
+            ${DEP_ROOT}/lib/libcrypto.a
             ${DEP_ROOT}/lib/liblog4cpp.a
             -ldl)
     set_target_properties(unittest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/test/bin")
@@ -370,13 +417,19 @@ else ()
 
     install(FILES "${PROJECT_SOURCE_DIR}/scripts/packet-agent.service" DESTINATION /usr/lib/systemd/system COMPONENT pktminerg)
     install(FILES "${PROJECT_SOURCE_DIR}/scripts/pktgd.sh" DESTINATION etc COMPONENT pktminerg)
+    install(FILES "${PROJECT_SOURCE_DIR}/scripts/limit_cpu_mem_pid.sh" DESTINATION bin COMPONENT pktminerg)
     install(FILES "${PROJECT_SOURCE_DIR}/scripts/get_pid_with_container.sh" DESTINATION bin COMPONENT pktminerg)
     install(FILES "${PROJECT_SOURCE_DIR}/scripts/get_if_with_name.sh" DESTINATION bin COMPONENT pktminerg)
     install(FILES "${PROJECT_SOURCE_DIR}/scripts/get_mac_with_name.sh" DESTINATION bin COMPONENT pktminerg)
+	install(FILES "${PROJECT_SOURCE_DIR}/scripts/get_name_of_instance.sh" DESTINATION bin COMPONENT pktminerg)
+    install(FILES "${PROJECT_SOURCE_DIR}/scripts/probe-daemon.service" DESTINATION /usr/lib/systemd/system COMPONENT pktminerg)
+    install(FILES "${PROJECT_SOURCE_DIR}/scripts/probe-daemon.conf" DESTINATION etc COMPONENT pktminerg)
+    install(FILES "${PROJECT_SOURCE_DIR}/scripts/probe-daemon.sh" DESTINATION etc COMPONENT pktminerg)
 
-    install(TARGETS pktminerg gredump pcapcompare DESTINATION bin COMPONENT pktminerg)
+    install(TARGETS pktminerg gredump pcapcompare probedaemon DESTINATION bin COMPONENT pktminerg)
 
     install(FILES 
+            "${ASSETS_ROOT}/probedaemon.properties" 
             "${ASSETS_ROOT}/pktminerg.properties" 
             DESTINATION bin COMPONENT pktminerg)
 

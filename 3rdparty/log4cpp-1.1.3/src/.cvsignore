@@ -1,0 +1,7 @@
+.cvsignore
+Makefile
+Makefile.in
+.libs
+.deps
+liblog4cpp.la
+*.lo

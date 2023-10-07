@@ -1,0 +1,2 @@
+#Decl are files that will always have CRLF line endings on checkout.
+*.dsp text eol=crlf

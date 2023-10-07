@@ -10,6 +10,7 @@ import sys
 import os
 import getopt
 import traceback
+import threading
 
 grekey_file_info = None
 
@@ -98,12 +99,14 @@ def get_pcapfile(config, ts_sec):
 def takeFirst(elem):
     return elem[0]
 
-class BatchPktsHandler():
+class BatchPktsHandler(threading.Thread):
 
     def __init__(self, config):
+        threading.Thread.__init__(self)
+
         self.PKT_EVICT_TS_TIMEOUT = 7
         self.PKT_EVICT_INTERVAL = 1
-        self.PKT_EVICT_BUFF_SIZE = 2 * 1024*1024
+        self.PKT_EVICT_BUFF_SIZE = 1024*1024
 
         self.config = config
         self.first_msg_realworld_time = 0
@@ -120,15 +123,11 @@ class BatchPktsHandler():
         self.export_bytearray_pos = 0
         self.total_drop_pkts = 0
 
-        self.frag_offset = int(self.config["frag_offset"])
-        self.frag_offset_roundup = int((self.frag_offset / 2) / 8) * 8
+        self.export_cond = threading.Condition()
+        self.export_queue = deque()
+        self.exitFlag = False
 
         self.keybit_ipid_map = {}
-        self.last_print_timeout_ts = 0
-
-
-    def is_working_busy(self):
-        return len(self.msg_dict) > self.PKT_EVICT_TS_TIMEOUT + self.PKT_EVICT_INTERVAL
 
 
     def unpack_msgpkts_to_evict(self, message):
@@ -140,11 +139,6 @@ class BatchPktsHandler():
             pkt_data_len, ts_sec, ts_usec, caplen, length = struct.unpack(">HIIII", message[pkt_pos:pkt_pos+18])
             pkt_pos += 18
             if ts_sec < self.pkt_evict_ts_checkpoint:
-                if j == 0 or j + 1 == pkt_num:
-                    if ts_sec > self.last_print_timeout_ts:
-                        print("id: %d, timeout pkt grekey: %d, ts_sec: %d, caplen: %d, length: %d, pkt_num: %d"%(
-                            self.config['base_suffixid'], keybit, ts_sec, caplen, length, pkt_num))
-                        self.last_print_timeout_ts = ts_sec
                 if j == 0 and ts_sec + 1 < self.pkt_evict_ts_checkpoint:  # hack: rely on pktg msg batch max timeout 1s
                     timeout_drop_pkts = pkt_num
                     break
@@ -173,10 +167,8 @@ class BatchPktsHandler():
             self.export_bytearray_pos += gre_eth_hdr_len + heartbeat_data_len
         else:
             ipid = self.get_ipid_from_map(keybit)
-            if gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + length > gre_ip_layer_max_len or pkt_data_len > self.frag_offset:
-                first_frag_pkt_data_len = self.frag_offset_roundup
-                if pkt_data_len <= self.frag_offset_roundup:
-                    first_frag_pkt_data_len = int(pkt_data_len / 2 / 8) * 8
+            if gre_ip_hdr_len + gre_hdr_len + pkt_data_len > gre_ip_layer_max_len - gre_eth_hdr_len:
+                first_frag_pkt_data_len = 65516 - 20 - 8  # 65532 - 16(gre_eth_hdr_len 14 round up) - ip 20 bytes - gre 8 bytes
                 first_frag_pkt_data = pkt_data[0:first_frag_pkt_data_len]
                 self.construct_firstfrag_pkt_bytes(ipid, ts_sec, ts_usec, first_frag_pkt_data_len, first_frag_pkt_data_len,
                                                    keybit, first_frag_pkt_data_len, first_frag_pkt_data, is_frag=True)
@@ -184,7 +176,7 @@ class BatchPktsHandler():
                 last_frag_pkt_data_len = pkt_data_len - first_frag_pkt_data_len
                 last_frag_pkt_data = pkt_data[first_frag_pkt_data_len:]
                 self.construct_lastfrag_pkt_bytes(ipid, ts_sec, ts_usec, last_frag_pkt_data_len, last_frag_pkt_data_len,
-                                                  keybit, first_frag_pkt_data_len, last_frag_pkt_data_len, last_frag_pkt_data)
+                                                  keybit, last_frag_pkt_data_len, last_frag_pkt_data)
             else:
                 self.construct_firstfrag_pkt_bytes(ipid, ts_sec, ts_usec, caplen, length,
                                                    keybit, pkt_data_len, pkt_data, is_frag=False)
@@ -198,12 +190,11 @@ class BatchPktsHandler():
         gre_eth_hdr_len = 14
         gre_ip_hdr_len = 20
         gre_hdr_len = 8
-        eth_ip_gre_len = 42  # gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len
         checksum = 0xffff
-        gre_caplen = eth_ip_gre_len + pkt_data_len
+        gre_caplen = gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + pkt_data_len
         gre_length =  gre_caplen
         if length > caplen:
-            gre_length =  eth_ip_gre_len + length
+            gre_length =  gre_eth_hdr_len + gre_ip_hdr_len + gre_hdr_len + length
 
         frag_and_offset = 0x40
         if is_frag:
@@ -211,17 +202,19 @@ class BatchPktsHandler():
 
         struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
         self.export_bytearray_pos += 16
-        struct.pack_into(">HIHIBBBBHHBBBBHIIHHI", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00,
-                         0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
-                         ipid, frag_and_offset, 0, 0x40, 0x2f, checksum, keybit, 0x7F000001,
-                         0x2000, 0x6558, keybit)
-        self.export_bytearray_pos += eth_ip_gre_len
+        struct.pack_into(">HIHIBB", self.export_bytearray, self.export_bytearray_pos, 0,0,0,0, 0x08, 0x00)
+        self.export_bytearray_pos += gre_eth_hdr_len
+        struct.pack_into(">BBHHBBBBHII", self.export_bytearray, self.export_bytearray_pos, 0x45, 0, gre_ip_hdr_len + gre_hdr_len + pkt_data_len,
+                         ipid, frag_and_offset, 0, 0x40, 0x2f, checksum, keybit, 0x7F000001)
+        self.export_bytearray_pos += gre_ip_hdr_len
+        struct.pack_into(">HHI", self.export_bytearray, self.export_bytearray_pos, 0x2000, 0x6558, keybit)
+        self.export_bytearray_pos += gre_hdr_len
         if pkt_data_len > 0:
             struct.pack_into("!%ds"%(pkt_data_len), self.export_bytearray, self.export_bytearray_pos, pkt_data)
             self.export_bytearray_pos += pkt_data_len
 
 
-    def construct_lastfrag_pkt_bytes(self, ipid, ts_sec, ts_usec, caplen, length, keybit, first_frag_pkt_data_len, pkt_data_len, pkt_data):
+    def construct_lastfrag_pkt_bytes(self, ipid, ts_sec, ts_usec, caplen, length, keybit, pkt_data_len, pkt_data):
         gre_eth_hdr_len = 14
         gre_ip_hdr_len = 20
         checksum = 0xffff
@@ -230,7 +223,7 @@ class BatchPktsHandler():
         if length > caplen:
             gre_length =  gre_eth_hdr_len + gre_ip_hdr_len + length
 
-        frag_and_offset = (first_frag_pkt_data_len + 8) / 8  # offset + gre 8 bytes
+        frag_and_offset = (65516 - 20) / 8  # 65532 - 16(gre_eth_hdr_len 14 round up) - ip 20 bytes
 
         struct.pack_into("<IIII", self.export_bytearray, self.export_bytearray_pos, ts_sec, ts_usec, gre_caplen, gre_length)
         self.export_bytearray_pos += 16
@@ -258,7 +251,39 @@ class BatchPktsHandler():
         self.export_bytearray_pos = 0
 
 
-    def process_data(self, pkts_list):
+    def stop_running(self):
+        self.exitFlag = True
+        self.export_cond.acquire()
+        self.export_cond.notify()
+        self.export_cond.release()
+
+
+    def run(self):
+        while not self.exitFlag:
+            try:
+                self.process_data()
+            except Exception as e:
+                eprint("id: %d, %s"%(self.config["base_suffixid"], e))
+                track = traceback.format_exc()
+                eprint(track)
+                sys.exit(-1)
+            except:
+                eprint("id: %d, thread unexpected error"%(self.config["base_suffixid"]))
+                sys.exit(-1)
+
+
+    def process_data(self):
+        pkts_list = []
+        self.export_cond.acquire()
+        try:
+            while len(self.export_queue) == 0:  # q is empty
+                self.export_cond.wait()
+                if self.exitFlag:
+                    return
+            pkts_list = self.export_queue.popleft()
+        finally:
+            self.export_cond.release()
+
         span_time = self.config["span_time"]
         global grekey_file_info
         # export to pcap
@@ -277,6 +302,21 @@ class BatchPktsHandler():
             if buff_is_full:
                 pcapfile = get_pcapfile(self.config, ts_sec)
                 self.write_buf_to_pcap(pcapfile)
+
+
+    def producer_fillqueue_sync(self, pkts_list):
+        qfull_drop_pkts = 0
+
+        self.export_cond.acquire()
+        if len(self.export_queue) >= 20:
+            qfull_drop_pkts = len(pkts_list)
+            self.total_drop_pkts += qfull_drop_pkts
+        else:
+            self.export_queue.append(pkts_list)
+        self.export_cond.notify()
+        self.export_cond.release()
+
+        return qfull_drop_pkts
 
 
     def sort_and_export_pkts(self):
@@ -298,11 +338,13 @@ class BatchPktsHandler():
         if lasti > 0:
             self.evict_pkts_list = self.evict_pkts_list[lasti:]
 
+        qfull_drop_pkts = 0
+        export_queue_len = len(self.export_queue)
         export_pkts_count = len(pkts_list)
         left_pkts_count = len(self.evict_pkts_list)
         if pkts_list:
-            self.process_data(pkts_list)
-        return export_pkts_count, left_pkts_count
+            qfull_drop_pkts= self.producer_fillqueue_sync(pkts_list)
+        return qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len
 
 
     def get_next_checkpoint(self):
@@ -338,12 +380,12 @@ class BatchPktsHandler():
         for ts in to_del_ts:
             del self.msg_dict[ts]
         self.gen_heartbeat()
-        export_pkts_count, left_pkts_count = self.sort_and_export_pkts()
+        qfull_drop_pkts, export_pkts_count, left_pkts_count, export_queue_len = self.sort_and_export_pkts()
         now = time.time()
         nowstr = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
-        print("[%s] id: %d, used: %.2fs, msg %d/%d: %d/%d evicted, export/leftPkts: %d/%d, timeout/frontq/totalDropPkts: %d/%d/%d"%(
+        print("[%s] id: %d, used: %.2fs, msg %d/%d: %d/%d evicted, export/leftPkts: %d/%d, timeout/frontq/backq/totalDropPkts: %d/%d/%d/%d, backqLen: %d"%(
             nowstr, self.config["base_suffixid"], now - realworld_time_sec_and_usec, evicted_msg_count, total_msg_count, len(to_del_ts), len(to_del_ts) + len(self.msg_dict),
-            export_pkts_count, left_pkts_count, timeout_drop_pkts, fqueue_full_drop, self.total_drop_pkts))
+            export_pkts_count, left_pkts_count, timeout_drop_pkts, fqueue_full_drop, qfull_drop_pkts, self.total_drop_pkts, export_queue_len))
         sys.stdout.flush()
 
 
@@ -382,7 +424,7 @@ class BatchPktsHandler():
                     if pkt_ts_time in self.msg_dict:
                         self.msg_dict[pkt_ts_time].append(message)
                     else:
-                        if len(self.msg_dict) > self.PKT_EVICT_TS_TIMEOUT + self.PKT_EVICT_INTERVAL + 20:
+                        if len(self.msg_dict) > self.PKT_EVICT_TS_TIMEOUT + self.PKT_EVICT_INTERVAL + 10:
                             fqueue_full_drop += pkt_num
                             self.total_drop_pkts += pkt_num
                         else:
@@ -398,7 +440,7 @@ def recv_msg_to_parse(batch_pkts_handler, socket):
             message = socket.recv(flags=zmq.NOBLOCK)
             messages.append(message)
     except zmq.error.Again as _e:
-        if not messages and not batch_pkts_handler.is_working_busy():
+        if not messages:
             time.sleep(0.01)
     batch_pkts_handler.parse_messages(messages)
 
@@ -413,11 +455,17 @@ def server_loop_imp(config):
     else:
         socket.connect("tcp://127.0.0.1:%d"%(config["zmq_port"]))
     batch_pkts_handler = BatchPktsHandler(config)
+    batch_pkts_handler.start()
     while True:
         try:
             recv_msg_to_parse(batch_pkts_handler, socket)
+            if not batch_pkts_handler.isAlive():
+                eprint('id: ' + str(config['base_suffixid']) + ' Fatal error: child thread exited')
+                sys.exit(-1)
         except KeyboardInterrupt:
             eprint("KeyboardInterrupt")
+            batch_pkts_handler.stop_running()
+            batch_pkts_handler.join()
             raise
         except Exception as e:
             eprint(e)
@@ -431,9 +479,9 @@ def server_loop_imp(config):
             raise
 
 
-def server_loop(port, file_template, span_time, total_workers, frag_offset, base_suffixid):
+def server_loop(port, file_template, span_time, total_workers, base_suffixid):
     config = { "zmq_port": port, "file_template": file_template, "span_time": span_time,
-               "total_workers": total_workers, "frag_offset": frag_offset, "base_suffixid": base_suffixid }
+               "total_workers": total_workers, "base_suffixid": base_suffixid }
     server_loop_imp(config)
 
 
@@ -466,7 +514,7 @@ def dispatch_loop(config):
     backend_socket.bind("tcp://127.0.0.1:%d"%(backend_port))
     workers = []
     for i in range(config["total_workers"]):
-        w = Process(target=server_loop, args=(backend_port, config["file_template"], config["span_time"], config["total_workers"], config["frag_offset"], i))
+        w = Process(target=server_loop, args=(backend_port, config["file_template"], config["span_time"], config["total_workers"], i))
         workers.append(w)
         w.start()
 
@@ -506,7 +554,6 @@ python recvzmq.py [--span_time seconds] -z port_num -t /path/file_template
 -t or --file_template:\tfile template. Examle: /opt/pcap_cache/nic0/%Y%m%d%H%M%S
 -s or --span_time:\tpcap span time interval. Default: 15, Unit: seconds.
 -a or --total_workers:\ttotal worker process count of recvzmq. Default 1.
--g or --frag_offset:\tspecify ip fragment offset( <= 65535). Default 64000
 -v or --version:\tversion info
 -h or --help:\t\thelp message
 """)
@@ -517,8 +564,8 @@ def parse_args(cfg_dict):
         usage()
         sys.exit()
     try:
-        options, args = getopt.getopt(sys.argv[1:], "hvz:t:s:a:b:g:",
-                                      ["help", "version", "zmq_port=", "file_template=", "span_time=", "total_workers=", "base_suffixid=", "frag_offset="])
+        options, args = getopt.getopt(sys.argv[1:], "hvz:t:s:a:b:",
+                                      ["help", "version", "zmq_port=", "file_template=", "span_time=", "total_workers=", "base_suffixid="])
     except getopt.GetoptError as e:
         eprint(e)
         sys.exit(-1)
@@ -540,8 +587,6 @@ def parse_args(cfg_dict):
             cfg_dict["total_workers"] = int(value)
         elif name in ("-b", "--base_suffixid"):
             cfg_dict["base_suffixid"] = int(value)
-        elif name in ("-g", "--frag_offset"):
-            cfg_dict["frag_offset"] = 65535 if int(value) > 65535 else int(value)
     if "zmq_port" not in cfg_dict:
         eprint("require param: -z zmq_port")
         sys.exit(-1)
@@ -549,7 +594,7 @@ def parse_args(cfg_dict):
         eprint("require param: -t /path/file_template/%Y%m%d/%Y%m%d%H/%Y%m%d%H%M%S")
         sys.exit(-1)
 
-config = {"span_time": 15, "total_workers": 1, "base_suffixid": 0, "frag_offset": 64000}
+config = {"span_time": 15, "total_workers": 1, "base_suffixid": 0}
 parse_args(config)
 if config["total_workers"] == 1:
     server_loop_imp(config)

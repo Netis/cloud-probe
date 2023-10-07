@@ -1,0 +1,12 @@
+.cvsignore
+Makefile
+Makefile.in
+.deps
+.libs
+testmain
+testNDC
+testbench
+testCategory
+bin
+*.log
+*.log.*

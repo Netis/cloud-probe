@@ -1,0 +1,26 @@
+project log4cpp ;
+
+alias sockets : : <toolset>gcc ;
+lib sockets : : <name>ws2_32 <toolset>gcc <os>NT ;
+lib sockets : : <name>ws2_32.lib <toolset>msvc ;
+lib sockets : : <name>ws2_32.lib <toolset>borland ;
+
+lib registry : : <name>Advapi32.lib <toolset>msvc ;
+lib registry : : <name>Advapi32.lib <toolset>borland ;
+alias registry : : <toolset>gcc ;
+
+lib log4cpp : [ glob src/*.cpp ]
+              sockets
+              registry
+            :
+              <include>include
+              <variant>debug:<define>_DEBUG
+              <toolset>msvc:<define>WIN32
+              <toolset>borland:<define>WIN32
+              <link>shared:<define>LOG4CPP_HAS_DLL
+              <link>shared:<define>LOG4CPP_BUILD_DLL
+            :
+            :
+              <include>include
+              <link>shared:<define>LOG4CPP_HAS_DLL
+            ;

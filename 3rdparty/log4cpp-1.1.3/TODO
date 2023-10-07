@@ -1,0 +1,25 @@
+TODO
+
+This file contains an imcomplete list of things to be done, not necessarily
+ordered by importance or urgence.
+
+
+Add provisional category nodes. Maybe work it out a bit differently than
+LOG4J. First actually document what the exact behaviour should be.
+
+Add a simple configurator of type 'keyword=value'. Done: 0.2.6
+
+Port PatternLayout. Done: 0.2.6
+
+Document multithreading policy and behaviour (i.e. all log calls are thread 
+safe, others are 'mulithread prepared').
+
+Add multithread support for the NDC class.
+
+Add switches to configure to tune document generation (e.g. --with-latex, etc). Done: 0.2.3
+
+Move stuff from Hints to autconf. E.g. LOG4CPP_USE_OLD_IOSTREAM. Done: 0.2.3
+
+Document all classes.
+
+Add more tests.

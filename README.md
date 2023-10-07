@@ -2,9 +2,9 @@
 English  ∙  [简体中文](README-zh-Hans.md) 
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.6.0
+# Netis Packet Agent 0.3.6
 
-[![Stable release](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.5.0)
+[![Stable release](https://img.shields.io/badge/version-0.3.6-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.6)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
 
 ## What is Netis Packet Agent?
@@ -27,23 +27,23 @@ With 3 utilities:
 ## Getting Started
 ### Installation
 
-#### CentOS 7/8 and RedHat 7
-1. Install wget
+#### CentOS 6/7 and RedHat 7
+1. Install libpcap and wget
 ```bash
-yum install wget
+yum install libpcap wget zeromq
 ```
 
 2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.x86_64_centos.rpm
-rpm -ivh netis-packet-agent-0.6.0.x86_64_centos.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 #### SUSE 12
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0.x86_64_suse.rpm
-rpm -ivh netis-packet-agent-0.6.0.x86_64_suse.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
+rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
 ```
 
 
@@ -55,33 +55,54 @@ sudo apt-get install libpcap-dev wget
 
 2. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.6.0/netis-packet-agent-0.6.0_amd64.deb
-sudo dpkg -i netis-packet-agent-0.6.0_amd64.deb
+wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6_amd64.deb
+sudo dpkg -i netis-packet-agent-0.3.6_amd64.deb
+```
+
+3. If libpcap.so.1 not found when running pktminerg, create softlink for libpcap.so.1 in suitable directory.
+```bash
+whereis libpcap.so
+cd /path/to/libpcap.so
+ln -s libpcap.so.x.y.z libpcap.so.1
 ```
 
 Remarks: If it encounter a library dependency error when install from rpm, you should install boost_1_59_0 or later. If this also can't work, you can build and run from source.
 
 Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12, Ubuntu 18.04 LTS.
 
-#### Windows 2019 server x64
-1. Download the package for win. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
-2. install npcap from the zip file.
+#### Windows 7/8/10 x64
+1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
+2. Download and Install [Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe).
 3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode.
+
+Note: On Windows platform, you must use NIC's NT Device Name with format "\Device\NPF_{UUID}" as interface param. You can get it with following command: 
+```
+    C:\> getmac /fo csv /v 
+    "Connection Name","Network Adapter","Physical Address","Transport Name" 
+    "Ethernet","Intel(R) Ethernet Connection (4) I219-V","8C-16-45-6B-53-B5","\Device\Tcpip_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2}" 
+``` 
+Take last field(Transport Name) and replace "Tcpip_" with "NPF_" as follow, then you can get interface param of Windows. 
+```
+    \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
+``` 
 Use example:
 ```
-    C:\> pktminerg.exe "-i Ethernet -r 172.24.103.201" 
+    C:\> pktminerg -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -r 172.24.103.201 
+    C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
 ```
 
-## Engineering team contacts
-* [E-mail us.](mailto:developer@netis.com)
+
 <br>
 
 ### Usage
 Remarks: Make sure the firewall allows GRE packets to be sent to the target.
 https://lartc.org/howto/lartc.tunnel.gre.html provides a way to check firewall allows GRE packets to be sent.
 ```bash
-# Capture packet from NIC "eth0" and "eth1", encapsulate with GRE header and send to 172.16.1.201, and encapsulate with VNI1 and send to 172.16.1.202 
-pktminerg "-i eth0 -k 12 -r 172.16.1.201" "-i eth1 -v1 12 -r 172.16.1.202"
+# Capture packet from NIC "eth0", encapsulate with GRE header and send to 172.16.1.201
+pktminerg -i eth0 -r 172.16.1.201
+
+# Specify cpu 1 for this program with high priority to avoid thread switch cost.
+pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
 
 # compare 2 pcap files
 pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
@@ -89,8 +110,11 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 # Capture packet from NIC "eth0" and save them to gredump_output.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
 
+# Capture packet from NIC "eth0", do not set DF flag
+pktminerg -i eth0 -r 172.16.1.201 -M dont
 ```
 ![packet agent's pktminerg : network capture use case](./img/use_case.png)
+
 
 For more information on using these tools, please refer to this [document](./USAGE.md).
 
@@ -102,7 +126,7 @@ You can also clone source from Github and build Netis Packet Agent in local, the
 For build precondition and steps, please refer to this [document](./BUILD.md).
 
 ## Documentation / Useful link
-* [Usage](./USAGE.md).
+* [Installation](./INSTALL.md) and [Usage](./USAGE.md).
 * [Build requirements and steps](./BUILD.md).
 * [Release Information / Roadmap](./CHANGES.md).
 

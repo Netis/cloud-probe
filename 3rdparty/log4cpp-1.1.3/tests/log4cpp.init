@@ -1,0 +1,8 @@
+# a simple test config
+#
+appender root basic console
+priority root DEBUG
+appender sub1 basic file sub1.log
+#appender sub1 basic syslog log4cpptest
+priority sub1.sub2 ERROR
+appender sub1.sub2 pattern console The message %m at time %d%n
