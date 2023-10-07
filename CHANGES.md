@@ -1,6 +1,16 @@
 # Change list
 
 The list of the most significant changes made in Netis Packet Agent over time.
+## Netis Packet Agent 0.6.0
+### Features
+* Remove libpcap lib dependency
+* Support daemonset capturing (in k8s & kvm)
+* Support auto-detection of network interface
+* Support multi-interface capturing
+* Support auto-detction of the direction with mac
+* Support MPLS encapsulate for ZMQ
+* Support log module
+* Support VXLAN port configurable(default is 4789) 
 
 ## Netis Packet Agent 0.5.2
 ### Features
