@@ -50,9 +50,18 @@ mkdir build && cd build
 cmake -DCPPZMQ_BUILD_TESTS=OFF ..
 sudo make -j4 install
 ```
-
-2. Clone or download the project.
-3. Go to the project folder and build it.
+2. build static libs of third parties from below links can copy the built libs to /path/pktminerg/dep/unix/lib
+ https://github.com/boostorg/boost/archive/refs/tags/boost-1.59.0.tar.gz
+ https://github.com/curl/curl/archive/refs/tags/curl-7_51_0.tar.gz
+ https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.5.3.tar.gz
+ https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_0_2k.tar.gz
+ https://github.com/google/glog/archive/refs/tags/v0.5.0-rc2.tar.gz
+ https://github.com/orocos-toolchain/log4cpp/archive/refs/tags/v2.9.1.tar.gz
+ **Note:** you can also get those libs built by us from below link for your convenience.
+ https://github.com/Netis/packet-agent/releases/download/v0.7.0/static_lib.tar.gz
+ 
+4. Clone or download the project.
+5. Go to the project folder and build it.
 
 ```shell
 cd /path/to/packet-agent
@@ -60,7 +69,7 @@ mkdir build && cd build
 cmake .. && make
 ```
 
-4. Check output binaries. There should be four files in the *bin* folder.
+5. Check output binaries. There should be four files in the *bin* folder.
 
 ```shell
 ls ../bin
@@ -148,8 +157,18 @@ cmake -DCPPZMQ_BUILD_TESTS=OFF ..
 sudo make -j4 install
 ```
 
-2. Clone or download the project.
-3. Go to the project folder and build it.
+2. build static libs of third parties from below links can copy the built libs to /path/pktminerg/dep/unix/lib
+ https://github.com/boostorg/boost/archive/refs/tags/boost-1.59.0.tar.gz
+ https://github.com/curl/curl/archive/refs/tags/curl-7_51_0.tar.gz
+ https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.5.3.tar.gz
+ https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_0_2k.tar.gz
+ https://github.com/google/glog/archive/refs/tags/v0.5.0-rc2.tar.gz
+ https://github.com/orocos-toolchain/log4cpp/archive/refs/tags/v2.9.1.tar.gz
+ **Note:** you can also get those libs built by us from below link for your convenience.
+ https://github.com/Netis/packet-agent/releases/download/v0.7.0/static_lib.tar.gz
+
+4. Clone or download the project.
+5. Go to the project folder and build it.
 
 ```shell
 cd /path/to/packet-agent
@@ -163,60 +182,7 @@ cmake ..  && make
 ls ../bin
 gredemo*     gredump*     pcapcompare* pktminerg*
 ```
-## Mac OS X
 
-1. Install [Xcode](https://developer.apple.com/xcode/).
-2. Download the latest release of libpcap from [tcpdump site](http://www.tcpdump.org). Extract the zip, enter the folder and build the library.
-
-```shell
-cd /path/to/libpcap
-./configure 
-make
-make install
-# Check that libpcap.a and libpcap.dylib exist.
-ls /usr/local/lib/libpcap*
-```
-
-3. *Recommended*: install [brew](https://brew.sh/) for easier package management.
-```shell
-# install boost
-brew install boost
-```
-
-4. build and install libzmq and cppzmq
-```shell
-# build and install libzmq
-wget https://github.com/zeromq/libzmq/archive/v4.3.2.zip
-unzip v4.3.2.zip
-cd /path/to/unziped/dir
-mkdir build && cd build
-cmake ..
-sudo make -j4 install
-
-# build and install cppzmq
-wget https://github.com/zeromq/cppzmq/archive/v4.6.0.zip
-unzip v4.6.0.zip
-cd /path/to/unziped/dir
-mkdir build && cd build
-cmake -DCPPZMQ_BUILD_TESTS=OFF ..
-sudo make -j4 install
-```
-5. Clone or download the project.
-
-6. Build the project.
-
-```shell
-cd /path/to/packet-agent
-mkdir build && cd build
-cmake .. && make
-```
-
-7. Ensure the build is successful. The *bin* folder should contain four binary files.
-
-```shell
-ls ../bin
-gredemo*     gredump*     pcapcompare* pktminerg*
-```
 
 ## FAQ
 
