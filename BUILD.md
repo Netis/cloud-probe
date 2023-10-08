@@ -50,7 +50,7 @@ mkdir build && cd build
 cmake -DCPPZMQ_BUILD_TESTS=OFF ..
 sudo make -j4 install
 ```
-2. build static libs of third parties from below links can copy the built libs to /path/pktminerg/dep/unix/lib
+2. build static libs of third parties from below links and copy the built libs to /path/pktminerg/dep/unix/lib
  https://github.com/boostorg/boost/archive/refs/tags/boost-1.59.0.tar.gz
  https://github.com/curl/curl/archive/refs/tags/curl-7_51_0.tar.gz
  https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.5.3.tar.gz
@@ -158,7 +158,7 @@ cmake -DCPPZMQ_BUILD_TESTS=OFF ..
 sudo make -j4 install
 ```
 
-2. build static libs of third parties from below links can copy the built libs to /path/pktminerg/dep/unix/lib
+2. build static libs of third parties from below links and copy the built libs to /path/pktminerg/dep/unix/lib
  https://github.com/boostorg/boost/archive/refs/tags/boost-1.59.0.tar.gz
  https://github.com/curl/curl/archive/refs/tags/curl-7_51_0.tar.gz
  https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.5.3.tar.gz
