@@ -22,6 +22,7 @@ With 3 utilities:
 - **pcapcompare** is a utility for comparing 2 different pcap files.
 - **gredump** is used for capturing GRE packet with filter, and save them to pcap file.
 - **gredemo** is a demo app which is used to read packet from a pcap file and send them all to remote NIC. This can be only used when built from source code.
+- **ProbeDaemon** is a new added module, which is responsible for the management of the pktminerg process. It can pull and kill pktminerg process and set the parameters of pktminerg in the command line. This module should work with CPM (Cloud Probe Manager)，which provides a user interface to set the strategies of pktminerg and can also display the statistis reported from pktminerg in graphs. You can contact Netis for the further support of CPM, or you can also develop your CPM.
 
 
 ## Getting Started
@@ -110,9 +111,6 @@ pktminerg "-i eth0 -r 172.16.1.201 -k 12" "-i eth1 -r 10.1.2.123 -n 12"
 For more information on using these tools, please refer to this [document](./USAGE.md).
 
 For docker usage, please refer to this [document](./DOCKER.md).
-
-### ProbeDaemon module (from v0.7.0)
-This new added module is responsible for the management of the pktminerg process. It can pull and kill pktminerg process and set the parameters of pktminerg in the command line. This module should work with CPM (Cloud Probe Manager)，which provides a user interface to set the strategies of pktminerg and can also display the statistis reported from pktminerg in graphs. You can contact Netis for the further support of CPM, or you can also develop your CPM.
 
 ### Build from source.
 You can also clone source from Github and build Netis Packet Agent in local, then check"/path/to/packet-agent/bin" to find all binary.
