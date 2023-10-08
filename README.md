@@ -2,7 +2,7 @@
 English  ∙  [简体中文](README-zh-Hans.md) 
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.3.6
+# Netis Packet Agent
 
 [![Stable release](https://img.shields.io/badge/version-0.3.6-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.6)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
@@ -28,12 +28,7 @@ With 3 utilities:
 ### Installation
 
 #### CentOS 6/7 and RedHat 7
-1. Install libpcap and wget
-```bash
-yum install libpcap wget zeromq
-```
-
-2. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
+1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
 wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
 rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
@@ -99,10 +94,7 @@ Remarks: Make sure the firewall allows GRE packets to be sent to the target.
 https://lartc.org/howto/lartc.tunnel.gre.html provides a way to check firewall allows GRE packets to be sent.
 ```bash
 # Capture packet from NIC "eth0", encapsulate with GRE header and send to 172.16.1.201
-pktminerg -i eth0 -r 172.16.1.201
-
-# Specify cpu 1 for this program with high priority to avoid thread switch cost.
-pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
+pktminerg "-i eth0 -r 172.16.1.201 -k 12"
 
 # compare 2 pcap files
 pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
@@ -110,15 +102,17 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 # Capture packet from NIC "eth0" and save them to gredump_output.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
 
-# Capture packet from NIC "eth0", do not set DF flag
-pktminerg -i eth0 -r 172.16.1.201 -M dont
+# Capture packets from NIC "eth0", forward to 172.16.1.201 with GRE encapsulated and capture packets from "eth1", forward to 10.1.2.123 with vni encapsulated
+pktminerg "-i eth0 -r 172.16.1.201 -k 12" "-i eth1 -r 10.1.2.123 -n 12"
 ```
 ![packet agent's pktminerg : network capture use case](./img/use_case.png)
-
 
 For more information on using these tools, please refer to this [document](./USAGE.md).
 
 For docker usage, please refer to this [document](./DOCKER.md).
+
+### ProbeDaemon module (from v0.7.0)
+This new added module is responsible for the management of the pktminerg process. It can pull and kill pktminerg process and set the parameters of pktminerg in the command line. This module should work with CPM (Cloud Probe Manager)，which provides a user interface to set the strategies of pktminerg and can also display the statistis reported from pktminerg in graphs. You can contact Netis for the further support of CPM, or you can also develop your CPM.
 
 ### Build from source.
 You can also clone source from Github and build Netis Packet Agent in local, then check"/path/to/packet-agent/bin" to find all binary.
