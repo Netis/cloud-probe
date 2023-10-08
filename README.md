@@ -22,7 +22,7 @@ With 3 utilities:
 - **pcapcompare** is a utility for comparing 2 different pcap files.
 - **gredump** is used for capturing GRE packet with filter, and save them to pcap file.
 - **gredemo** is a demo app which is used to read packet from a pcap file and send them all to remote NIC. This can be only used when built from source code.
-- **ProbeDaemon** is a new added module, which is responsible for the management of the pktminerg process. It can pull and kill pktminerg process and set the parameters of pktminerg in the command line. This module should work with CPM (Cloud Probe Manager)，which provides a user interface to set the strategies of pktminerg and can also display the statistis reported from pktminerg in graphs. You can contact Netis for the further support of CPM, or you can also develop your CPM.
+- **ProbeDaemon** is a new added module from v0.7.0, which is responsible for the management of the pktminerg process. It can pull and kill pktminerg process and set the parameters of pktminerg in the command line. This module should work with CPM (Cloud Probe Manager)，which provides a user interface to set the strategies of pktminerg and can also display the statistis reported from pktminerg in graphs. You can contact Netis for the further support of CPM, or you can also develop your CPM.
 
 
 ## Getting Started
@@ -31,37 +31,24 @@ With 3 utilities:
 #### CentOS 6/7 and RedHat 7
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0.x86_64_centos.rpm
+rpm -ivh netis-packet-agent-0.7.0.x86_64_centos.rpm
 ```
 
 #### SUSE 12
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
+rpm -ivh netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
 ```
 
 
 #### Ubuntu 18.04LTS
-1. Install libpcap and wget
+1. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-sudo apt-get install libpcap-dev wget
+wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0_amd64.deb
+sudo dpkg -i netis-packet-agent-0.7.0_amd64.deb
 ```
-
-2. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
-```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6_amd64.deb
-sudo dpkg -i netis-packet-agent-0.3.6_amd64.deb
-```
-
-3. If libpcap.so.1 not found when running pktminerg, create softlink for libpcap.so.1 in suitable directory.
-```bash
-whereis libpcap.so
-cd /path/to/libpcap.so
-ln -s libpcap.so.x.y.z libpcap.so.1
-```
-
 Remarks: If it encounter a library dependency error when install from rpm, you should install boost_1_59_0 or later. If this also can't work, you can build and run from source.
 
 Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12, Ubuntu 18.04 LTS.
@@ -70,23 +57,6 @@ Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12, Ubuntu 18.04 LTS.
 1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
 2. Download and Install [Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe).
 3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode.
-
-Note: On Windows platform, you must use NIC's NT Device Name with format "\Device\NPF_{UUID}" as interface param. You can get it with following command: 
-```
-    C:\> getmac /fo csv /v 
-    "Connection Name","Network Adapter","Physical Address","Transport Name" 
-    "Ethernet","Intel(R) Ethernet Connection (4) I219-V","8C-16-45-6B-53-B5","\Device\Tcpip_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2}" 
-``` 
-Take last field(Transport Name) and replace "Tcpip_" with "NPF_" as follow, then you can get interface param of Windows. 
-```
-    \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
-``` 
-Use example:
-```
-    C:\> pktminerg -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -r 172.24.103.201 
-    C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
-```
-
 
 <br>
 
