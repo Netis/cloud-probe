@@ -57,6 +57,7 @@ sudo make -j4 install
  https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_0_2k.tar.gz
  https://github.com/google/glog/archive/refs/tags/v0.5.0-rc2.tar.gz
  https://github.com/orocos-toolchain/log4cpp/archive/refs/tags/v2.9.1.tar.gz
+
  **Note:** you can also get those libs built by us from below link for your convenience.
  https://github.com/Netis/packet-agent/releases/download/v0.7.0/static_lib.tar.gz
  
@@ -164,6 +165,7 @@ sudo make -j4 install
  https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_0_2k.tar.gz
  https://github.com/google/glog/archive/refs/tags/v0.5.0-rc2.tar.gz
  https://github.com/orocos-toolchain/log4cpp/archive/refs/tags/v2.9.1.tar.gz
+ 
  **Note:** you can also get those libs built by us from below link for your convenience.
  https://github.com/Netis/packet-agent/releases/download/v0.7.0/static_lib.tar.gz
 
