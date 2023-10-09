@@ -89,7 +89,6 @@ For build precondition and steps, please refer to this [document](./BUILD.md).
 
 ## Documentation / Useful link
 * [Build requirements and steps](./BUILD.md).
-* [Release Information / Roadmap](./CHANGES.md).
 
 ## Contributing
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.
