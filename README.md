@@ -18,7 +18,7 @@ Also, this project aims at developing a suite of low cost but high efficiency to
 ![packet agent's pktminerg capture traffic flow via GRE/Cloud](./img/pktminerg.png)
 
 
-With 3 utilities:
+With 4 utilities:
 - **pcapcompare** is a utility for comparing 2 different pcap files.
 - **gredump** is used for capturing GRE packet with filter, and save them to pcap file.
 - **gredemo** is a demo app which is used to read packet from a pcap file and send them all to remote NIC. This can be only used when built from source code.
@@ -28,14 +28,14 @@ With 3 utilities:
 ## Getting Started
 ### Installation
 
-#### CentOS 6/7 and RedHat 7
+#### CentOS 7/8 and RedHat 7
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
 wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0.x86_64_centos.rpm
 rpm -ivh netis-packet-agent-0.7.0.x86_64_centos.rpm
 ```
 
-#### SUSE 12
+#### SUSE 12SP2
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
 wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
@@ -53,7 +53,7 @@ Remarks: If it encounter a library dependency error when install from rpm, you s
 
 Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12, Ubuntu 18.04 LTS.
 
-#### Windows 7/8/10 x64
+#### Windows 2019 server
 1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
 2. Download and Install [Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe).
 3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode.
