@@ -2,7 +2,7 @@
 [English](README.md)  ∙  简体中文
 
 ![packet agent's title](./img/title.jpg)
-# Netis Packet Agent 0.3.6
+# Netis Packet Agent
 
 [![Stable release](https://img.shields.io/badge/version-0.3.6-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.6)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
@@ -19,74 +19,43 @@ Netis Packet Agent是一个用于解决如下问题的开源项目：设备A上�
 
 ![packet agent's pktminerg capture traffic flow via GRE/Cloud](./img/pktminerg.png)
 
-此外，还有另外3个工具：
+此外，还有另外4个工具：
 - **pcapcompare**用于比较两个pcap文件
 - **gredump**根据特定的过滤规则抓取GRE数据包，并存储为pcap文件。
 - **gredemo**是一个demo应用程序，可以从pcap文件读取数据包，然后把它们发送到远端网卡。这个程序只能通过源代码编译生成。
+- **probeDaemon**是pktminerg的管理程序（从v0.7.0）.它可以拉起和停止pktminerg,并且设定命令行的参数。该模块需要和CPM（Cloud Probe Mananger）.CPM提供了用户界面，可以对pktminerg的策略进行配置，同时还可以图形化显示pktminerg上报的统计数据。您可以联系Netis获取关于CPM的进一步支持，或者可以开发自己的CPM。
 
 ## 开始
 ### 安装
 
-#### CentOS 6/7和RedHat 7
-1. 安装libpcap和wget
+#### CentOS 7/8和RedHat 7
+1. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-yum install libpcap wget
-```
-
-2. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
-```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0.x86_64_centos.rpm
+rpm -ivh netis-packet-agent-0.7.0.x86_64_centos.rpm
 ```
 #### SUSE12
 1. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6.el6.x86_64.rpm
-rpm -ivh netis-packet-agent-0.3.6.el6.x86_64.rpm
+wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
+rpm -ivh netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
 ```
 
 #### Ubuntu 18.04LTS
-1. 安装libpcap和wget
+1. 下载并安装DEB包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-sudo apt-get install libpcap-dev wget
+wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0_amd64.deb
+sudo dpkg -i netis-packet-agent-0.7.0_amd64.deb
 ```
 
-2. 下载并安装DEB包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
-```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.3.6/netis-packet-agent-0.3.6_amd64.deb
-sudo dpkg -i netis-packet-agent-0.3.6_amd64.deb
-```
-
-3. 如果提示libpcap.so找不到，到libpcap.so所在目录下创建libpcap.so.1软链接。
-```bash
-whereis libpcap.so
-cd /path/to/libpcap.so
-ln -s libpcap.so.x.y.z libpcap.so.1
-```
 
 ** 如果安装过程中提示libboost库的版本号不正确，请下载安装boost_1_59_0或者之后的版本。如果问题依然无法解决，可以尝试从源代码直接编译安装。<br/>
 ** 现在仅支持 CentOS 6/7版本和RedHat 7, SUSE12和Ubuntu 18.04 LTS版本
 
-#### Windows 7/8/10 x64
+#### Windows 2019 server
 1. 下载并安装[WinPcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe)
 2. 下载并安装[Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe)
 3. 从zip文件解压pktminerg和其他utilities，并在命令行界面运行（需管理员模式）.
-
-备注：在Windows平台运行时，命令的interface选项参数需要使用网卡的NT Device Name，形如"\Device\UPF_{UUID}"。可使用如下命令获取
-```
-    C:\> getmac /fo csv /v 
-    "Connection Name","Network Adapter","Physical Address","Transport Name" 
-    "Ethernet","Intel(R) Ethernet Connection (4) I219-V","8C-16-45-6B-53-B5","\Device\Tcpip_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2}" 
-```
-将Transport Name字段里的"Tcpip_"替换为"NPF_"，作为-i参数：
-```
-    \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} 
-```
-使用示例：
-```
-    C:\> pktminerg -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -r 172.24.103.201 
-    C:\> gredump -i \Device\NPF_{4C25EA92-09DF-4FD3-A8B3-1B68E57443E2} -o capture.pcap
-```
 
 
 ### 使用 
@@ -94,10 +63,7 @@ ln -s libpcap.so.x.y.z libpcap.so.1
 https://lartc.org/howto/lartc.tunnel.gre.html提供验证是否允许向目标发送GRE数据包的方法.
 ```bash
 # Capture packet from NIC "eth0", encapsulate with GRE header and send to 172.16.1.201
-pktminerg -i eth0 -r 172.16.1.201
-
-# Specify cpu 1 for this program with high priority to avoid thread switch cost.
-pktminerg -i eth0 -r 172.16.1.201 --cpu 1 -p
+pktminerg "-i eth0 -r 172.16.1.201"
 
 # compare 2 pcap files
 pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
@@ -105,8 +71,8 @@ pcapcompare --lpcap /path/to/left_file.pcap --rpcap /path/to/right_file.pcap
 # Capture packet from NIC "eth0" and save them to gredump_output.pcap
 gredump -i eth0 -o /path/to/gredump_output.pcap
 
-# Capture packet from NIC "eth0", do not set DF flag
-pktminerg -i eth0 -r 172.16.1.201 -M dont
+# Capture packets from NIC "eth0", forward to 172.16.1.201 with GRE encapsulated and capture packets from "eth1", forward to 10.1.2.123 with vni encapsulated
+pktminerg "-i eth0 -r 172.16.1.201 -k 12" "-i eth1 -r 10.1.2.123 -n 12"
 ```
 ![packet agent's pktminerg : network capture use case](./img/use_case.png)
 
