@@ -47,7 +47,7 @@ mkdir build && cd build
 cmake -DCPPZMQ_BUILD_TESTS=OFF ..
 sudo make -j4 install
 ```
-2. build static libs of third parties from src code (links provided below) and copy the built libs to /path/pktminerg/dep/unix/lib
+2. build static libs of third parties from src code (links provided below) and copy the built libs to /path/cloud-probe/dep/unix/lib
  * https://github.com/boostorg/boost/archive/refs/tags/boost-1.59.0.tar.gz
  * https://github.com/curl/curl/archive/refs/tags/curl-7_51_0.tar.gz
  * https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.5.3.tar.gz
@@ -56,13 +56,13 @@ sudo make -j4 install
  * https://github.com/orocos-toolchain/log4cpp/archive/refs/tags/v2.9.1.tar.gz
 
  **Note:** you can also get those libs built by us from below link for your convenience.
- * https://github.com/Netis/packet-agent/releases/download/v0.7.0/static_lib.tar.gz
+ * https://github.com/Netis/cloud-probe/releases/download/v0.7.0/static_lib.tar.gz
  
 4. Clone or download the project.
 5. Go to the project folder and build it.
 
 ```shell
-cd /path/to/packet-agent
+cd /path/to/cloud-probe
 mkdir build && cd build
 cmake .. && make
 ```
@@ -104,7 +104,7 @@ cmake -DCPPZMQ_BUILD_TESTS=OFF ..
 sudo make -j4 install
 ```
 
-2. build static libs of third parties from src code (links provided below) and copy the built libs to /path/pktminerg/dep/unix/lib
+2. build static libs of third parties from src code (links provided below) and copy the built libs to /path/cloud-probe/dep/unix/lib
  * https://github.com/boostorg/boost/archive/refs/tags/boost-1.59.0.tar.gz
  * https://github.com/curl/curl/archive/refs/tags/curl-7_51_0.tar.gz
  * https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.5.3.tar.gz
@@ -113,7 +113,7 @@ sudo make -j4 install
  * https://github.com/orocos-toolchain/log4cpp/archive/refs/tags/v2.9.1.tar.gz
 
  **Note:** you can also get those libs built by us from below link for your convenience.
- * https://github.com/Netis/packet-agent/releases/download/v0.7.0/static_lib.tar.gz
+ * https://github.com/Netis/cloud-probe/releases/download/v0.7.0/static_lib.tar.gz
    
 3. Clone or download the project.
 4. Go to the project folder and build it.
@@ -166,7 +166,7 @@ cmake -DCPPZMQ_BUILD_TESTS=OFF ..
 sudo make -j4 install
 ```
 
-2. build static libs of third parties from src code (links provided below) and copy the built libs to /path/pktminerg/dep/unix/lib
+2. build static libs of third parties from src code (links provided below) and copy the built libs to /path/cloud-probe/dep/unix/lib
  * https://github.com/boostorg/boost/archive/refs/tags/boost-1.59.0.tar.gz
  * https://github.com/curl/curl/archive/refs/tags/curl-7_51_0.tar.gz
  * https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.5.3.tar.gz
@@ -175,7 +175,7 @@ sudo make -j4 install
  * https://github.com/orocos-toolchain/log4cpp/archive/refs/tags/v2.9.1.tar.gz
 
  **Note:** you can also get those libs built by us from below link for your convenience.
- * https://github.com/Netis/packet-agent/releases/download/v0.7.0/static_lib.tar.gz
+ * https://github.com/Netis/cloud-probe/releases/download/v0.7.0/static_lib.tar.gz
 
 4. Clone or download the project.
 5. Go to the project folder and build it.
