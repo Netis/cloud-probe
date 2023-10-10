@@ -23,7 +23,7 @@ Netis Cloud probe（曾用名 Packet Agent）是一个用于解决如下问题�
 - **pcapcompare**用于比较两个pcap文件
 - **gredump**根据特定的过滤规则抓取GRE数据包，并存储为pcap文件。
 - **gredemo**是一个demo应用程序，可以从pcap文件读取数据包，然后把它们发送到远端网卡。这个程序只能通过源代码编译生成。
-- **probeDaemon**是pktminerg的管理程序（从v0.7.0）.它可以拉起和停止pktminerg,并且设定命令行的参数。该模块需要和CPM（Cloud Probe Mananger）.CPM提供了用户界面，可以对pktminerg的策略进行配置，同时还可以图形化显示pktminerg上报的统计数据。您可以联系Netis获取关于CPM的进一步支持，或者可以开发自己的CPM。
+- **probeDaemon**是pktminerg的管理程序（从v0.7.0）.它可以拉起和停止pktminerg,并且设定命令行的参数。该模块需要和CPM（Cloud Probe Mananger）.CPM提供了用户界面，可以对pktminerg的策略进行配置，同时还可以图形化显示pktminerg上报的统计数据。您可以联系Netis获取关于CPM的进一步支持，或者可以开发自己的CPM。目前Windows版本尚无该模块，后面将会发布windows版本。
 
 ## 开始
 ### 安装
@@ -31,21 +31,21 @@ Netis Cloud probe（曾用名 Packet Agent）是一个用于解决如下问题�
 #### CentOS 7/8和RedHat 7
 1. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0.x86_64_centos.rpm
-rpm -ivh netis-packet-agent-0.7.0.x86_64_centos.rpm
+wget https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0.x86_64_centos.rpm
+rpm -ivh netis-cloud-probe-0.7.0.x86_64_centos.rpm
 ```
 #### SUSE12
 1. 下载并安装RPM包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
-rpm -ivh netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
+wget https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-probe-0.7.0.x86_64_suse.rpm
+rpm -ivh netis-cloud-probe-probe-0.7.0.x86_64_suse.rpm
 ```
 
 #### Ubuntu 18.04LTS
 1. 下载并安装DEB包。您可以从[这个地址](https://github.com/Netis/packet-agent/releases)获取最新版本的软件包。
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0_amd64.deb
-sudo dpkg -i netis-packet-agent-0.7.0_amd64.deb
+wget https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0_amd64.deb
+sudo dpkg -i netis-cloud-probe-0.7.0_amd64.deb
 ```
 
 
@@ -55,7 +55,7 @@ sudo dpkg -i netis-packet-agent-0.7.0_amd64.deb
 #### Windows 2019 server
 1. 下载并安装[WinPcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe)
 2. 下载并安装[Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe)
-3. 从zip文件解压pktminerg和其他utilities，并在命令行界面运行（需管理员模式）.
+3. 从zip文件解压pktminerg和其他utilities，并在命令行界面运行（需管理员模式）.https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0.Windows.AMD64.zip
 
 
 ### 使用 
