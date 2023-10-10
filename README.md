@@ -22,7 +22,7 @@ With 4 utilities:
 - **pcapcompare** is a utility for comparing 2 different pcap files.
 - **gredump** is used for capturing GRE packet with filter, and save them to pcap file.
 - **gredemo** is a demo app which is used to read packet from a pcap file and send them all to remote NIC. This can be only used when built from source code.
-- **ProbeDaemon** is a new added module from v0.7.0, which is responsible for the management of the pktminerg process. It can pull and kill pktminerg process and set the parameters of pktminerg in the command line. This module should work with CPM (Cloud Probe Manager)，which provides a user interface to set the strategies of pktminerg and can also display the statistis reported from pktminerg in graphs. You can contact Netis for the further support of CPM, or you can also develop your CPM.
+- **probeDaemon** is a new added module from v0.7.0, which is responsible for the management of the pktminerg process. It can pull and kill pktminerg process and set the parameters of pktminerg in the command line. This module should work with CPM (Cloud Probe Manager)，which provides a user interface to set the strategies of pktminerg and can also display the statistis reported from pktminerg in graphs. You can contact Netis for the further support of CPM, or you can also develop your CPM. Currently, no probeDaemon for Win, which will be released later.
 
 
 ## Getting Started
@@ -31,23 +31,23 @@ With 4 utilities:
 #### CentOS 7/8 and RedHat 7
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0.x86_64_centos.rpm
-rpm -ivh netis-packet-agent-0.7.0.x86_64_centos.rpm
+wget https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0.x86_64_centos.rpm
+rpm -ivh netis-cloud-probe-0.7.0.x86_64_centos.rpm
 ```
 
 #### SUSE 12SP2
 1. Download and install the RPM package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
-rpm -ivh netis-packet-agent-probe-0.7.0.x86_64_suse.rpm
+wget https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-probe-0.7.0.x86_64_suse.rpm
+rpm -ivh netis-cloud-probe-probe-0.7.0.x86_64_suse.rpm
 ```
 
 
 #### Ubuntu 18.04LTS
 1. Download and install the DEB package. Find the latest package from [Releases Page](https://github.com/Netis/packet-agent/releases).
 ```bash
-wget https://github.com/Netis/packet-agent/releases/download/v0.7.0/netis-packet-agent-0.7.0_amd64.deb
-sudo dpkg -i netis-packet-agent-0.7.0_amd64.deb
+wget https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0_amd64.deb
+sudo dpkg -i netis-cloud-probe-0.7.0_amd64.deb
 ```
 Remarks: If it encounter a library dependency error when install from rpm, you should install boost_1_59_0 or later. If this also can't work, you can build and run from source.
 
@@ -56,7 +56,7 @@ Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12, Ubuntu 18.04 LTS.
 #### Windows 2019 server
 1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
 2. Download and Install [Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe).
-3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode.
+3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode. https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0.Windows.AMD64.zip 
 
 <br>
 
