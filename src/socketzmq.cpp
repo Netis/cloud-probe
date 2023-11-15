@@ -14,6 +14,7 @@
 #include <unistd.h>
 #endif
 #include <pcap/pcap.h>
+#include "pcap/vlan.h"
 #include "statislog.h"
 
 static uint32_t makeMplsHdr(int direct, int serviceTag) {
@@ -159,23 +160,47 @@ int PcapExportZMQ::exportPacket(size_t index, const struct pcap_pkthdr* header, 
     }
 
     uint16_t hlen = htons(length);
-    std::memcpy(&(buf[pkts_buf.batch_bufpos]), &hlen, sizeof(hlen));
-    std::memcpy(&(buf[pkts_buf.batch_bufpos + sizeof(length)]), &small_pkthdr, sizeof(small_pkthdr));
-
+    uint32_t buff_pos = pkts_buf.batch_bufpos;
+    std::memcpy(&(buf[buff_pos]), &hlen, sizeof(hlen));
+    buff_pos += sizeof(length);
+    
+    std::memcpy(&(buf[buff_pos]), &small_pkthdr, sizeof(small_pkthdr));
+    buff_pos += sizeof(small_pkthdr);
+    
     ether_header *hdr = (ether_header*) pkt_data;
 
-    hdr->ether_type = htons(ETHER_TYPE_MPLS);
+    vlan_tag *vlan_hdr = nullptr;
 
-    std::memcpy(&(buf[pkts_buf.batch_bufpos + sizeof(length) + sizeof(small_pkthdr)]), pkt_data, sizeof (ether_header));
+    if (ntohs(hdr->ether_type) == ETHERTYPE_VLAN) {
+        vlan_hdr = (vlan_tag *)(pkt_data +sizeof(ether_header));
+        vlan_hdr->vlan_tci = htons(ETHER_TYPE_MPLS);
+    } else {
+        hdr->ether_type = htons(ETHER_TYPE_MPLS);
+    }
+    
+    std::memcpy(&(buf[buff_pos]), pkt_data, sizeof (ether_header));
+    buff_pos += sizeof(ether_header);
+
+    if (vlan_hdr != nullptr) {
+        std::memcpy(&(buf[buff_pos]), vlan_hdr, sizeof (vlan_tag));
+        buff_pos += sizeof (vlan_tag);
+    }
 
     mplsHdr mplshdr;
     uint32_t mplsTag = makeMplsHdr(direct, _keybit);
     memcpy(&mplshdr, &mplsTag, sizeof(mplshdr));
 
-    std::memcpy(&(buf[pkts_buf.batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + sizeof (ether_header)]) , &mplshdr, sizeof (mplsHdr));
-
-    std::memcpy(&(buf[pkts_buf.batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + sizeof (ether_header) + sizeof (mplsHdr)]),
+     
+    std::memcpy(&(buf[buff_pos]) , &mplshdr, sizeof (mplsHdr));
+    buff_pos += sizeof(mplsHdr);
+    if (vlan_hdr != nullptr) {
+        std::memcpy(&(buf[buff_pos]),
+                       pkt_data + sizeof (ether_header) + sizeof(vlan_tag), length - sizeof (ether_header) - sizeof(mplsHdr) - sizeof(vlan_tag));
+    }else {
+        std::memcpy(&(buf[buff_pos]),
                        pkt_data + sizeof (ether_header), length - sizeof (ether_header) - sizeof(mplsHdr));
+    }
+    
     pkts_buf.batch_bufpos += sizeof(length) + sizeof(small_pkthdr) + length;
     pkts_buf.batch_hdr.pkts_num++;
     return 0;
