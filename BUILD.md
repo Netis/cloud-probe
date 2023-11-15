@@ -128,7 +128,7 @@ cmake .. -DPLATFORM_DEBIAN=ON && make
 
 ```shell
 ls ../bin
-gredemo*     gredump*     pcapcompare* pktminerg*
+gredemo*     gredump*     pcapcompare* pktminerg*  probedaemon
 ```
 
 ## SUSE
@@ -190,7 +190,7 @@ cmake ..  && make
 
 ```shell
 ls ../bin
-gredemo*     gredump*     pcapcompare* pktminerg*
+gredemo*     gredump*     pcapcompare* pktminerg* probedaemon*
 ```
 
 
