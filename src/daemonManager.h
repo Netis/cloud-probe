@@ -15,6 +15,8 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <curl/curl.h>
+#include <unistd.h>
+#include <cerrno> 
 #include "zmq.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -24,11 +26,11 @@
 #include <boost/format.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <boost/filesystem.hpp>
 
 #include "glog/logging.h"
 #include "log4cpp/Category.hh"
@@ -123,6 +125,8 @@ private:
     std::string createParams(std::shared_ptr<io::swagger::server::model::PacketAgentData>, uint16_t port, uint64_t buffSize);
 
     void killRunningPktg();
+
+    void clearCgroupfolder(pid_t pid);
 
 private:
     const boost::program_options::variables_map& vm_;

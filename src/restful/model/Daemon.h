@@ -167,6 +167,7 @@ public:
     int filterNics(std::vector<std::string> & nicNames);
 
     void setLogFileContext(LogFileContext& ctx) {m_ctx = ctx;};
+    int updateNics();
 
 protected:
     int64_t m_Id;
