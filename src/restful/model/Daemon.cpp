@@ -171,8 +171,6 @@ namespace io {
 
                     m_PlatformId = "";
                     m_PlatformIdIsSet = false;
-
-                    nics = getNetworkInterfaces();
                 }
 
                 Daemon::~Daemon() {
@@ -607,6 +605,10 @@ namespace io {
                         }
                     }
                     return nics.size();
+                }
+                int Daemon::updateNics() {
+                    nics.clear();
+                    nics = getNetworkInterfaces(); 
                 }
             }
         }

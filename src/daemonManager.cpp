@@ -68,6 +68,8 @@ void DaemonManager::killRunningPktg() {
                 LOG(ERROR) << strErr;
                     report_.addPacketAgentLogs("ERROR", strErr);
             }
+            clearCgroupfolder(pid);
+            clearCgroupfolder(agentPid_);
             agentPid_ = 0;
         }
 }
@@ -84,6 +86,35 @@ void getActiveInstanceNames(std::set<std::string> & names) {
     pclose(fp);
     return;
 }
+
+void DaemonManager::clearCgroupfolder(pid_t pid) {
+    std::string path1("/cgroup/");
+    std::string path2("/sys/fs/cgroup/");
+    
+    std::vector<std::string> pathToRemove;
+
+    pathToRemove.push_back(path1+"cpu/pid-"+std::to_string(pid));
+    pathToRemove.push_back(path2+"cpu/pid-"+std::to_string(pid));
+    pathToRemove.push_back(path1+"memory/pid-"+std::to_string(pid));
+    pathToRemove.push_back(path2+"memory/pid-"+std::to_string(pid));
+    
+    for(auto pStr:pathToRemove) {
+        boost::filesystem::path p(pStr);
+        if (boost::filesystem::exists(p)) {
+            if (rmdir(pStr.c_str()) == -1) {
+                output_buffer = boost::str(boost::format("Fail to remove path:%1%,%2% ")%pStr%strerror(errno));
+                ctx_.log(output_buffer, log4cpp::Priority::ERROR);
+                LOG(ERROR) << output_buffer;
+            } else {
+                output_buffer = boost::str(boost::format("Successfully remove path:%1%")%pStr);
+                ctx_.log(output_buffer, log4cpp::Priority::INFO);
+                LOG(INFO) << output_buffer;
+
+            }
+        }
+    }
+    return;
+}  
 
 void DaemonManager::getDaemonImpl() {
     std::lock_guard<std::recursive_mutex> lock{mtx_};
@@ -179,7 +210,7 @@ void DaemonManager::getDaemonImpl() {
 
         startPA(agent_, result);
 
-        if(agent_.SyncIntervalIsSet() != agent_.SyncIntervalIsSet() && agent_.getSyncInterval() > 0) {
+        if(agent_.SyncIntervalIsSet() && agent_.getSyncInterval() > 0) {
             int periodUs = agent_.getSyncInterval() * TICK_US_SEC;
             timer_tasks_cancel(tasks_, getDaemonTid_);
             getDaemonTid_ = timer_tasks_push(tasks_, getDaemon, this, periodUs);
@@ -200,16 +231,17 @@ void DaemonManager::getDaemonImpl() {
                 ctx_.log(str, log4cpp::Priority::ERROR);
                 LOG(ERROR) << str;
                 report_.addPacketAgentLogs("ERROR", str);
+                clearCgroupfolder(agentPid_);
+                zmqPortAvlPush(zmqPort_);
             }
 
-            std::stringstream result;
-
+            std::stringstream result;           
             startPA(agent_, result);
         }
         if (agentPid_ != 0)
             report_.setPid(agentPid_);
 
-        if (agentPid_ != 0 && agent_.startTimeIsSet()) {
+        if (agentPid_ != 0 && agent_.startTimeIsSet() && report_.getPacketAgentMetrics()) {
             report_.getPacketAgentMetrics()->setStartTime(agent_.getStartTime());
         }
         std::stringstream jsonS;
@@ -441,11 +473,9 @@ std::string DaemonManager::createParams(std::shared_ptr<io::swagger::server::mod
 
 int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::stringstream &result) {
     uint16_t port;
-
     if (!body.packetAgentStrategiesIsSet()) {
         return -1;
     }
-
     std::vector<std::string> commandStr;
     std::string str;
     commandStr.push_back("pktminerg");
@@ -454,7 +484,15 @@ int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::strings
     if (datas.size() == 0) {
         return -1;
     }
-
+    std::set<std::string> names;
+    try{
+        getActiveInstanceNames(names);
+    }
+    catch (...) {
+        std::string str = boost::str(boost::format("Can't get active instance."));
+        ctx_.log(str, log4cpp::Priority::INFO);
+        LOG(INFO) << str;
+    }
     uint64_t buffSize;
     if(body.getMemLimit() == 0) {
         buffSize = 256;
@@ -466,15 +504,19 @@ int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::strings
             } else if (data->interfaceNamesIsSet()) {
                 stratigies += data->getInterfaceNames().size();
             } else if (data->instanceNamesIsSet()) {
+                
                 instanceCheck_ = true;
-                stratigies += data->getInstanceNames().size();
+                for (auto & i: data->getInstanceNames()) {
+                    if(std::find(names.begin(), names.end(), i) != names.end()) {
+                        stratigies += 1;
+                    }
+                }           
             }
         }
         if (stratigies == 0 || stratigies > body.getMemLimit()) {
 
             return -1;
         }
-
         buffSize = body.getMemLimit()/stratigies;
     }
     
@@ -485,7 +527,6 @@ int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::strings
             result << error.toJson();
             return -1;
     }
-
     int noOfData = 0;
     //get buffer size
     for (auto &data: datas){
@@ -534,8 +575,7 @@ int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::strings
             }
 
         } else if (data->instanceNamesIsSet()) {
-            std::set<std::string> names;
-            getActiveInstanceNames(names);
+            
             bool needRestart = false;
 			if (checkProcessRunning()) {
             	for (auto & item: instanceStatus) {
@@ -1024,6 +1064,7 @@ bool DaemonManager::delAgent() {
         LOG(ERROR) << strErr;
         report_.addPacketAgentLogs("ERROR", strErr);
     }
+    clearCgroupfolder(agentPid_);
     agentPid_ = 0;
     zmqPortAvlPush(zmqPort_);
     return true;
@@ -1048,17 +1089,6 @@ DaemonManager::DaemonManager(const boost::program_options::variables_map &vm, ti
     char *nodeName = getenv("HOSTNAME");
 	if(nodeName != nullptr) {
         daemon_.setNodeName(nodeName);
-    }
-    
-    if(vm_.count("includingNICs")) {
-        std::vector<std::string> nics;
-        boost::split(nics, vm_["includingNICs"].as<std::string>(), boost::is_any_of(","));
-        if (0 == daemon_.filterNics(nics)) {
-            ctx_.log("No nics left after filtering, please check the config of \"includingNICs\"", log4cpp::Priority::ERROR);
-            std::cerr << "No nics left after filtering, please check the config of \"includingNICs\"" << std::endl;
-            timer_tasks_stop(tasks_);
-            return;
-        }
     }
     
     //set podname (and name space) for sidecard mode
@@ -1098,7 +1128,7 @@ DaemonManager::DaemonManager(const boost::program_options::variables_map &vm, ti
         }
     }
     
-	daemon_.setClientVersion("0.7.0");
+	daemon_.setClientVersion("0.7.3");
     
     split(strs, SUPPORT_API_VERSIONS, boost::algorithm::is_any_of(","));
     for (const auto& str:strs) {
@@ -1176,6 +1206,19 @@ void DaemonManager::scanNetworkInterfaceImpl() {
     {
         ctx_.log("scanNetworkInterface changed ", log4cpp::Priority::INFO);
         LOG(INFO) << "scanNetworkInterface changed ";
+        daemon_.updateNics();
+        if(vm_.count("includingNICs"))  {
+            std::vector<std::string> nics;
+            boost::split(nics, vm_["includingNICs"].as<std::string>(), boost::is_any_of(","));
+            if (0 == daemon_.filterNics(nics)) {
+                ctx_.log("No nics left after filtering, please check the config of \"includingNICs\"", log4cpp::Priority::ERROR);
+                std::cerr << "No nics left after filtering, please check the config of \"includingNICs\"" << std::endl;
+                timer_tasks_stop(tasks_);
+                return;
+            }
+
+        }
+        
         if(!daemonReg())
             interfaces_ = interfaces;
     }

@@ -94,10 +94,14 @@ static std::string getProccssIdWithContainer(const std::string &containerId, Log
 	fp=popen(cmd.c_str(),"r");
 	fgets(buffer,sizeof(buffer),fp);
     pclose(fp);
-#endif
+
     if (strlen(buffer) == 0) {
+        std::string output_buffer = std::string("Can't get pid for the containerId:") + id;
+        ctx.log(output_buffer, log4cpp::Priority::ERROR);
+        std::cerr << StatisLogContext::getTimeString() << output_buffer << std::endl;
         return std::string();
-    }	
+    }
+#endif	
     return std::string(buffer, strlen(buffer) - 1);
 }
 
@@ -665,7 +669,14 @@ Allowed options for each interface:");
         uint16_t daemon_zmq_port = vm["control"].as<uint16_t>();
         if (daemon_zmq_port) {
             if (agent_control_plane == nullptr) {
-                agent_control_plane = std::make_shared<AgentControlPlane>(ctx, daemon_zmq_port);
+                try {
+                    agent_control_plane = std::make_shared<AgentControlPlane>(ctx, daemon_zmq_port);
+                } catch (zmq::error_t& e) {
+                    output_buffer = std::string("Can not bind daemon zmq port:") + std::to_string(daemon_zmq_port) + "," +e.what();
+                    ctx.log(output_buffer, log4cpp::Priority::ERROR);
+                    std::cerr << output_buffer << std::endl;
+                    return 1;
+                }      
             }
             update_status = 1;
         }
