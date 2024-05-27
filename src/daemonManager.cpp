@@ -186,6 +186,7 @@ void DaemonManager::getDaemonImpl() {
         LOG(ERROR) << output_buffer;
         return;
     }
+  
     ::curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &statusCode);
     
     if (statusCode == 200) {
@@ -317,16 +318,6 @@ void DaemonManager::getDaemonImpl() {
         struct timeval tv;
         gettimeofday(&tv,NULL);
         daemon_.setStartTime(tv);
-      
-      	std::vector<std::string> strs;
-        strs.resize(0);
-        std::string labels = vm_["labels"].as<std::string>();
-        split(strs, labels, boost::algorithm::is_any_of(","));
-        for (const auto& str:strs) {
-            std::shared_ptr<io::swagger::server::model::Label> newItem(new io::swagger::server::model::Label());
-            newItem->setValue(str);
-            daemon_.getLabels().push_back(newItem);
-        }
         
         interfaces_.clear();
     }
@@ -1074,7 +1065,6 @@ bool DaemonManager::delAgent() {
 DaemonManager::DaemonManager(const boost::program_options::variables_map &vm, timer_tasks_t* tasks, LogFileContext& ctx)
         :vm_(vm),tasks_(tasks), ctx_(ctx)
 {
-    std::vector<std::string> strs;
     daemon_.setLogFileContext(ctx);
     daemon_.setName(vm_["name"].as<std::string>());
     const auto uuid = boost::uuids::random_generator()();
@@ -1128,8 +1118,8 @@ DaemonManager::DaemonManager(const boost::program_options::variables_map &vm, ti
         }
     }
     
-	daemon_.setClientVersion("0.7.3");
-    
+	daemon_.setClientVersion("0.7.4");
+    std::vector<std::string> strs;
     split(strs, SUPPORT_API_VERSIONS, boost::algorithm::is_any_of(","));
     for (const auto& str:strs) {
         daemon_.getSupportApiVersions().push_back(str);
@@ -1142,13 +1132,6 @@ DaemonManager::DaemonManager(const boost::program_options::variables_map &vm, ti
     daemon_.setSyncMode("pull");
 
     strs.resize(0);
-    std::string labels = vm_["labels"].as<std::string>();
-    split(strs, labels, boost::algorithm::is_any_of(","));
-    for (const auto& str:strs) {
-        std::shared_ptr<io::swagger::server::model::Label> newItem(new io::swagger::server::model::Label());
-        newItem->setValue(str);
-        daemon_.getLabels().push_back(newItem);
-    }
 
     daemon_.setPlatformId (vm_["platformId"].as<std::string>());
     strs.resize(0);
@@ -1265,6 +1248,16 @@ int DaemonManager::daemonReg() {
     CURLcode res;
     long statusCode;
     std::string body;
+    std::vector<std::string> strs;
+
+    daemon_.getLabels().clear();
+    std::string labels = vm_["labels"].as<std::string>();
+    split(strs, labels, boost::algorithm::is_any_of(","));
+    for (const auto& str:strs) {
+        std::shared_ptr<io::swagger::server::model::Label> newItem(new io::swagger::server::model::Label());
+        newItem->setValue(str);
+        daemon_.getLabels().push_back(newItem);
+    }
 
     url = vm_["manager"].as<std::string>();
     ::curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
