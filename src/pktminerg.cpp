@@ -86,14 +86,37 @@ static std::string getProccssIdWithContainer(const std::string &containerId, Log
         id = containerId.substr(pos+3);
     }
 
-    std::string output_buffer = std::string("Get containerId:") + id;
+    std::string output_buffer = std::string("Get Id:") + id +std::string(" from CPM.");
     ctx.log(output_buffer, log4cpp::Priority::INFO);
     std::cout << StatisLogContext::getTimeString() << output_buffer << std::endl;
-    const auto cmd = boost::str(
-            boost::format("sh /usr/local/bin/get_pid_with_container.sh %1%") % id);
-	fp=popen(cmd.c_str(),"r");
-	fgets(buffer,sizeof(buffer),fp);
+    //get pid with docker
+    auto cmd = std::string("docker inspect ") + id + std::string("|grep -i \"pid\"");
+    fp=popen(cmd.c_str(),"r");
+    if (!fgets(buffer,sizeof(buffer),fp)) {
+        pclose(fp);
+        cmd = std::string("crictl inspect ") + id + std::string("|grep -i \"pid\""); 
+        fp=popen(cmd.c_str(),"r");
+        fgets(buffer,sizeof(buffer),fp);
+    }
+    std::cout<<StatisLogContext::getTimeString()<<"Get Pid with docker/crictl:"<<buffer<<std::endl;
     pclose(fp);
+    if (strlen(buffer) != 0) {
+        std::string pidStr = buffer;
+        int leftIndex = pidStr.find(":");
+        int rightIndex = pidStr.find(",");
+        pidStr = pidStr.substr(leftIndex+1, rightIndex-leftIndex-1);
+        if (pidStr[0]==' ') {
+            pidStr = pidStr.substr(1,pidStr.length()-1);
+        }
+        std::cout<<StatisLogContext::getTimeString()<<"Get PidNum with docker/crictl:"<<pidStr<<std::endl;
+        return pidStr;
+    } else {     
+        auto cmd = boost::str(
+        boost::format("sh get_pid_with_container.sh %1%") % id);
+	    fp=popen(cmd.c_str(),"r");
+	    fgets(buffer,sizeof(buffer),fp);
+        pclose(fp);
+    }   
 
     if (strlen(buffer) == 0) {
         std::string output_buffer = std::string("Can't get pid for the containerId:") + id;
