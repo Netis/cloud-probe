@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     
     container:
-      image: centos:8
+      image: centos:7
 
     steps:  
     - name: Set up Boost
