@@ -101,5 +101,7 @@ The content of this repository bound by the following licenses:
 ## Contact info
 * You can E-mail to [developer@netis.com](mailto:developer@netis.com).
 * You can also report issues and suggestions via [GitHub issues](https://github.com/Netis/packet-agent/issues).
+## Issue template
+* if you have any issue to put forward, please follow the issue template (issue_report_template.md).
 
 <br/>
