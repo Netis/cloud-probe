@@ -101,6 +101,8 @@ Copyright (c) 2018 - 2020 Netis.<br/>
 ## 联系方式
 * 您可以给我们发邮件到[developer@netis.com](mailto:developer@netis.com)。
 * 您也可以在[GitHub issues](https://github.com/Netis/cloud-probe/issues)直接报告问题和建议。
+## issue模板
+* 在您提出issue时，请按照相关模板 （issue_report_template.md）
 
 
 
