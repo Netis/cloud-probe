@@ -102,6 +102,6 @@ The content of this repository bound by the following licenses:
 * You can E-mail to [developer@netis.com](mailto:developer@netis.com).
 * You can also report issues and suggestions via [GitHub issues](https://github.com/Netis/packet-agent/issues).
 ## Issue template
-* if you have any issue to put forward, please follow the issue template (issue_report_template.md).
+* if you have any issue to report, please use the issue template provided([issue_report_template_English.md](https://github.com/Netis/cloud-probe/blob/master/issue_report_template_English.md)).
 
 <br/>
