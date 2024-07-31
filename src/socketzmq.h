@@ -20,6 +20,7 @@ typedef struct batch_pkts_header {
 	uint16_t version;
 	uint16_t pkts_num;
 	uint32_t keybit;
+    uint8_t uuid [16];
 } batch_pkts_hdr_t;
 
 struct BatchPktsBuf {
@@ -31,7 +32,7 @@ struct BatchPktsBuf {
     uint32_t batch_bufpos;
     long int first_pktsec;
 public:
-	static constexpr uint16_t BATCH_PKTS_VERSION = 1;
+	static constexpr uint16_t BATCH_PKTS_VERSION = 2;
 };
 
 

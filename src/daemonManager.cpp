@@ -1118,7 +1118,7 @@ DaemonManager::DaemonManager(const boost::program_options::variables_map &vm, ti
         }
     }
     
-	daemon_.setClientVersion("0.7.5");
+	daemon_.setClientVersion("0.8.0");
     std::vector<std::string> strs;
     split(strs, SUPPORT_API_VERSIONS, boost::algorithm::is_any_of(","));
     for (const auto& str:strs) {
