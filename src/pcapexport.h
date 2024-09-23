@@ -169,7 +169,7 @@ protected:
 
                             delta_us = (uint64_t)(_send_bytes / _Bpus);
                             tick_us = _first_send_us + delta_us;
-                            if(us < tick_us)// && (tick_us - us) > 1000) //traffic jitter
+                            if((us < tick_us)&&(tick_us - us) > 100000)  //traffic jitter
                                 return -1;
                             tick_us = _first_send_us + delta_us + __TRAFFIC_GAP_US; //traffic gap
                             if(us > tick_us)
@@ -196,7 +196,7 @@ protected:
 
                             delta_us = (uint64_t)(_send_bytes / _Bpus);
                             tick_us = _first_send_us + delta_us;
-                            if(us < tick_us)// && (tick_us - us) > 1000) //traffic jitter
+                            if((us < tick_us)&&(tick_us - us) > 100000) 
                                 return -1;
                             tick_us = _first_send_us + delta_us + __TRAFFIC_GAP_US; //traffic gap
                             if(us > tick_us)
@@ -225,7 +225,7 @@ protected:
 
                             delta_us = (uint64_t)(_send_bytes / _Bpus);
                             tick_us = _first_send_us + delta_us;
-                            if(us < tick_us)// && (tick_us - us) > 1000) //traffic jitter
+                            if((us < tick_us)&&(tick_us - us) > 100000) //traffic jitter
                                 return -1;
                             tick_us = _first_send_us + delta_us + __TRAFFIC_GAP_US; //traffic gap
                             if(us > tick_us)
