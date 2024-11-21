@@ -357,7 +357,7 @@ Allowed options for each interface:");
             ("buffsize,b", boost::program_options::value<int>()->default_value(256)->value_name("SIZE"),
              "set snoop buffer size; SIZE defaults 256 and units MB")
             ("priority,p", "set high priority mode")
-            ("in_addr", boost::program_options::value<int>()->value_name("ID"), "set cpu affinity ID")
+            ("cpu", boost::program_options::value<int>()->value_name("ID"), "set cpu affinity ID")
             ("expression", boost::program_options::value<std::vector<std::string>>()->value_name("FILTER"),
              R"(filter packets with FILTER; FILTER as same as tcpdump BPF expression syntax)")
             ("dump", boost::program_options::value<std::string>()->default_value("./")->value_name("DUMP"),
@@ -653,7 +653,7 @@ Allowed options for each interface:");
         }
 
         // check options
-        if (vm.count("interface") + vm.count("pcapfile") + vm.count("container") + vm.count("kvm")!= 1) {
+        if ((vm.count("interface") || vm.count("container")) + vm.count("pcapfile") + vm.count("kvm")!= 1) {
             ctx.log("Please choice only one snoop mode, from interface use -i or from pcap file use -f or from container use -c or from KVM use -m.", 
                     log4cpp::Priority::ERROR);
             std::cerr << StatisLogContext::getTimeString() 
@@ -758,8 +758,9 @@ Allowed options for each interface:");
         }
         std::string processId = "";
         if (vm.count("container")) {
-            // suppose that a container only has one interface named "eth0"
-            intface = "eth0";
+            if (intface == "") {
+                intface = "eth0";
+            }
             processId = getProccssIdWithContainer(vm["container"].as<std::string>(), g_ctx);
             if (processId.length() == 0) {
                 continue;
@@ -978,25 +979,37 @@ Allowed options for each interface:");
 #endif
         }
         allHandlersDown = true;
+        auto now = std::chrono::steady_clock::now();
+    
+        auto milliseconds = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
+        auto epoch = milliseconds.time_since_epoch();
+        long long currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count();
+        
         for (auto iter = handlers.begin(); iter != handlers.end() && isLoop;++iter) {
-            if((*iter)->getHandlerStatus() == HANDLER_DOWN) {
+            if((*iter)->getHandlerCheckTime() > 0 && currentTime-(*iter)->getHandlerCheckTime() < 100) {
+                continue;
+            }
+            if((*iter)->getHandlerCheckTime() != 0) {
                 if((*iter)->openPcap() == -1) {
                     (*iter)->clearHandler();
+                    (*iter)->setHandlerCheckTime(currentTime);
                     continue;
                 }
                 if ((*iter)->initExport() == -1) {
                     (*iter)->getLogFileContext().log("initExport failed.", log4cpp::Priority::ERROR);
                     std::cerr << StatisLogContext::getTimeString() << "initExport failed." << std::endl;
                     (*iter)->clearHandler();
+                    (*iter)->setHandlerCheckTime(currentTime);
                     continue;
                 }
-                (*iter)->setHandlerStatus(HANDLER_ACTIVE);
+                (*iter)->setHandlerCheckTime(0);
             }
                        
             if ((*iter)->handlePacket() == 0) {    
                 allHandlersDown = false;
             } else {
                 (*iter)->clearHandler();
+                (*iter)->setHandlerCheckTime(currentTime);
             }
         }
     }

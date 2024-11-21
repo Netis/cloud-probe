@@ -16,8 +16,6 @@
 #include "statislog.h"
 #include "logfilecontext.h"
 
-#define HANDLER_ACTIVE 1
-#define HANDLER_DOWN 2
 
 
 typedef struct PcapInit {
@@ -89,7 +87,7 @@ protected:
     IpPortAddr _addr;
     u_int8_t  _macAddr[ETH_ALEN] ={0};
     bool _autoDirection = false;
-    int _handlerStatus = HANDLER_DOWN;
+    long long _handlerCheckTime = -1;
     std::string output_buffer;
     LogFileContext _ctx;
 #ifdef _WIN32
@@ -117,8 +115,8 @@ public:
     
     void setDirIPPorts(std::string str) {_addr.init(str);};
     int openPcapDumper(pcap_t *pcap_handle);  
-    void setHandlerStatus (int status) {_handlerStatus = status;};
-    int getHandlerStatus () {return _handlerStatus;};
+    void setHandlerCheckTime (long long t) {_handlerCheckTime = t;};
+    long long getHandlerCheckTime () {return _handlerCheckTime;};
 
     LogFileContext& getLogFileContext() {return _ctx;};
 };

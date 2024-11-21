@@ -248,7 +248,7 @@ void DaemonManager::getDaemonImpl() {
         std::stringstream jsonS;
         jsonS << report_.toJson();
         const auto json = jsonS.str();
-
+        
         if (report_.packetAgentLogsIsSet()) {
             report_.unsetPacketAgentLogs();
         }
@@ -510,7 +510,7 @@ int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::strings
         }
         buffSize = body.getMemLimit()/stratigies;
     }
-    
+    capBuff_ = buffSize;
     if(!(port = zmqPortAvlPop())) {
             io::swagger::server::model::Error error;
             error.setCode(0);
@@ -542,15 +542,33 @@ int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::strings
         if (data->containerIdsIsSet()) {
             int id = 0;
             for (auto & i: data->getContainerIds()) {
-                const auto command = boost::str(
+                std::vector<std::string> results;
+                boost::split(results, i, boost::is_any_of("_"), boost::token_compress_on);
+
+                if (results.size() > 1) {
+                    for (unsigned int count = 1; count < results.size(); count++) {
+                        const auto command = boost::str(
+                        boost::format("%1%%2%%3%%4%")
+                        %(std::string("-c ") + results[0])
+                        %(std::string(" -i ") + results[count])
+                        %getChannelArg(data, id)
+                        %cmdParams);
+
+                        commandStr.push_back(command);
+                        str += " " + command;
+                        id ++;   
+                    }
+                } else {
+                    const auto command = boost::str(
                         boost::format("%1%%2%%3%")
                         %(std::string("-c ") + i)
                         %getChannelArg(data, id)
                         %cmdParams);
 
-                commandStr.push_back(command);
-                str += " " + command;
-                id ++;
+                    commandStr.push_back(command);
+                    str += " " + command;
+                    id ++;
+                }    
             }
         } else if (data->interfaceNamesIsSet()) {
             int id = 0;
@@ -760,6 +778,7 @@ int DaemonManager::updateChannelStatusSync() {
         packet_channel_metric_ptr->setCapDrop(p_status->total_cap_drop_count);
         packet_channel_metric_ptr->setFwdBytes(p_status->total_fwd_bytes);
         packet_channel_metric_ptr->setFwdPackets(p_status->total_fwd_count);
+        packet_channel_metric_ptr->setCapBuff(capBuff_);
 
     } else {
         ctx_.log("agent status query failed.", log4cpp::Priority::ERROR);
@@ -1118,7 +1137,7 @@ DaemonManager::DaemonManager(const boost::program_options::variables_map &vm, ti
         }
     }
     
-	daemon_.setClientVersion("0.8.2");
+    daemon_.setClientVersion("0.8.3");
     std::vector<std::string> strs;
     split(strs, SUPPORT_API_VERSIONS, boost::algorithm::is_any_of(","));
     for (const auto& str:strs) {
