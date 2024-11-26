@@ -138,6 +138,7 @@ private:
     io::swagger::server::model::Daemon daemon_;
     io::swagger::server::model::Report report_;
     io::swagger::server::model::Agent agent_;
+    uint64_t capBuff_ = 0;
     pid_t agentPid_ = 0;
     uint16_t zmqPort_;
     const uint32_t ZMQ_TIMEOUT_ = 1000; // millisecond unit

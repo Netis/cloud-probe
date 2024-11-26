@@ -540,6 +540,7 @@ int PcapHandler::openPcap() {
         }
     }
     pcapGuard.Dismiss();
+        
     _pcap_handle = pcap_handle;
     
     return 0;
@@ -656,7 +657,6 @@ void PcapHandler::clearHandler() {
     closeExport();
     closePcapDumper();
     closePcap();
-    setHandlerStatus(HANDLER_DOWN);
 }
 
 void PcapHandler::closeExport() {

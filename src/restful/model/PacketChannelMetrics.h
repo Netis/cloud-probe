@@ -125,7 +125,13 @@ public:
     void setFwdPackets(uint64_t value);
     bool fwdPacketsIsSet() const;
     void unsetFwdPackets();
-
+    /// <summary>
+    /// Packet Agent 从启动开始转发的数据包数
+    /// </summary>
+    uint64_t getCapBuff() const;
+    void setCapBuff(uint64_t value);
+    bool capBuffIsSet() const;
+    void unsetCapBuff();
 protected:
     long m_SamplingTimestamp;
     long m_SamplingMicroTimestamp;
@@ -148,6 +154,8 @@ protected:
     bool m_FwdBytesIsSet;
     uint64_t m_FwdPackets;
     bool m_FwdPacketsIsSet;
+    uint64_t m_CapBuff;
+    bool m_CapBuffIsSet;
     long m_StartTime;
     bool m_StartTimeIsSet;
 };

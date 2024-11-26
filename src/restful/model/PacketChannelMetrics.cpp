@@ -39,6 +39,8 @@ namespace io {
                     m_FwdBytes = 0L;
                     m_FwdBytesIsSet = false;
                     m_FwdPackets = 0L;
+                    m_CapBuffIsSet = false;
+                    m_CapBuff = 0L;
                     m_FwdPacketsIsSet = false;
                     m_StartTime = 0;
                     m_StartTimeIsSet = false;
@@ -90,7 +92,9 @@ namespace io {
                     if (m_FwdBytesIsSet) {
                         val["fwdPackets"] = m_FwdPackets;
                     }
-
+                    if (m_CapBuffIsSet) {
+                        val["capBuff"] = m_CapBuff;
+                    }
 
                     return val;
                 }
@@ -108,6 +112,7 @@ namespace io {
                     MB_FSET(capDrop, CapDrop)
                     MB_FSET(fwdBytes, FwdBytes)
                     MB_FSET(fwdPackets, FwdPackets)
+                    MB_FSET(capBuff, CapBuff)
                 }
 
 
@@ -291,7 +296,22 @@ namespace io {
                 void PacketAgentMetrics::unsetFwdPackets() {
                     m_FwdPacketsIsSet = false;
                 }
+                uint64_t PacketAgentMetrics::getCapBuff() const {
+                    return m_CapBuff;
+                }
 
+                void PacketAgentMetrics::setCapBuff(uint64_t value) {
+                    m_CapBuff = value;
+                    m_CapBuffIsSet = true;
+                }
+
+                bool PacketAgentMetrics::capBuffIsSet() const {
+                    return m_CapBuffIsSet;
+                }
+
+                void PacketAgentMetrics::unsetCapBuff() {
+                    m_CapBuffIsSet = false;
+                }
             }
         }
     }
