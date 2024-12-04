@@ -224,6 +224,14 @@ namespace io {
     
                     void unsetForwardRateLimit();
 
+                    int32_t getCapTime() const;
+    
+                    void setCapTime(int32_t value);
+    
+                    bool capTimeIsSet() const;
+    
+                    void unsetCapTime();
+
                     std::string getApiVersion() const;
     
                     void setApiVersion(std::string value);
@@ -305,6 +313,8 @@ namespace io {
                     bool m_ExtensionFlagIsSet;
                     std::vector<uint8_t> m_ObservationPointIds;
                     bool m_ObservationPointIdsIsSet;
+                    int32_t m_CapTime;
+                    bool m_CapTimeIsSet;
                 };
             }
         }

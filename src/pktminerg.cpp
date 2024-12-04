@@ -376,6 +376,7 @@ Allowed options for each interface:");
              "specify a floating point value for the Mbps rate that pktmg should send packets at.")
             ("dir", boost::program_options::value<std::string>()->value_name("DIR"),
              "specify the direction determination expression")
+             ("capTime", boost::program_options::value<int>()->value_name("CAPTIME"),"set capture time in tranferred packets for VxLan")          
 #ifdef _WIN32
              ("macRefreshInterval", boost::program_options::value<int>()->value_name("MACREFRESHINTERVAL"),
              "specify the interval to refresh mac list of VM and PA")
@@ -727,6 +728,7 @@ Allowed options for each interface:");
         uint32_t vni;
         uint8_t vni_version;
         int vxlan_port;
+        int capTime = 0;
         
         if (zmq_port > 0) {
             type = exporttype::zmq;
@@ -746,6 +748,9 @@ Allowed options for each interface:");
             keybit = vm["keybit"].as<uint32_t>();
         }
 
+        if(vm.count("capTime")) {
+            capTime = vm["capTime"].as<int>();
+        }
         std::string intface = "";
         if (vm.count("interface")) {
             auto strs = vm["interface"].as<std::vector<std::string>>();
@@ -945,7 +950,7 @@ Allowed options for each interface:");
 
             case exporttype::vxlan:
                 exportPtr = std::make_shared<PcapExportVxlan>(remoteips, vni, bind_device, pmtudisc, vxlan_port, 
-                                    vm["mbps"].as<double>(), vni_version, ctx);
+                                    vm["mbps"].as<double>(), vni_version, ctx, capTime);
                 break;
 
             default:

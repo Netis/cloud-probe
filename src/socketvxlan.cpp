@@ -1,4 +1,5 @@
 #include "socketvxlan.h"
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include "statislog.h"
@@ -6,7 +7,7 @@ const int INVALIDE_SOCKET_FD = -1;
 
 PcapExportVxlan::PcapExportVxlan(const std::vector<std::string>& remoteips, uint32_t vni, const std::string& bind_device,
                                  const int pmtudisc, const int vxlan_port, double mbps, uint8_t vni_version,
-                                 LogFileContext& ctx) :
+                                 LogFileContext& ctx, int capTime) :
         _remoteips(remoteips),
         _vni(vni),
         _vni_version(vni_version),
@@ -16,7 +17,8 @@ PcapExportVxlan::PcapExportVxlan(const std::vector<std::string>& remoteips, uint
         _socketfds(remoteips.size()),
         _remote_addrs(remoteips.size()),        
         _vxlanbuffers(remoteips.size()),
-        _ctx(ctx) {
+        _ctx(ctx),
+        _capTime(capTime){
     setExportTypeAndMbps(exporttype::vxlan, mbps);
     for (size_t i = 0; i < remoteips.size(); ++i) {
         _socketfds[i] = INVALIDE_SOCKET_FD;
@@ -129,11 +131,19 @@ int PcapExportVxlan::exportPacket(size_t index, const struct pcap_pkthdr* header
     auto& remote_addr = _remote_addrs[index];
 
     size_t length = (size_t) (header->caplen <= 65535 ? header->caplen : 65535);
-
+    
     vxlan_hdr_t* hdr;
     hdr = (vxlan_hdr_t*)&*vxlanbuffer.begin();
     std::memcpy(reinterpret_cast<void*>(&(vxlanbuffer[sizeof(vxlan_hdr_t)])),
                 reinterpret_cast<const void*>(pkt_data), length);
+    uint32_t tv_sec = htonl(header->ts.tv_sec);
+    uint32_t tv_usec = htonl(header->ts.tv_usec);
+    if (_capTime == 1) {
+        memcpy(reinterpret_cast<void*>(&(vxlanbuffer[sizeof(vxlan_hdr_t)]) + length), &tv_sec, sizeof(uint32_t));
+        length += 4;
+        memcpy(reinterpret_cast<void*>(&(vxlanbuffer[sizeof(vxlan_hdr_t)]) + length), &tv_usec, sizeof(uint32_t));
+        length += 4;
+    }
     if (_vni_version == 1) {
         hdr->vx_vni = htonl(_vni<<8);
         if (direct != 0) {

@@ -21,6 +21,7 @@ protected:
     std::vector<std::vector<char>> _vxlanbuffers;
     LogFileContext _ctx;
     std::string output_buffer;
+    int _capTime;
 
 private:
     int initSockets(size_t index, uint32_t vni);
@@ -28,7 +29,7 @@ private:
 
 public:
     PcapExportVxlan(const std::vector<std::string>& remoteips, uint32_t vni, const std::string& bind_device,
-                    const int pmtudisc, const int vxlan_port, double mbps,uint8_t vni_version, LogFileContext& ctx);
+                    const int pmtudisc, const int vxlan_port, double mbps,uint8_t vni_version, LogFileContext& ctx, int capTime);
     ~PcapExportVxlan();
     int initExport();
     int exportPacket(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct);

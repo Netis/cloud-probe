@@ -541,6 +541,27 @@ int PcapHandler::openPcap() {
     }
     pcapGuard.Dismiss();
         
+#ifndef _WIN32
+    int fd1 = -1;
+    if (_param.getProcessId() != "") {
+        pid_t pid = getppid();
+        std::string path = "/proc/" + std::to_string(pid) + "/ns/net";
+        fd1 = open(path.c_str(), O_RDONLY); /* Get file descriptor for namespace */
+
+        if (fd1 == -1) {
+            std::cerr << "Can not open the namespace:" <<path<<std::endl;
+            return -1;
+        }
+
+        if (setns(fd1, 0) == -1) {
+            std::cerr << "Can not set the namespace:" <<path<<std::endl;
+            return -1;
+        }
+        if (fd1 != -1) {
+            close(fd1);
+        }
+    }
+#endif
     _pcap_handle = pcap_handle;
     
     return 0;
