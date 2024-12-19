@@ -164,6 +164,11 @@ namespace io {
                         val["forwardRateLimit"] = m_ForwardRateLimit;
                     }
 
+                    if(m_CapTimeIsSet)
+                    {
+                        val["capTime"] = m_CapTime;
+                    }
+
                     if(m_ApiVersionIsSet)
                     {
                         val["apiVersion"] = ModelBase::toJson(m_ApiVersion);
@@ -273,7 +278,7 @@ namespace io {
                     MB_FSET(dumpDir, DumpDir)
                     MB_FSET(dumpInterval, DumpInterval)
                     MB_FSET(forwardRateLimit, ForwardRateLimit)
-
+                    MB_FSET(capTime, CapTime)
                     MB_FSET(apiVersion, ApiVersion)
                     {
                         m_ObservationDomainIds.clear();
@@ -533,6 +538,23 @@ namespace io {
 
                 void PacketAgentData::unsetForwardRateLimit() {
                     m_ForwardRateLimitIsSet = false;
+                }
+
+                int32_t PacketAgentData::getCapTime() const {
+                    return m_CapTime;
+                }
+
+                void PacketAgentData::setCapTime(int32_t value) {
+                    m_CapTime = value;
+                    m_CapTimeIsSet = true;
+                }
+
+                bool PacketAgentData::capTimeIsSet() const {
+                    return m_CapTimeIsSet;
+                }
+
+                void PacketAgentData::unsetCapTime() {
+                    m_CapTimeIsSet = false;
                 }
 
                 std::string PacketAgentData::getApiVersion() const {

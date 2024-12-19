@@ -445,7 +445,7 @@ std::string DaemonManager::createParams(std::shared_ptr<io::swagger::server::mod
         }
     }
     
-    return boost::str(boost::format("%1%%2% --control %3%%4%%5%%6%%7%%8%")
+    return boost::str(boost::format("%1%%2% --control %3%%4%%5%%6%%7%%8%%9%")
                         % (data->addressIsSet()
                            ? std::string(" -r ") + data->getAddress() : std::string())
                         % (data->getBpf().empty()
@@ -458,6 +458,8 @@ std::string DaemonManager::createParams(std::shared_ptr<io::swagger::server::mod
                                 boost::format(" %1%") % data->getStartup()) : std::string())
                         % (data->forwardRateLimitIsSet()
                            ? std::string(" --mbps ") + std::to_string(data->getForwardRateLimit()) : std::string())
+                        % (data->capTimeIsSet()
+                           ? std::string(" --capTime ") + std::to_string(data->getCapTime()) : std::string())
                         % (dir != ""
                            ? std::string(" --dir ") + dir : std::string()));
 }
@@ -1204,7 +1206,7 @@ void DaemonManager::scanNetworkInterfaceImpl() {
     interfaces = readInterfaces(ctx_);
 
     std::lock_guard<std::recursive_mutex> lock{mtx_};
-    if(interfaces != interfaces_)
+    if(interfaces_.empty())
     {
         ctx_.log("scanNetworkInterface changed ", log4cpp::Priority::INFO);
         LOG(INFO) << "scanNetworkInterface changed ";
