@@ -143,15 +143,9 @@ int PcapExportVxlan::exportPacket(size_t index,
   std::memcpy(reinterpret_cast<void *>(&(vxlanbuffer[sizeof(vxlan_hdr_t)])),
               reinterpret_cast<const void *>(pkt_data), length);
   uint32_t tv_sec = htonl(header->ts.tv_sec);
-  /*注意：通过libpcap获取的捕获时间精度与系统中断精度有关，该数值单位可能是毫秒或者微秒，可以通过以下命令查看
-   *==============================================
-   * grep CONFIG_HZ /boot/config-$(uname -r)
-   * CONFIG_HZ_1000=y
-   * CONFIG_HZ=1000
-   *===============================================
-   * 因为Centos7.9系统中断默认ms级别，所以此处*1000，后续将增加自适应判断是否需要进行转换。
-   */
-  uint32_t tv_usec = htonl(header->ts.tv_usec*1000);
+  //注意：通过libpcap获取的捕获时间精度为微秒，而数据包中附加的时间为纳秒，所以需要*1000
+  uint32_t tv_nsec = htonl(header->ts.tv_usec*1000);
+  std::cout << "====got time" << header->ts.tv_usec<< std::endl;
   if (_capTime == 1) {
     memcpy(
         reinterpret_cast<void *>(&(vxlanbuffer[sizeof(vxlan_hdr_t)]) + length),
@@ -159,7 +153,7 @@ int PcapExportVxlan::exportPacket(size_t index,
     length += 4;
     memcpy(
         reinterpret_cast<void *>(&(vxlanbuffer[sizeof(vxlan_hdr_t)]) + length),
-        &tv_usec, sizeof(uint32_t));
+        &tv_nsec, sizeof(uint32_t));
     length += 4;
   }
   if (_vni_version == 1) {
