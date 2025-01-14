@@ -1,8 +1,8 @@
 
-English  ∙  [简体中文](README-zh-Hans.md) 
+English  ∙  [简体中文](README-zh-Hans.md)
 
 ![packet agent's title](./img/title.jpg)
-# Netis Cloud Probe 
+# Netis Cloud Probe
 
 [![Stable release](https://img.shields.io/badge/version-0.3.6-green.svg)](https://github.com/Netis/packet-agent/releases/tag/0.3.6)
 [![Software License](https://img.shields.io/badge/license-BSD3-green.svg)](./LICENSE.md)
@@ -54,9 +54,9 @@ Remarks: If it encounter a library dependency error when install from rpm, you s
 Remarks: Now only support CentOS 6/7, RedHat 7, SUSE 12, Ubuntu 18.04 LTS.
 
 #### Windows 2019 server
-1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version. 
+1. Download and Install [Winpcap](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe) of latest version.
 2. Download and Install [Microsoft Visual C++ Redistributable for Visual Studio 2017 x64](https://aka.ms/vs/15/release/vc_redist.x64.exe).
-3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode. https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0.Windows.AMD64.zip 
+3. Extract pktminerg and other utilities from zip,  and run it in cmd in Administrator Mode. https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0.Windows.AMD64.zip
 
 <br>
 
@@ -92,6 +92,9 @@ For build precondition and steps, please refer to this [document](./BUILD.md).
 
 ## Contributing
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.
+
+## Support
+This project is provided to teams with development capabilities, and there is no official commitment to provide support. For details see [SUPPORT.md](./SUPPORT.md)。
 
 ## License
 Copyright (c) 2018 - 2020 Netis.<br/>
