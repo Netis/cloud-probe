@@ -58,7 +58,7 @@ sudo dpkg -i netis-cloud-probe-0.7.0_amd64.deb
 3. 从zip文件解压pktminerg和其他utilities，并在命令行界面运行（需管理员模式）.https://github.com/Netis/cloud-probe/releases/download/v0.7.0/netis-cloud-probe-0.7.0.Windows.AMD64.zip
 
 
-### 使用 
+### 使用
 备注：请确保防火墙允许向目标发送GRE数据包.
 https://lartc.org/howto/lartc.tunnel.gre.html提供验证是否允许向目标发送GRE数据包的方法.
 ```bash
@@ -92,6 +92,9 @@ pktminerg "-i eth0 -r 172.16.1.201 -k 12" "-i eth1 -r 10.1.2.123 -n 12"
 
 ## 贡献
 您可以fork本项目并提交Pull Request。我们欢迎所有开源社区的同学提交自己的贡献。
+
+## 支持
+本项目提供给具备开发能力的团队使用，官方不承诺提供支持。详情参见 [SUPPORT-zh-Hans.md](./SUPPORT-zh-Hans.md)。
 
 ## 许可证
 Copyright (c) 2018 - 2020 Netis.<br/>
