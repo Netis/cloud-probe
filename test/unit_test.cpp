@@ -65,10 +65,10 @@ namespace {
         LogFileContext ctx(false, "");
         std::vector<std::string> remoteips;
         remoteips.push_back("127.0.1.1");
-        PcapExportVxlan vxlanExport1(remoteips, 2, "eth0", IP_PMTUDISC_DONT, 4789,100,1, ctx);
-        PcapExportVxlan vxlanExport2(remoteips, 12, "eth0", IP_PMTUDISC_DONT, 4789,100,2, ctx);
+        PcapExportVxlan vxlanExport1(remoteips, 2, "eth0", IP_PMTUDISC_DONT, 4789,100,1, ctx, 0);
+        PcapExportVxlan vxlanExport2(remoteips, 12, "eth0", IP_PMTUDISC_DONT, 4789,100,2, ctx, 0);
         EXPECT_EQ(0, vxlanExport1.initExport());
-        
+
         EXPECT_EQ(exporttype::vxlan,vxlanExport1.getExportType());
 
         pcap_pkthdr header;
@@ -80,7 +80,7 @@ namespace {
 
         EXPECT_EQ(-1, vxlanExport2.exportPacket(&header, pkt_data.data(), 0));
         EXPECT_EQ(0, vxlanExport2.closeExport());
-        PcapExportVxlan vxlanExport3(remoteips, 12, "eth0", IP_PMTUDISC_DONT, 4789,100,2, ctx);
+        PcapExportVxlan vxlanExport3(remoteips, 12, "eth0", IP_PMTUDISC_DONT, 4789,100,2, ctx, 0);
         EXPECT_EQ(0, vxlanExport3.initExport());
         EXPECT_EQ(0, vxlanExport3.exportPacket(&header, pkt_data.data(), 0));
         EXPECT_EQ(0, vxlanExport3.closeExport());
@@ -91,7 +91,7 @@ namespace {
         std::vector<std::string> remoteips;
         remoteips.push_back("127.0.1.1");
         PcapExportZMQ zmqExport(remoteips, 5566, 2, 12, "eth0", 10,100, ctx);
-        
+
         EXPECT_EQ(0, zmqExport.initExport());
         EXPECT_EQ(exporttype::zmq,zmqExport.getExportType());
 
@@ -106,7 +106,7 @@ namespace {
     }
 
     TEST(AgentStatusQuery, test) {
-        // AgentStatus::get_instance()->update_status(1586508861, header->caplen, 
+        // AgentStatus::get_instance()->update_status(1586508861, header->caplen,
         //                      _gre_count, _gre_drop_count, _pcap_handle);
         AgentStatus* inst = AgentStatus::get_instance();
         inst->reset_agent_status();
@@ -132,7 +132,7 @@ namespace {
         EXPECT_EQ(-1, zmq_server.msg_req_check(&req_msg));
         req_msg.action = MSG_ACTION_REQ_INVALID;
         EXPECT_EQ(0, zmq_server.msg_req_check(&req_msg));
-        
+
         char tmp[sizeof(msg_t) + sizeof(msg_status_t)];
         msg_t *rep = (msg_t*)tmp;
         EXPECT_EQ(0, zmq_server.msg_rsp_process(&req_msg,rep));
@@ -152,17 +152,17 @@ namespace {
       EXPECT_EQ(4290838664,makeMplsHdr(1,12));
       std::vector<std::string> ips;
       LogFileContext ctx(false, "");
-      
+
       pcap_init_t pcapParam;
       pcapParam.snaplen = 2048;
       pcapParam.timeout = 3000;
       pcapParam.promisc = 0;
       pcapParam.buffer_size = 256*1024 * 1024;
-      HandleParam param("/root/tmp/",16, 128,"eth0", "", pcapParam,  
+      HandleParam param("/root/tmp/",16, 128,"eth0", "", pcapParam,
                 "", "host 10.1.1.1 and host nic.eth0", "", ctx);
       PcapHandler handler(param);
       EXPECT_EQ(128,handler.getPacketLen(256));
-     
+
       EXPECT_EQ(0, handler.openPcap());
       EXPECT_EQ(0, handler.setMacAddr("eth0",""));
       EXPECT_NO_THROW(handler.setDirIPPorts("host 10.1.1.1 and host nic.eth0"));
@@ -223,7 +223,7 @@ namespace {
         boost::program_options::options_description all;
         all.add(desc);
         boost::program_options::variables_map vm;
-        
+
         boost::program_options::parsed_options parsed = boost::program_options::command_line_parser(
                     (int) (args.size() - 1), &*args.begin())
                     .options(all).run();
@@ -254,7 +254,7 @@ namespace {
     TEST(Timer,test) {
         timer_tasks_t* tasks = timer_tasks_new();
         EXPECT_NE(nullptr, tasks);
-      	
+
         uint64_t tid = timer_tasks_push(tasks, (task_cb_t)printf, (void*)"test", 1);
         EXPECT_EQ(0, tid);
         timer_tasks_cancel(tasks,tid);
@@ -345,7 +345,7 @@ namespace {
        agent.setCpuLimit(0.22);
        EXPECT_EQ(0.22, agent.getCpuLimit());
        EXPECT_EQ(true,agent.cpuLimitIsSet());
-       
+
        agent.setMemLimit(220);
        EXPECT_EQ(220, agent.getMemLimit());
        EXPECT_EQ(true,agent.memLimitIsSet());
@@ -364,7 +364,7 @@ namespace {
        agent.setStatus("active");
        EXPECT_EQ("active", agent.getStatus());
        EXPECT_EQ(true,agent.statusIsSet());
-       
+
        struct timeval val;
        agent.setStartTime(val);
        EXPECT_NO_THROW(agent.getStartTime());
@@ -388,7 +388,7 @@ namespace {
        agent.unsetPid();
        agent.unsetName();
        agent.unsetStatus();
-       agent.unsetStartTime();   
+       agent.unsetStartTime();
        agent.unsetPacketAgentStrategies();
        agent.unsetVersion();
     }
@@ -426,7 +426,7 @@ namespace {
        strategy->setPacketChannelKey(12);
        EXPECT_EQ(12, strategy->getPacketChannelKey());
        EXPECT_EQ(true,strategy->packetChannelKeyIsSet());
-       
+
        strategy->setAddress("10.1.2.123");
        EXPECT_EQ("10.1.2.123", strategy->getAddress());
        EXPECT_EQ(true,strategy->addressIsSet());
@@ -434,7 +434,7 @@ namespace {
        strategy->setPort(100);
        EXPECT_EQ(100, strategy->getPort());
        EXPECT_EQ(true,strategy->portIsSet());
-       
+
        strategy->setDumpInterval(10);
        EXPECT_EQ(10, strategy->getDumpInterval());
        EXPECT_EQ(true,strategy->dumpIntervalIsSet());
@@ -487,7 +487,7 @@ namespace {
 
        nlohmann::json valj = strategy->toJson();
        strategy->fromJson(valj);
-       
+
        strategy->unsetInterfaceNames();
        strategy->unsetInstanceNames();
        strategy->unsetContainerIds();
@@ -539,7 +539,7 @@ namespace {
 
         daemon.setClientVersion("0.1");
         EXPECT_EQ("0.1",daemon.getClientVersion());
-        EXPECT_EQ(true,daemon.clientVersionIsSet()); 
+        EXPECT_EQ(true,daemon.clientVersionIsSet());
 
         daemon.setNodeName("test");
         EXPECT_EQ("test",daemon.getNodeName());
@@ -559,11 +559,11 @@ namespace {
 
         daemon.setApiVersion("0.1");
         EXPECT_EQ("0.1",daemon.getApiVersion());
-        EXPECT_EQ(true,daemon.apiVersionIsSet()); 
+        EXPECT_EQ(true,daemon.apiVersionIsSet());
 
         daemon.setStatus("active");
         EXPECT_EQ("active",daemon.getStatus());
-        EXPECT_EQ(true,daemon.statusIsSet()); 
+        EXPECT_EQ(true,daemon.statusIsSet());
 
         struct timeval val;
         daemon.setStartTime(val);
@@ -576,7 +576,7 @@ namespace {
         std::shared_ptr<io::swagger::server::model::Label> label(new io::swagger::server::model::Label);
         label->setValue("test");
         EXPECT_EQ("test",label->getValue());
-        EXPECT_EQ(true,label->valueIsSet()); 
+        EXPECT_EQ(true,label->valueIsSet());
 
         std::vector<std::shared_ptr<io::swagger::server::model::NetworkInterface>> interfs;
         EXPECT_NO_THROW(interfs = daemon.getNetworkInterfaces());
