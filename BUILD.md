@@ -5,12 +5,12 @@
 * CentOS 7.x or CentOS 8.x
 * SUSE 12SP2
 * Ubuntu 18.04LTS
-    
+
 ## Required compilers
 
 * GCC 4.8.5 or higher
 * CMake 3.3 or higher
-    
+
 ## Required libraries
 
 * boost-devel
@@ -27,9 +27,11 @@
 # install gcc
 yum groupinstall "Development Tools"
 # install cmake
-yum -y install cmake
+yum install -y epel-release
+yum install -y cmake3
+ln -s /usr/bin/cmake3 /usr/bin/cmake
 # install more required libraries
-yum -y install libpcap-devel boost-devel boost-static
+yum -y install zlib-devel libpcap-devel boost-devel boost-static
 
 # build and install libzmq
 wget https://github.com/zeromq/libzmq/archive/v4.3.2.zip
@@ -57,7 +59,7 @@ sudo make -j4 install
 
  **Note:** you can also get those libs built by us from below link for your convenience.
  * https://github.com/Netis/cloud-probe/releases/download/v0.7.0/static_lib.tar.gz
- 
+
 4. Clone or download the project.
 5. Go to the project folder and build it.
 
@@ -85,7 +87,7 @@ apt-get -y install build-essential
 # install cmake
 apt-get -y install cmake
 # install more required libraries
-apt-get -y install libpcap-dev libboost-all-dev
+apt-get -y install zlib1g-dev libpcap-dev libboost-all-dev
 
 # build and install libzmq
 wget https://github.com/zeromq/libzmq/archive/v4.3.2.zip
@@ -114,7 +116,7 @@ sudo make -j4 install
 
  **Note:** you can also get those libs built by us from below link for your convenience.
  * https://github.com/Netis/cloud-probe/releases/download/v0.7.0/static_lib.tar.gz
-   
+
 3. Clone or download the project.
 4. Go to the project folder and build it.
 
@@ -141,13 +143,13 @@ zypper -n install git-core
 # install cmake
 zypper -n install cmake
 # install more required libraries
-zypper -n install libpcap-devel boost-devel
+zypper -n install zlib-devel libpcap-devel boost-devel
 zypper -n si boost
 cd /usr/src/packages/SOURCES/
 tar --bzip2 -xf boost_1_54_0.tar.bz2
 cd  boost_1_54_0/
 ./bootstrap.sh
-./b2 install stage 
+./b2 install stage
 
 # build and install libzmq
 wget https://github.com/zeromq/libzmq/archive/v4.3.2.zip
@@ -208,5 +210,3 @@ A: Firstly, check that [Xcode](https://developer.apple.com/xcode/) has been inst
 ```shell
 sudo xcodebuild -license accept
 ```
-  
-
