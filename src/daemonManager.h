@@ -128,6 +128,14 @@ private:
 
     void clearCgroupfolder(pid_t pid);
 
+    void set_cgroup_mem(const std::string& pid, const std::string& mem_limit);
+
+    void set_cgroup_cpu(const std::string& pid, const std::string& cfs_quota_us);
+
+    void set_cgroup(const std::string& pid, const std::string& cfs_quota_us, const std::string& mem_limit);
+
+    int create_directory(const std::string &path);
+
 private:
     const boost::program_options::variables_map& vm_;
     std::unordered_set<std::string> interfaces_;

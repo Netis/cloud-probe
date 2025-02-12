@@ -32,8 +32,29 @@ bool checkProcessRunning ( ) {
     const auto cmd = boost::str(
             boost::format("ps -ef|grep pktminerg|grep %1%|grep -v grep |wc -l") %ppid);
     fp=popen(cmd.c_str(),"r");
-    fgets(buffer,sizeof(buffer),fp);
-    pclose(fp);
+    if (fp == nullptr) {
+        auto str = boost::str(boost::format("Failed to check Process and error "
+                                        "executing popen command: = %1%.") %strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+        return false;
+      }
+
+    try {
+        fgets(buffer, sizeof(buffer), fp);
+    } catch (...) {
+        auto str = boost::str(boost::format("Failed to check Process and error "
+                                        "executing popen command: = %1%.") %strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+    }
+    int status = pclose(fp);
+    if (status != 0) {
+        auto str =
+            boost::str(boost::format("Error executing pclose command: = %1%.") %strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+      }
 
     if (buffer [0] != '0') {
         return true;
@@ -48,6 +69,13 @@ void DaemonManager::killRunningPktg() {
     const auto cmd = boost::str(
     boost::format("ps -ef|grep pktminerg|grep %1%|grep -v grep |awk '{print $2}'") %ppid);
     fp=popen(cmd.c_str(),"r");
+    if (fp == nullptr) {
+        auto str = boost::str(boost::format("Fail to get pktg pid and error executing popen command: = %1%.") %strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+        return;
+    }
+    try {
         while (fgets(buffer,sizeof(buffer),fp)) {
             pid_t pid = atoi(buffer);
             auto strInfo = boost::str(boost::format("kill running pid=%1%")% pid);
@@ -72,18 +100,51 @@ void DaemonManager::killRunningPktg() {
             clearCgroupfolder(agentPid_);
             agentPid_ = 0;
         }
+     } catch (...) {
+        auto str = boost::str(
+        boost::format("Fail to get pktg pid and error executing popen command: = %1%.") %strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+    }
+
+    int status = pclose(fp);
+    if (status != 0) {
+        auto str =boost::str(boost::format("Error executing pclose command: = %1%.") %strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+    }
 }
 
 void getActiveInstanceNames(std::set<std::string> & names) {
     FILE *fp;
     char buffer[256];
     fp=popen("sh get_name_of_instance.sh","r");
-    while(!feof(fp)){
-        fgets(buffer,sizeof(buffer),fp);
-        std::string str(buffer, strlen(buffer)-1);
-        names.insert(str);
+    if (fp == nullptr) {
+        auto str =boost::str(boost::format("Error executing popen command: = %1%.") %strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+        return;
     }
-    pclose(fp);
+    try {
+        while (!feof(fp)) {
+            fgets(buffer, sizeof(buffer), fp);
+            std::string str(buffer, strlen(buffer) - 1);
+            names.insert(str);
+        }
+    } catch (...) {
+        auto str = boost::str(boost::format("Failed to get instance name.") %
+                          strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+    }
+
+    int status = pclose(fp);
+    if (status != 0) {
+        auto str =
+            boost::str(boost::format("Error executing pclose command: = %1%.") %strerror(errno));
+        LOG(ERROR);
+        std::cerr << str << std::endl;
+    }
     return;
 }
 
@@ -464,6 +525,75 @@ std::string DaemonManager::createParams(std::shared_ptr<io::swagger::server::mod
                            ? std::string(" --dir ") + dir : std::string()));
 }
 
+int DaemonManager::create_directory(const std::string &path) {
+    if (mkdir(path.c_str(), 0755) != 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
+void DaemonManager::set_cgroup_cpu(const std::string &pid,
+                                   const std::string &cfs_quota_us) {
+    std::string path("/sys/fs/cgroup/cpu/");
+    std::string cgroup_dir = path + "pid-" + pid;
+    if (create_directory(cgroup_dir) != 0) {
+        std::string str("Failed to create cgroup directory.");
+        ctx_.log(str, log4cpp::Priority::INFO);
+        LOG(INFO) << str;
+        return;
+    }
+
+    if (cfs_quota_us != "0") {
+        std::ofstream cpu_quota_file(cgroup_dir + "/cpu.cfs_quota_us");
+        cpu_quota_file << cfs_quota_us;
+        cpu_quota_file.close();
+    }
+
+    std::ofstream cgroup_procs_file(cgroup_dir + "/cgroup.procs");
+    cgroup_procs_file << pid;
+    cgroup_procs_file.close();
+}
+
+void DaemonManager::set_cgroup_mem(const std::string &pid,
+                                   const std::string &mem_limit) {
+    std::string path("/sys/fs/cgroup/memory/");
+    std::string cgroup_dir = path + "pid-" + pid;
+
+    if (create_directory(cgroup_dir) != 0) {
+        std::string str("Failed to create cgroup directory.");
+        ctx_.log(str, log4cpp::Priority::INFO);
+        LOG(INFO) << str;
+        return;
+    }
+
+    if (mem_limit != "0" && mem_limit != "0K" && mem_limit != "0M" &&
+        mem_limit != "0G" && mem_limit != "0T") {
+        std::ofstream mem_limit_file(cgroup_dir + "/memory.limit_in_bytes");
+        mem_limit_file << mem_limit;
+        mem_limit_file.close();
+    }
+
+    std::ofstream cgroup_procs_file(cgroup_dir + "/cgroup.procs");
+    cgroup_procs_file << pid;
+    cgroup_procs_file.close();
+}
+
+void DaemonManager::set_cgroup(const std::string &pid,
+                               const std::string &cfs_quota_us,
+                               const std::string &mem_limit) {
+
+    const auto str =
+        boost::str(boost::format("Set cgroup: pid=%1%, cpu=%2% mem=%3%M") % pid %
+                 cfs_quota_us % mem_limit);
+    ctx_.log(str, log4cpp::Priority::INFO);
+    LOG(INFO) << str;
+    report_.addPacketAgentLogs("INFO", str);
+    set_cgroup_cpu(pid, cfs_quota_us);
+    //currently, set the buffer of libpcap to limit mem, instead of cgroup. 
+    //set_cgroup_mem(pid, mem_limit);
+}
+
 int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::stringstream &result) {
     uint16_t port;
     if (!body.packetAgentStrategiesIsSet()) {
@@ -478,13 +608,15 @@ int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::strings
         return -1;
     }
     std::set<std::string> names;
-    try{
-        getActiveInstanceNames(names);
+    bool needGetInstanceName = false;
+    for (auto &data : datas) {
+        if (data->instanceNamesIsSet()) {
+            needGetInstanceName = true;
+            break;
+        }
     }
-    catch (...) {
-        std::string str = boost::str(boost::format("Can't get active instance."));
-        ctx_.log(str, log4cpp::Priority::INFO);
-        LOG(INFO) << str;
+    if (needGetInstanceName) {
+        getActiveInstanceNames(names);
     }
     uint64_t buffSize;
     if(body.getMemLimit() == 0) {
@@ -659,14 +791,9 @@ int DaemonManager::startPA(io::swagger::server::model::Agent& body, std::strings
 
     report_.setPid(pid);
     int16_t memLimit = (body.getMemLimit() == 0)?0:body.getMemLimit() - 290;
-    const auto limit = boost::str(
-            boost::format("limit_cpu_mem_pid.sh %1% %2% %3%M") % pid %
-            (static_cast<uint32_t>(body.getCpuLimit() * 1000)) %
-                    memLimit);
-    ctx_.log(limit, log4cpp::Priority::INFO);
-    LOG(INFO) << limit;
-    report_.addPacketAgentLogs("INFO", limit);
-    ::system(limit.c_str());
+    set_cgroup(std::to_string(pid),
+             std::to_string(static_cast<uint32_t>(body.getCpuLimit() * 1000)),
+             std::to_string(memLimit));
     body.setName(boost::str(boost::format("%1%") % body.getId()));
     const auto waitResult = waitpid(pid, NULL, WNOHANG);
     body.setStatus(waitResult == -1 ? "error" : waitResult == pid ? "inactive" : "active");
@@ -1139,7 +1266,7 @@ DaemonManager::DaemonManager(const boost::program_options::variables_map &vm, ti
         }
     }
     
-    daemon_.setClientVersion("0.8.3");
+    daemon_.setClientVersion("0.8.7");
     std::vector<std::string> strs;
     split(strs, SUPPORT_API_VERSIONS, boost::algorithm::is_any_of(","));
     for (const auto& str:strs) {
