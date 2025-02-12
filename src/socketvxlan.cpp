@@ -145,7 +145,6 @@ int PcapExportVxlan::exportPacket(size_t index,
   uint32_t tv_sec = htonl(header->ts.tv_sec);
   //注意：通过libpcap获取的捕获时间精度为微秒，而数据包中附加的时间为纳秒，所以需要*1000
   uint32_t tv_nsec = htonl(header->ts.tv_usec*1000);
-  std::cout << "====got time" << header->ts.tv_usec<< std::endl;
   if (_capTime == 1) {
     memcpy(
         reinterpret_cast<void *>(&(vxlanbuffer[sizeof(vxlan_hdr_t)]) + length),
