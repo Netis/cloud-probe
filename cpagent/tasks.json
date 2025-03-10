@@ -1,0 +1,45 @@
+{
+    "tasks": [
+        {
+            "interface": "eth0",
+            "netns": "/proc/1432897/ns/net",
+            "engine": {
+                "type": "libpcap",
+                "libpcap": {
+                    "snaplen": 2048,
+                    "bpf_filter": "",
+                    "buffer_size_mb": 256,
+                    "timeout_ms": 3
+                },
+                "dpdk_dumpcap": {
+                    "snaplen": 2048,
+                    "bpf_filter": "",
+                    "ring_size": 2048
+                }
+            },
+            "export": {
+                "type": "vxlan",
+                "rate_limit_mbps": 10,
+                "slice": 2048,
+                "vxlan": {
+                    "remote_ips": ["10.1.2.3"],
+                    "port": 4789,
+                    "capture_time": false,
+                    "vn1": 1,
+                    "vn2": 33,
+                    "bind_to_device": "eth3"
+                },
+                "gre": {
+                    "remote_ips": ["10.1.2.3"],
+                    "keybit": 34,
+                    "bind_to_device": "eth3"
+                },
+                "zmq": {
+                    "remote_ips": ["10.1.2.3"],
+                    "port": 1234,
+                    "hwm": 1000
+                }
+            }
+        }
+    ]
+}
