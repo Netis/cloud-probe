@@ -2,4 +2,4 @@ BreakBeforeBraces: Allman
 AllowShortIfStatementsOnASingleLine: false
 IndentCaseLabels: false
 IndentWidth: 4
-ColumnLimit: 0
+ColumnLimit: 200

@@ -3,7 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
-                "/root/pktm_libs_sdk/latest/include/",
+                "/root/dpdk-install/include/",
                 "${workspaceFolder}/**"
             ],
             "defines": [],

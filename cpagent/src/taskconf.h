@@ -7,18 +7,13 @@
 typedef struct
 {
     char *type;
-
-    // 公共字段
     int rate_limit_mbps;
     int slice;
-
-    // 不同导出类型的配置
     union
     {
         struct
         {
-            char **remote_ips;
-            int remote_ip_count;
+            char *host;
             int port;
             int capture_time;
             uint8_t version;
@@ -28,18 +23,17 @@ typedef struct
 
         struct
         {
-            char **remote_ips;
-            int remote_ip_count;
-            int keybit;
+            char *host;
+            uint32_t keybit;
             char *bind_device;
         } gre;
 
         struct
         {
-            char **remote_ips;
-            int remote_ip_count;
+            char *host;
             int port;
             int hwm;
+            uint32_t keybit;
         } zmq;
     } config;
 } OutputConfig;
@@ -72,17 +66,19 @@ typedef struct
     char *interface;
     char *netns;
     EngineConfig engine;
-    OutputConfig output;
+
+    OutputConfig **outputs;
+    int num_outputs;
 } TaskConfig;
 
 typedef struct
 {
     TaskConfig **tasks;
     int num_tasks;
-} TaskSetConfig;
+} TasksAllConfig;
 
-TaskSetConfig *parse_tasks_config(char *data, cJSONParseError *err);
-TaskSetConfig *parse_tasks_file(const char *filename, cJSONParseError *err);
-void free_tasks_config(TaskSetConfig *config);
+TasksAllConfig *parse_tasks_config(char *data, cJSONParseError *err);
+TasksAllConfig *parse_tasks_file(const char *filename, cJSONParseError *err);
+void free_tasks_config(TasksAllConfig *config);
 
 #endif /* CPAGENT_TASKCONF_H */

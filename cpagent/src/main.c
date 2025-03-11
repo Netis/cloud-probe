@@ -46,7 +46,7 @@ static void parse_opts(int argc, char **argv)
         {"unix-socket", required_argument, NULL, OPT_UNIX_SOCKET},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'v'},
-        {NULL},
+        {NULL, 0, NULL, 0},
     };
 
     int c;
@@ -74,8 +74,7 @@ static void parse_opts(int argc, char **argv)
             printf("%s\n", version());
             exit(0);
         default:
-            fprintf(stderr, "Invalid option: %s\n",
-                    argv[optind - 1]);
+            fprintf(stderr, "Invalid option: %s\n", argv[optind - 1]);
             usage();
             exit(EXIT_FAILURE);
         }
@@ -115,7 +114,7 @@ int main(int argc, char **argv)
     print_opts();
 
     cJSONParseError err;
-    TaskSetConfig *config = parse_tasks_file(tasks_file, &err);
+    TasksAllConfig *config = parse_tasks_file(tasks_file, &err);
     if (!config)
     {
         printf(err.message);
