@@ -1,3 +1,4 @@
+#include "taskconf.h"
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,10 +98,6 @@ static void parse_opts(int argc, char **argv)
         usage();
         exit(EXIT_FAILURE);
     }
-
-    if (!tasks_file)
-    {
-    }
 }
 
 static void print_opts()
@@ -116,5 +113,14 @@ int main(int argc, char **argv)
     progname = argv[0];
     parse_opts(argc, argv);
     print_opts();
+
+    cJSONParseError err;
+    TaskSetConfig *config = parse_tasks_file(tasks_file, &err);
+    if (!config)
+    {
+        printf(err.message);
+        printf("\n");
+        exit(EXIT_FAILURE);
+    }
     return 0;
 }

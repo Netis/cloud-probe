@@ -1,6 +1,6 @@
 ### 命令行
 ```bash
-./cpagent --tasks tasks.json --enable-dpdk-dumpcap --set-cpu-affinity --cpu-set 1,2 --unix-socket cpagent.socket
+./cpagent --tasks tasks.json --enable-dpdk-dumpcap --cpu-set 1,2 --unix-socket cpagent.socket
 ```
 
 参数说明:

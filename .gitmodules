@@ -1,0 +1,3 @@
+[submodule "cpagent/contrib/cJSON"]
+	path = cpagent/contrib/cJSON
+	url = https://github.com/DaveGamble/cJSON.git
