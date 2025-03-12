@@ -1,4 +1,5 @@
 #include "output_zmq.h"
+#include "error.h"
 #include "log.h"
 #include "output_common.h"
 #include <net/ethernet.h>
@@ -36,8 +37,8 @@ int zmq_flush_packet(zmq_output_t *output)
     int rc = zmq_send(output->pusher, &(pkts_buf->buf[0]), pkts_buf->batch_bufpos, ZMQ_DONTWAIT);
     if (rc == 0)
     {
-        output->fwd_cnt += send_num;
-        output->fwd_bytes += pkts_buf->batch_bufpos;
+        output->stats.total_fwd_count += send_num;
+        output->stats.total_fwd_bytes += pkts_buf->batch_bufpos;
     }
     else
     {
@@ -50,8 +51,9 @@ int zmq_flush_packet(zmq_output_t *output)
     return 0;
 }
 
-int zmq_send_packet(zmq_output_t *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
+int zmq_send_packet(OutputBase *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
+    zmq_output_t *output = (zmq_output_t *)self;
     if (direct == PKT_DIR_UNKNOWN)
         return -1;
 
@@ -79,8 +81,8 @@ int zmq_send_packet(zmq_output_t *output, const struct pcap_pkthdr *header, cons
         (pkts_buf->batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + length > MAX_BATCH_BUF_LENGTH);
     if (is_pkt_num_exceeded || is_time_diff_exceeded || is_buffer_full)
     {
-        log_debug(
-            "send zmq message, last packet time: %d, first packet_time", header->ts.tv_sec, pkts_buf->first_pktsec);
+        log_debug("send zmq message, last packet time: %d, first packet_time", header->ts.tv_sec,
+                  pkts_buf->first_pktsec);
         zmq_flush_packet(output);
         pkts_buf->first_pktsec = header->ts.tv_sec;
     }
@@ -143,21 +145,21 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
     void *context = zmq_ctx_new();
     if (context == NULL)
     {
-        snprintf(errbuf, OUTPUT_ERRBUF_SIZE, "zmq_ctx_new() error: %s", zmq_strerror(errno));
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "zmq_ctx_new() error: %s", zmq_strerror(errno));
         return NULL;
     }
 
     void *pusher = zmq_socket(context, ZMQ_PUSH);
     if (pusher == NULL)
     {
-        snprintf(errbuf, OUTPUT_ERRBUF_SIZE, "zmq_socket() error: %s", zmq_strerror(errno));
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "zmq_socket() error: %s", zmq_strerror(errno));
         zmq_ctx_destroy(context);
         return NULL;
     }
 
     if (zmq_setsockopt(pusher, ZMQ_SNDHWM, &hwm, sizeof(hwm)) != 0)
     {
-        snprintf(errbuf, OUTPUT_ERRBUF_SIZE, "set hwm error: %s", zmq_strerror(errno));
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "set hwm error: %s", zmq_strerror(errno));
         zmq_close(pusher);
         zmq_ctx_destroy(context);
         return NULL;
@@ -166,7 +168,7 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
     int linger = 10 * 1000; // 10s
     if (zmq_setsockopt(pusher, ZMQ_LINGER, &linger, sizeof(linger)) != 0)
     {
-        snprintf(errbuf, OUTPUT_ERRBUF_SIZE, "set linger error: %s", zmq_strerror(errno));
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "set linger error: %s", zmq_strerror(errno));
         zmq_close(pusher);
         zmq_ctx_destroy(context);
         return NULL;
@@ -177,30 +179,34 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
 
     if (zmq_connect(pusher, address) != 0)
     {
-        snprintf(errbuf, OUTPUT_ERRBUF_SIZE, "zmq connect address %s error: %s", address, zmq_strerror(errno));
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "zmq connect address %s error: %s", address, zmq_strerror(errno));
         zmq_close(pusher);
         zmq_ctx_destroy(context);
         return NULL;
     }
 
     zmq_output_t *output = (zmq_output_t *)calloc(1, sizeof(zmq_output_t));
-    if (output == NULL)
+    if (!output)
     {
-        snprintf(errbuf, OUTPUT_ERRBUF_SIZE, "failed to allocate memory for zmq_output_t");
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for zmq_output_t");
         zmq_close(pusher);
         zmq_ctx_destroy(context);
         return NULL;
     }
 
+    output->base.send_packet = zmq_send_packet;
+    output->base.destory = free_zmq_output;
     output->context = context;
     output->pusher = pusher;
     return output;
 }
 
-void free_zmq_output(zmq_output_t *output)
+void free_zmq_output(OutputBase *self)
 {
-    if (!output)
+    if (!self)
         return;
+
+    zmq_output_t *output = (zmq_output_t *)self;
 
     if (output->pusher)
         zmq_close(output->pusher);

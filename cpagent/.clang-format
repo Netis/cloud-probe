@@ -3,11 +3,3 @@ AllowShortIfStatementsOnASingleLine: false
 IndentCaseLabels: false
 IndentWidth: 4
 ColumnLimit: 120
-
-BasedOnStyle: LLVM
-AlignAfterOpenBracket: DontAlign
-AllowAllParametersOfDeclarationOnNextLine: false
-BinPackParameters: false
-BreakBeforeParameter: true
-ContinuationIndentWidth: 4
-PenaltyBreakBeforeFirstCallParameter: 10000

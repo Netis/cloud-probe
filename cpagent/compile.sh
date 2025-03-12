@@ -4,6 +4,7 @@ gcc \
     src/main.c \
     src/taskconf.c \
     src/output_zmq.c \
+    src/output_file.c \
     src/log.c \
     src/cjson_utils.c \
     contrib/cJSON/cJSON.c \

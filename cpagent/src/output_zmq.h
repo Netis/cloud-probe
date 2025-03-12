@@ -1,6 +1,7 @@
 #ifndef CPAGENT_OUTPUT_ZMQ_H
 #define CPAGENT_OUTPUT_ZMQ_H
 
+#include "output_common.h"
 #include <stdint.h>
 #include <zmq.h>
 
@@ -37,16 +38,16 @@ typedef struct BatchPktsBuf
 
 typedef struct ZmqOutput
 {
+    OutputBase base;
     void *context; // zmq_ctx_new
     void *pusher;  // zmq_socket(context, ZMQ_PUSH);
     uint16_t keybit;
     batch_pkts_buf_t pkts_buf;
 
-    uint64_t fwd_cnt;
-    uint64_t fwd_bytes;
+    OutputStats stats;
 } zmq_output_t;
 
 zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf);
-void free_zmq_output(zmq_output_t *output);
+void free_zmq_output(OutputBase *output);
 
 #endif /* CPAGENT_OUTPUT_ZMQ_H */

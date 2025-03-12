@@ -2,6 +2,7 @@
 #define CPAGENT_OUTPUT_COMMON_H
 
 #include <endian.h>
+#include <pcap/pcap.h>
 #include <stdint.h>
 #include <sys/time.h>
 
@@ -11,7 +12,6 @@
 #define PKT_DIR_NONCHECK 0
 
 #define ETHER_TYPE_MPLS 0x8847
-#define OUTPUT_ERRBUF_SIZE 256
 
 static inline uint64_t tv2us(const struct timeval *tv)
 {
@@ -51,5 +51,18 @@ typedef struct
     unsigned int reserved2 : 8; // MPLS TTL
 #endif
 } mpls_header;
+
+typedef struct OutputStats
+{
+    uint64_t total_fwd_count;
+    uint64_t total_fwd_bytes;
+} OutputStats;
+
+typedef struct OutputBase
+{
+    int (*send_packet)(struct OutputBase *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
+                       int direct);
+    void (*destory)(struct OutputBase *output);
+} OutputBase;
 
 #endif /* CPAGENT_OUTPUT_COMMON_H */

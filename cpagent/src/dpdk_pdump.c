@@ -1,11 +1,3 @@
-/* SPDX-License-Identifier: BSD-3-Clause
- * Copyright(c) 2019-2020 Microsoft Corporation
- *
- * DPDK application to dump network traffic
- * This is designed to look and act like the Wireshark
- * dumpcap program.
- */
-
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -44,27 +36,14 @@
 #include <pcap/bpf.h>
 #include <pcap/pcap.h>
 
+#include "dpdk_pdump.h"
 #include "error.h"
 
 #define MONITOR_INTERVAL (500 * 1000)
 #define MBUF_POOL_CACHE_SIZE 32
 #define BURST_SIZE 32
-#define SLEEP_THRESHOLD 1000
 
 static bool quit_signal;
-
-struct interface
-{
-    uint16_t port;
-    char name[RTE_ETH_NAME_MAX_LEN];
-};
-
-/* Can do either pcap or pcapng format output */
-typedef union
-{
-    rte_pcapng_t *pcapng;
-    pcap_dumper_t *dumper;
-} dumpcap_out_t;
 
 static struct rte_bpf_prm *compile_filter(const char *filter_str, char *errbuf)
 {
@@ -87,8 +66,8 @@ static struct rte_bpf_prm *compile_filter(const char *filter_str, char *errbuf)
     struct rte_bpf_prm *bpf_prm = rte_bpf_convert(&bf);
     if (bpf_prm == NULL)
     {
-        snprintf(
-            errbuf, ERROR_BUFFER_SIZE, "convert a bpf program to dpdk bpf code error: %s", rte_strerror(rte_errno));
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "convert a bpf program to dpdk bpf code error: %s",
+                 rte_strerror(rte_errno));
         pcap_freecode(&bf);
         pcap_close(pcap);
         return NULL;
@@ -109,11 +88,11 @@ static uint64_t create_timestamp(void)
     return rte_timespec_to_ns(&now);
 }
 
-static void cleanup_pdump_resources(struct interface *intf, bool promiscuous_mode)
+static void cleanup_pdump_resources(uint16_t port, bool promiscuous_mode)
 {
-    rte_pdump_disable(intf->port, RTE_PDUMP_ALL_QUEUES, RTE_PDUMP_FLAG_RXTX);
+    rte_pdump_disable(port, RTE_PDUMP_ALL_QUEUES, RTE_PDUMP_FLAG_RXTX);
     if (promiscuous_mode)
-        rte_eth_promiscuous_disable(intf->port);
+        rte_eth_promiscuous_disable(port);
 }
 
 /* Alarm signal handler, used to check that primary process */
@@ -216,17 +195,15 @@ static struct rte_ring *create_ring(const char *ring_name, unsigned int ring_siz
     return ring;
 }
 
-static struct rte_mempool *create_mempool(const char *pool_name, uint32_t ring_size, uint32_t snaplen, char *errbuf)
+static struct rte_mempool *create_mempool(const char *pool_name, uint32_t num_mbufs, uint32_t snaplen, char *errbuf)
 {
-    size_t num_mbufs = 2 * ring_size;
     struct rte_mempool *mp;
-
     mp = rte_mempool_lookup(pool_name);
     if (mp)
         return mp;
 
-    mp = rte_pktmbuf_pool_create_by_ops(
-        pool_name, num_mbufs, MBUF_POOL_CACHE_SIZE, 0, rte_pcapng_mbuf_size(snaplen), rte_socket_id(), "ring_mp_sc");
+    mp = rte_pktmbuf_pool_create_by_ops(pool_name, num_mbufs, MBUF_POOL_CACHE_SIZE, 0, rte_pcapng_mbuf_size(snaplen),
+                                        rte_socket_id(), "ring_mp_sc");
     if (mp == NULL)
     {
         snprintf(errbuf, ERROR_BUFFER_SIZE, "mempool (%s) creation failed: %s\n", pool_name, rte_strerror(rte_errno));
@@ -236,14 +213,8 @@ static struct rte_mempool *create_mempool(const char *pool_name, uint32_t ring_s
     return mp;
 }
 
-static int enable_pdump(struct interface *intf,
-    struct rte_ring *r,
-    struct rte_mempool *mp,
-    struct rte_bpf_prm *bpf_prm,
-    bool promiscuous_mode,
-    uint32_t snaplen,
-    bool use_pcapng,
-    char *errbuf)
+static int enable_pdump(uint16_t port, struct rte_ring *r, struct rte_mempool *mp, struct rte_bpf_prm *bpf_prm,
+                        bool promiscuous_mode, uint32_t snaplen, bool use_pcapng, char *errbuf)
 {
     uint32_t flags;
     flags = RTE_PDUMP_FLAG_RXTX;
@@ -251,9 +222,9 @@ static int enable_pdump(struct interface *intf,
         flags |= RTE_PDUMP_FLAG_PCAPNG;
 
     if (promiscuous_mode)
-        rte_eth_promiscuous_enable(intf->port);
+        rte_eth_promiscuous_enable(port);
 
-    int ret = rte_pdump_enable_bpf(intf->port, RTE_PDUMP_ALL_QUEUES, flags, snaplen, r, mp, bpf_prm);
+    int ret = rte_pdump_enable_bpf(port, RTE_PDUMP_ALL_QUEUES, flags, snaplen, r, mp, bpf_prm);
     if (ret < 0)
     {
         snprintf(errbuf, ERROR_BUFFER_SIZE, "Packet dump enable failed: %s", rte_strerror(-ret));
@@ -277,61 +248,107 @@ static void show_count(uint64_t count)
     bt = fprintf(stderr, "%" PRIu64 " ", count);
 }
 
-/* Write multiple packets in older pcap format */
-static ssize_t pcap_write_packets(pcap_dumper_t *dumper, struct rte_mbuf *pkts[], uint16_t num_pkts, uint32_t snaplen)
+int do_capture(PacketCapturerBase *self, PacketHandler handler)
 {
-    uint8_t temp_data[snaplen];
-    struct pcap_pkthdr header;
-    uint16_t i;
-    size_t total = 0;
+    dpdk_capturer_t *capturer = (dpdk_capturer_t *)self;
 
-    gettimeofday(&header.ts, NULL);
-
-    for (i = 0; i < num_pkts; i++)
-    {
-        struct rte_mbuf *m = pkts[i];
-
-        header.len = rte_pktmbuf_pkt_len(m);
-        header.caplen = RTE_MIN(header.len, snaplen);
-
-        pcap_dump((u_char *)dumper, &header, rte_pktmbuf_read(m, 0, header.caplen, temp_data));
-
-        total += sizeof(header) + header.len;
-    }
-
-    return total;
-}
-
-/* Process all packets in ring and dump to capture file */
-static int process_ring(dumpcap_out_t out, struct rte_ring *r, uint32_t snaplen, bool use_pcapng)
-{
+    uint8_t temp_data[capturer->snaplen];
     struct rte_mbuf *pkts[BURST_SIZE];
     unsigned int avail, n;
     static unsigned int empty_count;
     ssize_t written;
+    uint16_t i;
 
-    n = rte_ring_sc_dequeue_burst(r, (void **)pkts, BURST_SIZE, &avail);
+    n = rte_ring_sc_dequeue_burst(capturer->ring, (void **)pkts, BURST_SIZE, &avail);
     if (n == 0)
-    {
-        /* don't consume endless amounts of cpu if idle */
-        if (empty_count < SLEEP_THRESHOLD)
-            ++empty_count;
-        else
-            usleep(10);
         return 0;
+
+    struct pcap_pkthdr header;
+    gettimeofday(&header.ts, NULL);
+
+    for (i = 0; i < n; ++i)
+    {
+        struct rte_mbuf *m = pkts[i];
+
+        header.len = rte_pktmbuf_pkt_len(m);
+        header.caplen = RTE_MIN(header.len, capturer->snaplen);
+        rte_pktmbuf_read(m, 0, header.caplen, temp_data);
+        handler(&header, temp_data);
+    }
+    rte_pktmbuf_free_bulk(pkts, n);
+    return n;
+}
+
+dpdk_capturer_t *new_dpdk_capturer(struct DpdkCaptureParams params, char *errbuf)
+{
+    uint16_t port;
+    if (rte_eth_dev_get_port_by_name(params.interface, &port) != 0)
+    {
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "interface %s not found", params.interface);
+        return NULL;
     }
 
-    empty_count = (avail == 0);
+    struct rte_bpf_prm *bpf_prm;
+    if (params.filter_str && strcmp(params.filter_str, "") != 0)
+    {
+        bpf_prm = compile_filter(params.filter_str, errbuf);
+        if (!bpf_prm)
+            return NULL;
+    }
+    struct rte_ring *ring = create_ring(params.ring_name, params.ring_size, errbuf);
+    if (!ring)
+        return NULL;
 
-    if (use_pcapng)
-        written = rte_pcapng_write_packets(out.pcapng, pkts, n);
-    else
-        written = pcap_write_packets(out.dumper, pkts, n, snaplen);
+    struct rte_mempool *mp = create_mempool(params.pool_name, params.num_mbufs, params.snaplen, errbuf);
+    if (!mp)
+    {
 
-    rte_pktmbuf_free_bulk(pkts, n);
+        rte_free(bpf_prm);
+        rte_ring_free(ring);
+        return NULL;
+    }
 
-    if (written < 0)
-        return -1;
+    if (enable_pdump(port, ring, mp, bpf_prm, params.promiscuous_mode, params.snaplen, false, errbuf) != 0)
+    {
+        rte_free(bpf_prm);
+        rte_ring_free(ring);
+        rte_mempool_free(mp);
+        return NULL;
+    }
 
-    return 0;
+    dpdk_capturer_t *capturer = (dpdk_capturer_t *)calloc(1, sizeof(dpdk_capturer_t));
+    if (!capturer)
+    {
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for zmq_output_t");
+        rte_free(bpf_prm);
+        rte_ring_free(ring);
+        rte_mempool_free(mp);
+        cleanup_pdump_resources(port, params.promiscuous_mode);
+        return NULL;
+    }
+    capturer->base.capture = do_capture;
+    capturer->base.destory = free_dpdk_capturer;
+    capturer->port = port;
+    capturer->promiscuous_mode = params.promiscuous_mode;
+    capturer->snaplen = params.snaplen;
+
+    capturer->bpf_prm = bpf_prm;
+    capturer->ring = ring;
+    capturer->mp = mp;
+    return capturer;
+}
+
+void free_dpdk_capturer(PacketCapturerBase *self)
+{
+    if (!self)
+        return;
+
+    dpdk_capturer_t *capturer = (dpdk_capturer_t *)self;
+
+    rte_free(capturer->bpf_prm);
+    rte_ring_free(capturer->ring);
+    rte_mempool_free(capturer->mp);
+    cleanup_pdump_resources(capturer->port, capturer->promiscuous_mode);
+
+    free(capturer);
 }
