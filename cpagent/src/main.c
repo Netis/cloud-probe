@@ -1,5 +1,6 @@
 #include "taskconf.h"
 #include <getopt.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -10,6 +11,7 @@ static int enable_dpdk_dumpcap = 0;
 static const char *cpu_set = NULL;
 static const char *unix_socket = "control.socket";
 
+static bool quit_signal;
 static const char *version(void)
 {
     static char str[128];
@@ -106,6 +108,8 @@ static void print_opts()
     printf("CPU set: %s\n", cpu_set ? cpu_set : "None");
     printf("Unix socket: %s\n", unix_socket ? unix_socket : "None");
 }
+
+static void signal_handler(int sig_num) { __atomic_store_n(&quit_signal, true, __ATOMIC_RELAXED); }
 
 int main(int argc, char **argv)
 {

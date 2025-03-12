@@ -447,7 +447,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
     return 0;
 }
 
-static int *parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError *err)
+static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError *err)
 {
     // Parse interface
     cJSON *interface = cJSON_GetObjectItemCaseSensitive(task_obj, "interface");
@@ -504,7 +504,7 @@ static int *parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError
     }
 
     int num_outputs = cJSON_GetArraySize(outputs);
-    task->outputs = (TaskConfig **)calloc(num_outputs, sizeof(OutputConfig *));
+    task->outputs = (OutputConfig **)calloc(num_outputs, sizeof(OutputConfig *));
     if (!task->outputs)
     {
         set_cjson_parse_error(err, "memory allocation failed");
@@ -526,7 +526,7 @@ static int *parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError
             set_cjson_parse_error(err, "memory allocation failed");
             return PARSE_ERROR;
         }
-        if (parse_output_config(output, output, err) != 0)
+        if (parse_output_config(output_obj, output, err) != 0)
         {
             free_output(output);
             wrap_cjson_parse_error(err, "parse output error");

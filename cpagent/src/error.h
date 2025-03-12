@@ -1,0 +1,6 @@
+#ifndef CPAGENT_ERROR_H
+#define CPAGENT_ERROR_H
+
+#define ERROR_BUFFER_SIZE 256
+
+#endif /* CPAGENT_ERROR_H */

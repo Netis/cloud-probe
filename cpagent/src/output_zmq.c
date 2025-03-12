@@ -73,11 +73,14 @@ int zmq_send_packet(zmq_output_t *output, const struct pcap_pkthdr *header, cons
     };
 
     const bool is_pkt_num_exceeded = (pkts_buf->batch_hdr.pkts_num >= 65535);
-    const bool is_time_diff_exceeded = (pkts_buf->first_pktsec != 0 && header->ts.tv_sec > pkts_buf->first_pktsec + MAX_PKTS_TIMEDIFF_SEC);
-    const bool is_buffer_full = (pkts_buf->batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + length > MAX_BATCH_BUF_LENGTH);
+    const bool is_time_diff_exceeded =
+        (pkts_buf->first_pktsec != 0 && header->ts.tv_sec > pkts_buf->first_pktsec + MAX_PKTS_TIMEDIFF_SEC);
+    const bool is_buffer_full =
+        (pkts_buf->batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + length > MAX_BATCH_BUF_LENGTH);
     if (is_pkt_num_exceeded || is_time_diff_exceeded || is_buffer_full)
     {
-        log_debug("send zmq message, last packet time: %d, first packet_time", header->ts.tv_sec, pkts_buf->first_pktsec);
+        log_debug(
+            "send zmq message, last packet time: %d, first packet_time", header->ts.tv_sec, pkts_buf->first_pktsec);
         zmq_flush_packet(output);
         pkts_buf->first_pktsec = header->ts.tv_sec;
     }
@@ -180,7 +183,7 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
         return NULL;
     }
 
-    zmq_output_t *output = (zmq_output_t *)calloc(sizeof(zmq_output_t));
+    zmq_output_t *output = (zmq_output_t *)calloc(1, sizeof(zmq_output_t));
     if (output == NULL)
     {
         snprintf(errbuf, OUTPUT_ERRBUF_SIZE, "failed to allocate memory for zmq_output_t");

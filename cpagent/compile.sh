@@ -1,7 +1,12 @@
 #!/bin/sh
 
 gcc \
-    src/main.c src/taskconf.c src/cjson_utils.c src/output_zmq.c contrib/cJSON/cJSON.c \
-    -I src -I contrib \
-    -lzmq \
-    -o cpagent
+    src/main.c \
+    src/taskconf.c \
+    src/output_zmq.c \
+    src/log.c \
+    src/cjson_utils.c \
+    contrib/cJSON/cJSON.c \
+    -L/root/dpdk-install/lib64 \
+    -Isrc -Icontrib \
+    -lzmq -lpcap

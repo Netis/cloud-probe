@@ -46,7 +46,7 @@ typedef struct ZmqOutput
     uint64_t fwd_bytes;
 } zmq_output_t;
 
-zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char **error);
+zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf);
 void free_zmq_output(zmq_output_t *output);
 
 #endif /* CPAGENT_OUTPUT_ZMQ_H */
