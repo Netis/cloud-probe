@@ -1,9 +1,12 @@
-#include "utils.h"
-#include "error.h"
-#include <pcap/bpf.h>
-#include <pcap/pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
+
+#include <pcap/bpf.h>
+#include <pcap/pcap.h>
+
+#include "error.h"
+#include "utils.h"
 
 int compile_filter(const char *filter_str, char *errbuf)
 {

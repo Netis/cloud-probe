@@ -50,4 +50,5 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+tmp/
 build/

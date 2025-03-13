@@ -1,7 +1,9 @@
-#include "cjson_utils.h"
-#include "cJSON/cJSON.h"
 #include <stdarg.h>
 #include <stdio.h>
+
+#include "cJSON/cJSON.h"
+
+#include "cjson_utils.h"
 
 void set_cjson_parse_error(cJSONParseError *err, const char *format, ...)
 {

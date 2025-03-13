@@ -1,8 +1,9 @@
-#include "taskconf.h"
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "taskconf.h"
 
 /* command line flags */
 static const char *progname;

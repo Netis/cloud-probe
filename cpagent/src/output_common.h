@@ -2,9 +2,11 @@
 #define CPAGENT_OUTPUT_COMMON_H
 
 #include <endian.h>
-#include <pcap/pcap.h>
 #include <stdint.h>
 #include <sys/time.h>
+#include <sys/types.h>
+
+#include <pcap/pcap.h>
 
 #define PKT_DIR_UNKNOWN -1
 #define PKT_DIR_INCOMING 1

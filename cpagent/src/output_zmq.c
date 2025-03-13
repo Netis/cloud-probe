@@ -1,15 +1,17 @@
-#include "output_zmq.h"
-#include "error.h"
-#include "log.h"
-#include "output_common.h"
 #include <net/ethernet.h>
 #include <netinet/in.h>
-#include <pcap/pcap.h>
-#include <pcap/vlan.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <pcap/pcap.h>
+#include <pcap/vlan.h>
 #include <zmq.h>
+
+#include "error.h"
+#include "log.h"
+#include "output_common.h"
+#include "output_zmq.h"
 
 static uint32_t make_mpls_hdr(int direct, int service_tag)
 {

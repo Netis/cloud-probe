@@ -1,10 +1,13 @@
-#include "output_file.h"
-#include "error.h"
 #include <errno.h>
-#include <pcap/pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+
+#include <pcap/pcap.h>
+
+#include "error.h"
+#include "output_file.h"
 
 int file_write_packet(OutputBase *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
