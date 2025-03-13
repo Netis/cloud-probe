@@ -4,11 +4,17 @@
 #include "cjson_utils.h"
 #include <stdint.h>
 
+#define CAPTURER_ENGINE_DPDK_PDUMP "dpdk_pdump"
+#define CAPTURER_ENGINE_LIBPCAP "libpcap"
+#define OUTPUT_TYPE_VXLAN "vxlan"
+#define OUTPUT_TYPE_GRE "gre"
+#define OUTPUT_TYPE_ZMQ "zmq"
+#define OUTPUT_TYPE_FILE "file"
+
 typedef struct
 {
     char *type;
     int rate_limit_mbps;
-    int slice;
     union
     {
         struct
@@ -35,6 +41,11 @@ typedef struct
             int hwm;
             uint32_t keybit;
         } zmq;
+
+        struct
+        {
+            char *name;
+        } file;
     } config;
 } OutputConfig;
 
@@ -46,7 +57,6 @@ typedef struct
     {
         struct
         {
-            int snaplen;
             char *bpf_filter;
             int buffer_size_mb;
             int timeout_ms;
@@ -54,18 +64,18 @@ typedef struct
 
         struct
         {
-            int snaplen;
             char *bpf_filter;
             int ring_size;
-        } dpdkdump;
+        } dpdk_pdump;
     } config;
-} EngineConfig;
+} CapturerConfig;
 
 typedef struct
 {
     char *interface;
+    int snaplen;
     char *netns;
-    EngineConfig engine;
+    CapturerConfig capturer;
 
     OutputConfig **outputs;
     int num_outputs;

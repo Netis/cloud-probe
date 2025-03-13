@@ -17,19 +17,23 @@ static void free_output(OutputConfig *output)
     if (output->type)
     {
 
-        if (strcmp(output->type, "vxlan") == 0)
+        if (strcmp(output->type, OUTPUT_TYPE_VXLAN) == 0)
         {
             free(output->config.vxlan.host);
             free(output->config.vxlan.bind_device);
         }
-        else if (strcmp(output->type, "gre") == 0)
+        else if (strcmp(output->type, OUTPUT_TYPE_GRE) == 0)
         {
             free(output->config.gre.host);
             free(output->config.gre.bind_device);
         }
-        else if (strcmp(output->type, "zmq") == 0)
+        else if (strcmp(output->type, OUTPUT_TYPE_ZMQ) == 0)
         {
             free(output->config.zmq.host);
+        }
+        else if (strcmp(output->type, OUTPUT_TYPE_FILE) == 0)
+        {
+            free(output->config.file.name);
         }
     }
 
@@ -42,23 +46,23 @@ static void free_task(TaskConfig *task)
     if (!task)
         return;
 
-    // Free engine config
-    if (task->engine.type)
+    // Free capturer config
+    if (task->capturer.type)
     {
-        if (strcmp(task->engine.type, "libpcap") == 0)
+        if (strcmp(task->capturer.type, CAPTURER_ENGINE_LIBPCAP) == 0)
         {
-            free(task->engine.config.libpcap.bpf_filter);
+            free(task->capturer.config.libpcap.bpf_filter);
         }
-        else if (strcmp(task->engine.type, "dpdkdump") == 0)
+        else if (strcmp(task->capturer.type, CAPTURER_ENGINE_DPDK_PDUMP) == 0)
         {
-            free(task->engine.config.dpdkdump.bpf_filter);
+            free(task->capturer.config.dpdk_pdump.bpf_filter);
         }
     }
 
     for (int i = 0; i < task->num_outputs; i++)
         free_output(task->outputs[i]);
 
-    free(task->engine.type);
+    free(task->capturer.type);
     free(task->interface);
     free(task->netns);
     free(task->outputs);
@@ -77,51 +81,39 @@ void free_tasks_config(TasksAllConfig *config)
     free(config);
 }
 
-static int parse_engine_config(cJSON *engine_obj, EngineConfig *engine, cJSONParseError *err)
+static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJSONParseError *err)
 {
     cJSON *type = cJSON_GetObjectItemCaseSensitive(engine_obj, "type");
     if (!cJSON_IsString(type))
     {
-        set_cjson_parse_error(err, "missing or invalid engine type");
+        set_cjson_parse_error(err, "missing or invalid capturer type");
         return PARSE_ERROR;
     }
 
-    engine->type = strdup(type->valuestring);
-    if (!engine->type)
+    capturer->type = strdup(type->valuestring);
+    if (!capturer->type)
     {
         set_cjson_parse_error(err, "memory allocation failed");
         return PARSE_ERROR;
     }
 
-    if (strcmp(engine->type, "libpcap") == 0)
+    if (strcmp(capturer->type, CAPTURER_ENGINE_LIBPCAP) == 0)
     {
-        cJSON *libpcap_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, "libpcap");
+        cJSON *libpcap_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_ENGINE_LIBPCAP);
         if (!libpcap_obj)
         {
             set_cjson_parse_error(err, "missing libpcap config");
             return PARSE_ERROR;
         }
 
-        // Snapshot Length
-        cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "snaplen");
-        if (!snaplen)
-            engine->config.libpcap.snaplen = 2048;
-        else if (cJSON_IsNumber(snaplen))
-            engine->config.libpcap.snaplen = snaplen->valueint;
-        else
-        {
-            set_cjson_parse_error(err, "invalid libpcap.snaplen");
-            return PARSE_ERROR;
-        }
-
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "bpf_filter");
         if (!bpf_filter)
-            engine->config.libpcap.bpf_filter = strdup("");
+            capturer->config.libpcap.bpf_filter = strdup("");
         else if (cJSON_IsString(bpf_filter))
         {
-            engine->config.libpcap.bpf_filter = strdup(bpf_filter->valuestring);
-            if (!engine->config.libpcap.bpf_filter)
+            capturer->config.libpcap.bpf_filter = strdup(bpf_filter->valuestring);
+            if (!capturer->config.libpcap.bpf_filter)
             {
                 set_cjson_parse_error(err, "Memory allocation failed");
                 return PARSE_ERROR;
@@ -136,9 +128,9 @@ static int parse_engine_config(cJSON *engine_obj, EngineConfig *engine, cJSONPar
         // Buffer size
         cJSON *buffer_size = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "buffer_size_mb");
         if (!buffer_size)
-            engine->config.libpcap.buffer_size_mb = 256;
+            capturer->config.libpcap.buffer_size_mb = 256;
         else if (cJSON_IsNumber(buffer_size))
-            engine->config.libpcap.buffer_size_mb = buffer_size->valueint;
+            capturer->config.libpcap.buffer_size_mb = buffer_size->valueint;
         else
         {
             set_cjson_parse_error(err, "invalid libpcap.buffer_size_mb");
@@ -148,44 +140,32 @@ static int parse_engine_config(cJSON *engine_obj, EngineConfig *engine, cJSONPar
         // Timeout
         cJSON *timeout = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "timeout_ms");
         if (!timeout)
-            engine->config.libpcap.timeout_ms = 3000;
+            capturer->config.libpcap.timeout_ms = 3000;
         else if (cJSON_IsNumber(timeout))
-            engine->config.libpcap.timeout_ms = timeout->valueint;
+            capturer->config.libpcap.timeout_ms = timeout->valueint;
         else
         {
             set_cjson_parse_error(err, "invalid libpcap.timeout_ms");
             return PARSE_ERROR;
         }
     }
-    else if (strcmp(engine->type, "dpdkdump") == 0)
+    else if (strcmp(capturer->type, CAPTURER_ENGINE_DPDK_PDUMP) == 0)
     {
-        cJSON *dpdk_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, "dpdkdump");
+        cJSON *dpdk_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_ENGINE_DPDK_PDUMP);
         if (!dpdk_obj)
         {
-            set_cjson_parse_error(err, "missing dpdkdump config");
-            return PARSE_ERROR;
-        }
-
-        // Snaplen
-        cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "snaplen");
-        if (!snaplen)
-            engine->config.dpdkdump.snaplen = 2048;
-        else if (cJSON_IsNumber(snaplen))
-            engine->config.dpdkdump.snaplen = snaplen->valueint;
-        else
-        {
-            set_cjson_parse_error(err, "invalid dpdkdump.snaplen");
+            set_cjson_parse_error(err, "missing dpdk_pdump config");
             return PARSE_ERROR;
         }
 
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "bpf_filter");
         if (!bpf_filter)
-            engine->config.dpdkdump.bpf_filter = strdup("");
+            capturer->config.dpdk_pdump.bpf_filter = strdup("");
         else if (cJSON_IsString(bpf_filter))
         {
-            engine->config.dpdkdump.bpf_filter = strdup(bpf_filter->valuestring);
-            if (!engine->config.dpdkdump.bpf_filter)
+            capturer->config.dpdk_pdump.bpf_filter = strdup(bpf_filter->valuestring);
+            if (!capturer->config.dpdk_pdump.bpf_filter)
             {
                 set_cjson_parse_error(err, "Memory allocation failed");
                 return PARSE_ERROR;
@@ -200,18 +180,18 @@ static int parse_engine_config(cJSON *engine_obj, EngineConfig *engine, cJSONPar
         // Ring size
         cJSON *ring_size = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "ring_size");
         if (!ring_size)
-            engine->config.dpdkdump.ring_size = 2048;
+            capturer->config.dpdk_pdump.ring_size = 2048;
         else if (cJSON_IsNumber(ring_size))
-            engine->config.dpdkdump.ring_size = ring_size->valueint;
+            capturer->config.dpdk_pdump.ring_size = ring_size->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid dpdkdump.ring_size");
+            set_cjson_parse_error(err, "invalid dpdk_pdump.ring_size");
             return PARSE_ERROR;
         }
     }
     else
     {
-        set_cjson_parse_error(err, "unknown engine type: %s", engine->type);
+        set_cjson_parse_error(err, "unknown capturer type: %s", capturer->type);
         return PARSE_ERROR;
     }
 
@@ -245,21 +225,10 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         return PARSE_ERROR;
     }
 
-    cJSON *slice = cJSON_GetObjectItemCaseSensitive(output_obj, "slice");
-    if (!slice)
-        output->slice = 0;
-    else if (cJSON_IsNumber(slice))
-        output->slice = slice->valueint;
-    else
-    {
-        set_cjson_parse_error(err, "invalid slice");
-        return PARSE_ERROR;
-    }
-
     // Type specific config
-    if (strcmp(output->type, "vxlan") == 0)
+    if (strcmp(output->type, OUTPUT_TYPE_VXLAN) == 0)
     {
-        cJSON *vxlan_obj = cJSON_GetObjectItemCaseSensitive(output_obj, "vxlan");
+        cJSON *vxlan_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_VXLAN);
         if (!vxlan_obj)
         {
             set_cjson_parse_error(err, "missing vxlan config");
@@ -345,9 +314,9 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
     }
-    else if (strcmp(output->type, "gre") == 0)
+    else if (strcmp(output->type, OUTPUT_TYPE_GRE) == 0)
     {
-        cJSON *gre_obj = cJSON_GetObjectItemCaseSensitive(output_obj, "gre");
+        cJSON *gre_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_GRE);
         if (!gre_obj)
         {
             set_cjson_parse_error(err, "missing gre config");
@@ -386,9 +355,9 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
     }
-    else if (strcmp(output->type, "zmq") == 0)
+    else if (strcmp(output->type, OUTPUT_TYPE_ZMQ) == 0)
     {
-        cJSON *zmq_obj = cJSON_GetObjectItemCaseSensitive(output_obj, "zmq");
+        cJSON *zmq_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_ZMQ);
         if (!zmq_obj)
         {
             set_cjson_parse_error(err, "missing zmq config");
@@ -440,6 +409,24 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
     }
+    else if (strcmp(output->type, OUTPUT_TYPE_FILE) == 0)
+    {
+        cJSON *file_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_FILE);
+        if (!file_obj)
+        {
+            set_cjson_parse_error(err, "missing file config");
+            return PARSE_ERROR;
+        }
+
+        // Name
+        cJSON *name = cJSON_GetObjectItemCaseSensitive(file_obj, "name");
+        if (!cJSON_IsString(name))
+        {
+            wrap_cjson_parse_error(err, "missing or invalid file.name");
+            return PARSE_ERROR;
+        }
+        output->config.file.name = strdup(name->valuestring);
+    }
     else
     {
         set_cjson_parse_error(err, "Unknown output type: %s", output->type);
@@ -465,6 +452,17 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
         return PARSE_ERROR;
     }
 
+    cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(task_obj, "snaplen");
+    if (!snaplen)
+        task->snaplen = 2048;
+    else if (cJSON_IsNumber(snaplen))
+        task->snaplen = snaplen->valueint;
+    else
+    {
+        set_cjson_parse_error(err, "invalid snaplen");
+        return PARSE_ERROR;
+    }
+
     // Parse netns
     cJSON *netns = cJSON_GetObjectItemCaseSensitive(task_obj, "netns");
     if (!netns)
@@ -484,16 +482,16 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
         return PARSE_ERROR;
     }
 
-    // Parse engine
-    cJSON *engine = cJSON_GetObjectItemCaseSensitive(task_obj, "engine");
-    if (!cJSON_IsObject(engine))
+    // Parse capturer
+    cJSON *capturer = cJSON_GetObjectItemCaseSensitive(task_obj, "capturer");
+    if (!cJSON_IsObject(capturer))
     {
-        set_cjson_parse_error(err, "missing or invalid engine config");
+        set_cjson_parse_error(err, "missing or invalid capturer config");
         return PARSE_ERROR;
     }
-    if (parse_engine_config(engine, &task->engine, err) != 0)
+    if (parse_capturer_config(capturer, &task->capturer, err) != 0)
     {
-        wrap_cjson_parse_error(err, "parse engine error");
+        wrap_cjson_parse_error(err, "parse capturer error");
         return PARSE_ERROR;
     }
 

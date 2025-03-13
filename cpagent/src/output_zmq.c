@@ -53,7 +53,7 @@ int zmq_flush_packet(zmq_output_t *output)
     return 0;
 }
 
-int zmq_send_packet(OutputBase *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
+int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
     zmq_output_t *output = (zmq_output_t *)self;
     if (direct == PKT_DIR_UNKNOWN)
@@ -203,11 +203,12 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
     return output;
 }
 
-void free_zmq_output(OutputBase *self)
+void free_zmq_output(output_base_t *self)
 {
     if (!self)
         return;
 
+    log_info("call free_zmq_output");
     zmq_output_t *output = (zmq_output_t *)self;
 
     if (output->pusher)

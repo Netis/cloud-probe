@@ -1,14 +1,20 @@
 #include <getopt.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "dpdk_pdump.h"
+#include "error.h"
+#include "log.h"
+#include "task.h"
 #include "taskconf.h"
+#include <unistd.h>
 
 /* command line flags */
 static const char *progname;
 static const char *tasks_file = NULL;
-static int enable_dpdk_dumpcap = 0;
+static bool enable_dpdk_dumpcap = false;
 static const char *cpu_set = NULL;
 static const char *unix_socket = "control.socket";
 
@@ -61,7 +67,7 @@ static void parse_opts(int argc, char **argv)
             tasks_file = optarg;
             break;
         case OPT_ENABLE_DPDK_DUMPCAP:
-            enable_dpdk_dumpcap = 1;
+            enable_dpdk_dumpcap = true;
             break;
         case OPT_CPU_SET:
             cpu_set = optarg;
@@ -114,17 +120,75 @@ static void signal_handler(int sig_num) { __atomic_store_n(&quit_signal, true, _
 
 int main(int argc, char **argv)
 {
+    char errbuf[ERROR_BUFFER_SIZE];
     progname = argv[0];
+
     parse_opts(argc, argv);
     print_opts();
+
+    if (dpdk_init(errbuf) != 0)
+    {
+        log_fatal(errbuf);
+        exit(EXIT_FAILURE);
+    }
 
     cJSONParseError err;
     TasksAllConfig *config = parse_tasks_file(tasks_file, &err);
     if (!config)
     {
-        printf(err.message);
-        printf("\n");
+        log_fatal(err.message);
         exit(EXIT_FAILURE);
     }
+
+    int num_tasks = config->num_tasks;
+    capture_task_t **tasks = (capture_task_t **)calloc(num_tasks, sizeof(capture_task_t *));
+    if (!tasks)
+    {
+        log_fatal("memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    log_info("find tasks %d\n", num_tasks);
+    for (int i = 0; i < num_tasks; ++i)
+    {
+        capture_task_t *task = new_capture_task(config->tasks[i], errbuf);
+        if (!task)
+        {
+            for (int j = 0; j < i; ++j)
+                free_capture_task(tasks[j]);
+
+            free(tasks);
+            log_fatal(errbuf);
+            exit(EXIT_FAILURE);
+        }
+        log_info("create task %d success", i);
+        tasks[i] = task;
+    }
+
+    free_tasks_config(config);
+
+    signal(SIGINT, signal_handler);
+    signal(SIGPIPE, SIG_IGN);
+
+    while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
+    {
+        int num_pkts = 0;
+        for (int i = 0; i < num_tasks; ++i)
+        {
+            num_pkts += task_poll_packets(tasks[i]);
+        }
+
+        if (num_pkts == 0)
+            usleep(10);
+    }
+
+    log_info("quit");
+    for (int i = 0; i < num_tasks; ++i)
+    {
+        log_info("free task: %d", i);
+        free_capture_task(tasks[i]);
+    }
+    free(tasks);
+
     return 0;
 }

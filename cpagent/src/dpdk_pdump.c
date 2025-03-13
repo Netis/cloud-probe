@@ -38,6 +38,7 @@
 
 #include "dpdk_pdump.h"
 #include "error.h"
+#include "log.h"
 
 #define MONITOR_INTERVAL (500 * 1000)
 #define MBUF_POOL_CACHE_SIZE 32
@@ -45,12 +46,12 @@
 
 static bool quit_signal;
 
-static struct rte_bpf_prm *compile_filter(const char *filter_str, char *errbuf)
+static struct rte_bpf_prm *compile_filter(const char *filter_str, uint32_t snaplen, char *errbuf)
 {
     struct bpf_program bf;
     pcap_t *pcap;
 
-    pcap = pcap_open_dead(DLT_EN10MB, 2048);
+    pcap = pcap_open_dead(DLT_EN10MB, snaplen);
     if (!pcap)
     {
         snprintf(errbuf, ERROR_BUFFER_SIZE, "can not open pcap");
@@ -138,7 +139,7 @@ static void disable_primary_monitor(void)
  * typical EAL command line arguments.
  * We don't want to expose all the DPDK internals to the user.
  */
-static int dpdk_init(char *errbuf)
+int dpdk_init(char *errbuf)
 {
     static const char *const args[] = {"dumpcap", "--proc-type", "secondary", "--log-level", "notice"};
     const int eal_argc = RTE_DIM(args);
@@ -178,7 +179,7 @@ static struct rte_ring *create_ring(const char *ring_name, unsigned int ring_siz
 
     if (size != ring_size)
     {
-        fprintf(stderr, "ring size %u rounded up to %zu\n", ring_size, size);
+        log_info("ring size %u rounded up to %zu", ring_size, size);
         ring_size = size;
     }
 
@@ -206,14 +207,14 @@ static struct rte_mempool *create_mempool(const char *pool_name, uint32_t num_mb
                                         rte_socket_id(), "ring_mp_sc");
     if (mp == NULL)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "mempool (%s) creation failed: %s\n", pool_name, rte_strerror(rte_errno));
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "mempool (%s) creation failed: %s", pool_name, rte_strerror(rte_errno));
         return NULL;
     }
 
     return mp;
 }
 
-static int enable_pdump(uint16_t port, struct rte_ring *r, struct rte_mempool *mp, struct rte_bpf_prm *bpf_prm,
+static int enable_pdump(uint16_t port, struct rte_ring *ring, struct rte_mempool *mp, struct rte_bpf_prm *bpf_prm,
                         bool promiscuous_mode, uint32_t snaplen, bool use_pcapng, char *errbuf)
 {
     uint32_t flags;
@@ -224,12 +225,14 @@ static int enable_pdump(uint16_t port, struct rte_ring *r, struct rte_mempool *m
     if (promiscuous_mode)
         rte_eth_promiscuous_enable(port);
 
-    int ret = rte_pdump_enable_bpf(port, RTE_PDUMP_ALL_QUEUES, flags, snaplen, r, mp, bpf_prm);
+    log_info("enter rte_pdump_enable_bpf, port %d", port);
+    int ret = rte_pdump_enable_bpf(port, RTE_PDUMP_ALL_QUEUES, flags, snaplen, ring, mp, bpf_prm);
     if (ret < 0)
     {
         snprintf(errbuf, ERROR_BUFFER_SIZE, "Packet dump enable failed: %s", rte_strerror(-ret));
         return -1;
     }
+    log_info("exit rte_pdump_enable_bpf, port %d", port);
     return 0;
 }
 
@@ -248,15 +251,13 @@ static void show_count(uint64_t count)
     bt = fprintf(stderr, "%" PRIu64 " ", count);
 }
 
-int do_capture(PacketCapturerBase *self, PacketHandler handler)
+int do_capture(capturer_base_t *self, PacketHandler handler, void *user)
 {
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)self;
 
-    uint8_t temp_data[capturer->snaplen];
     struct rte_mbuf *pkts[BURST_SIZE];
     unsigned int avail, n;
-    static unsigned int empty_count;
-    ssize_t written;
+    uint8_t temp_data[capturer->snaplen];
     uint16_t i;
 
     n = rte_ring_sc_dequeue_burst(capturer->ring, (void **)pkts, BURST_SIZE, &avail);
@@ -272,14 +273,13 @@ int do_capture(PacketCapturerBase *self, PacketHandler handler)
 
         header.len = rte_pktmbuf_pkt_len(m);
         header.caplen = RTE_MIN(header.len, capturer->snaplen);
-        rte_pktmbuf_read(m, 0, header.caplen, temp_data);
-        handler(&header, temp_data);
+        handler(&header, rte_pktmbuf_read(m, 0, header.caplen, temp_data), user);
     }
     rte_pktmbuf_free_bulk(pkts, n);
     return n;
 }
 
-dpdk_capturer_t *new_dpdk_capturer(struct DpdkCaptureParams params, char *errbuf)
+dpdk_capturer_t *new_dpdk_capturer(dpdk_capture_params_t params, char *errbuf)
 {
     uint16_t port;
     if (rte_eth_dev_get_port_by_name(params.interface, &port) != 0)
@@ -288,10 +288,10 @@ dpdk_capturer_t *new_dpdk_capturer(struct DpdkCaptureParams params, char *errbuf
         return NULL;
     }
 
-    struct rte_bpf_prm *bpf_prm;
-    if (params.filter_str && strcmp(params.filter_str, "") != 0)
+    struct rte_bpf_prm *bpf_prm = NULL;
+    if (params.bpf_filter && strcmp(params.bpf_filter, "") != 0)
     {
-        bpf_prm = compile_filter(params.filter_str, errbuf);
+        bpf_prm = compile_filter(params.bpf_filter, params.snaplen, errbuf);
         if (!bpf_prm)
             return NULL;
     }
@@ -319,11 +319,14 @@ dpdk_capturer_t *new_dpdk_capturer(struct DpdkCaptureParams params, char *errbuf
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)calloc(1, sizeof(dpdk_capturer_t));
     if (!capturer)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for zmq_output_t");
         rte_free(bpf_prm);
         rte_ring_free(ring);
         rte_mempool_free(mp);
+
+        log_info("call cleanup_pdump_resources");
         cleanup_pdump_resources(port, params.promiscuous_mode);
+
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for dpdk_capturer_t");
         return NULL;
     }
     capturer->base.capture = do_capture;
@@ -338,16 +341,19 @@ dpdk_capturer_t *new_dpdk_capturer(struct DpdkCaptureParams params, char *errbuf
     return capturer;
 }
 
-void free_dpdk_capturer(PacketCapturerBase *self)
+void free_dpdk_capturer(capturer_base_t *self)
 {
     if (!self)
         return;
 
+    log_info("call free_dpdk_capturer");
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)self;
 
     rte_free(capturer->bpf_prm);
     rte_ring_free(capturer->ring);
     rte_mempool_free(capturer->mp);
+
+    log_info("call cleanup_pdump_resources");
     cleanup_pdump_resources(capturer->port, capturer->promiscuous_mode);
 
     free(capturer);

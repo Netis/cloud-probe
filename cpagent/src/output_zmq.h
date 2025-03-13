@@ -38,16 +38,16 @@ typedef struct BatchPktsBuf
 
 typedef struct ZmqOutput
 {
-    OutputBase base;
+    output_base_t base;
     void *context; // zmq_ctx_new
     void *pusher;  // zmq_socket(context, ZMQ_PUSH);
     uint16_t keybit;
     batch_pkts_buf_t pkts_buf;
 
-    OutputStats stats;
+    output_stats_t stats;
 } zmq_output_t;
 
 zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf);
-void free_zmq_output(OutputBase *output);
+void free_zmq_output(output_base_t *output);
 
 #endif /* CPAGENT_OUTPUT_ZMQ_H */

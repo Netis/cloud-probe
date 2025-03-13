@@ -3,7 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
-                "/root/dpdk-install/include/",
+                "/root/cpagent_libs_sdk/include/",
                 "${workspaceFolder}/**"
             ],
             "defines": [],

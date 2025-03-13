@@ -6,22 +6,22 @@
 #include <rte_ring.h>
 #include <stdint.h>
 
-struct DpdkCaptureParams
+typedef struct DpdkCaptureParams
 {
     char *interface;
     uint32_t snaplen;
     bool promiscuous_mode;
-    char *filter_str;
+    char *bpf_filter;
 
     char *pool_name;
     char *ring_name;
     uint32_t ring_size;
     size_t num_mbufs;
-};
+} dpdk_capture_params_t;
 
 typedef struct DpdkCapturer
 {
-    PacketCapturerBase base;
+    capturer_base_t base;
 
     uint16_t port;
     bool promiscuous_mode;
@@ -32,7 +32,8 @@ typedef struct DpdkCapturer
     struct rte_mempool *mp;
 } dpdk_capturer_t;
 
-dpdk_capturer_t *new_dpdk_capturer(struct DpdkCaptureParams params, char *errbuf);
-void free_dpdk_capturer(PacketCapturerBase *self);
+int dpdk_init(char *errbuf);
+dpdk_capturer_t *new_dpdk_capturer(dpdk_capture_params_t params, char *errbuf);
+void free_dpdk_capturer(capturer_base_t *capturer);
 
 #endif /* CPAGENT_DPDKDUMP_H */

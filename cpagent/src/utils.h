@@ -1,4 +1,0 @@
-#ifndef CPAGENT_UTILS_H
-#define CPAGENT_UTILS_H
-
-#endif /* CPAGENT_UTILS_H */

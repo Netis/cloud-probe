@@ -2,17 +2,16 @@
     "tasks": [
         {
             "interface": "eth0",
+            "snaplen": 2048,
             "netns": "/proc/1432897/ns/net",
-            "engine": {
+            "capturer": {
                 "type": "libpcap",
                 "libpcap": {
-                    "snaplen": 2048,
                     "bpf_filter": "",
                     "buffer_size_mb": 256,
                     "timeout_ms": 3
                 },
-                "dpdkdump": {
-                    "snaplen": 2048,
+                "dpdk_pdump": {
                     "bpf_filter": "",
                     "ring_size": 2048
                 }
@@ -21,7 +20,6 @@
                 {
                     "type": "vxlan",
                     "rate_limit_mbps": 10,
-                    "slice": 2048,
                     "vxlan": {
                         "host": "10.1.2.3",
                         "port": 4789,
@@ -40,6 +38,9 @@
                         "port": 1234,
                         "hwm": 1000,
                         "keybit": 3
+                    },
+                    "file": {
+                        "name": "test_dpdk.pcap"
                     }
                 }
             ]

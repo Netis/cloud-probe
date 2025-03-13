@@ -58,13 +58,13 @@ typedef struct OutputStats
 {
     uint64_t total_fwd_count;
     uint64_t total_fwd_bytes;
-} OutputStats;
+} output_stats_t;
 
 typedef struct OutputBase
 {
     int (*send_packet)(struct OutputBase *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
                        int direct);
     void (*destory)(struct OutputBase *output);
-} OutputBase;
+} output_base_t;
 
 #endif /* CPAGENT_OUTPUT_COMMON_H */

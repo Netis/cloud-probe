@@ -7,9 +7,10 @@
 #include <pcap/pcap.h>
 
 #include "error.h"
+#include "log.h"
 #include "output_file.h"
 
-int file_write_packet(OutputBase *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
+int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
     file_output_t *output = (file_output_t *)self;
     pcap_dump((u_char *)output->dumper, header, pkt_data);
@@ -48,7 +49,6 @@ file_output_t *new_file_output(const char *name, uint32_t snaplen, char *errbuf)
     {
         snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for file_output_t");
         pcap_dump_close(dumper);
-        fclose(fp);
         return NULL;
     }
 
@@ -60,13 +60,14 @@ file_output_t *new_file_output(const char *name, uint32_t snaplen, char *errbuf)
     return output;
 }
 
-void free_file_output(OutputBase *self)
+void free_file_output(output_base_t *self)
 {
     if (!self)
         return;
 
+    log_info("call free_file_output");
     file_output_t *output = (file_output_t *)self;
 
     pcap_dump_close(output->dumper);
-    fclose(output->fp);
+    free(output);
 }
