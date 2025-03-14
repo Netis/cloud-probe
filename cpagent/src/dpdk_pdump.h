@@ -6,7 +6,7 @@
 #include <rte_ring.h>
 #include <stdint.h>
 
-typedef struct DpdkCaptureParams
+typedef struct DpdkPdumpOptions
 {
     char *interface;
     uint32_t snaplen;
@@ -17,7 +17,7 @@ typedef struct DpdkCaptureParams
     char *ring_name;
     uint32_t ring_size;
     size_t num_mbufs;
-} dpdk_capture_params_t;
+} dpdk_pdump_options_t;
 
 typedef struct DpdkCapturer
 {
@@ -33,7 +33,7 @@ typedef struct DpdkCapturer
 } dpdk_capturer_t;
 
 int dpdk_init(char *errbuf);
-dpdk_capturer_t *new_dpdk_capturer(dpdk_capture_params_t params, char *errbuf);
+dpdk_capturer_t *new_dpdk_capturer(dpdk_pdump_options_t opts, char *errbuf);
 void free_dpdk_capturer(capturer_base_t *capturer);
 
 #endif /* CPAGENT_DPDKDUMP_H */

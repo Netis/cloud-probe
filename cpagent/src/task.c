@@ -3,6 +3,7 @@
 #include "capturer.h"
 #include "dpdk_pdump.h"
 #include "error.h"
+#include "libpcap.h"
 #include "log.h"
 #include "output_file.h"
 #include "task.h"
@@ -19,7 +20,7 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
 
     if (strcmp(task_cfg->capturer.type, CAPTURER_ENGINE_DPDK_PDUMP) == 0)
     {
-        dpdk_capture_params_t params = {
+        dpdk_pdump_options_t opts = {
             .interface = task_cfg->interface,
             .snaplen = task_cfg->snaplen,
             .promiscuous_mode = true,
@@ -29,10 +30,26 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
             .ring_size = task_cfg->capturer.config.dpdk_pdump.ring_size,
             .num_mbufs = 2 * task_cfg->capturer.config.dpdk_pdump.ring_size,
         };
-        log_info("dpdk capturer params, interface %s, snaplen %d, bpf_filter: %s, ring_size: %d, num_mbufs: %d",
-                 params.interface, params.snaplen, params.bpf_filter, params.ring_size, params.num_mbufs);
+        log_info("dpdk pdump options, interface %s, snaplen %d, ring_size: %d, num_mbufs: %d, bpf_filter: `%s`",
+                 opts.interface, opts.snaplen, opts.ring_size, opts.num_mbufs, opts.bpf_filter);
 
-        task->capturer = (capturer_base_t *)new_dpdk_capturer(params, errbuf);
+        task->capturer = (capturer_base_t *)new_dpdk_capturer(opts, errbuf);
+        if (!task->capturer)
+            goto error;
+    }
+    else if (strcmp(task_cfg->capturer.type, CAPTURER_ENGINE_LIBPCAP) == 0)
+    {
+        libpcap_options_t opts = {
+            .interface = task_cfg->interface,
+            .snaplen = task_cfg->snaplen,
+            .promisc = 0,
+            .buffer_size = task_cfg->capturer.config.libpcap.buffer_size_mb * 1024 * 1024,
+            .bpf_filter = task_cfg->capturer.config.libpcap.bpf_filter,
+        };
+        log_info("libpcap options, interface %s, snaplen %d, buffer_size: %d, bpf_filter: `%s`", opts.interface,
+                 opts.snaplen, opts.buffer_size, opts.bpf_filter);
+
+        task->capturer = (capturer_base_t *)new_libpcap_capturer(opts, errbuf);
         if (!task->capturer)
             goto error;
     }

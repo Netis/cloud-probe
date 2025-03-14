@@ -251,7 +251,7 @@ static void show_count(uint64_t count)
     bt = fprintf(stderr, "%" PRIu64 " ", count);
 }
 
-int do_capture(capturer_base_t *self, PacketHandler handler, void *user)
+int dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
 {
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)self;
 
@@ -279,27 +279,27 @@ int do_capture(capturer_base_t *self, PacketHandler handler, void *user)
     return n;
 }
 
-dpdk_capturer_t *new_dpdk_capturer(dpdk_capture_params_t params, char *errbuf)
+dpdk_capturer_t *new_dpdk_capturer(dpdk_pdump_options_t opts, char *errbuf)
 {
     uint16_t port;
-    if (rte_eth_dev_get_port_by_name(params.interface, &port) != 0)
+    if (rte_eth_dev_get_port_by_name(opts.interface, &port) != 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "interface %s not found", params.interface);
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "interface %s not found", opts.interface);
         return NULL;
     }
 
     struct rte_bpf_prm *bpf_prm = NULL;
-    if (params.bpf_filter && strcmp(params.bpf_filter, "") != 0)
+    if (opts.bpf_filter && strcmp(opts.bpf_filter, "") != 0)
     {
-        bpf_prm = compile_filter(params.bpf_filter, params.snaplen, errbuf);
+        bpf_prm = compile_filter(opts.bpf_filter, opts.snaplen, errbuf);
         if (!bpf_prm)
             return NULL;
     }
-    struct rte_ring *ring = create_ring(params.ring_name, params.ring_size, errbuf);
+    struct rte_ring *ring = create_ring(opts.ring_name, opts.ring_size, errbuf);
     if (!ring)
         return NULL;
 
-    struct rte_mempool *mp = create_mempool(params.pool_name, params.num_mbufs, params.snaplen, errbuf);
+    struct rte_mempool *mp = create_mempool(opts.pool_name, opts.num_mbufs, opts.snaplen, errbuf);
     if (!mp)
     {
 
@@ -308,7 +308,7 @@ dpdk_capturer_t *new_dpdk_capturer(dpdk_capture_params_t params, char *errbuf)
         return NULL;
     }
 
-    if (enable_pdump(port, ring, mp, bpf_prm, params.promiscuous_mode, params.snaplen, false, errbuf) != 0)
+    if (enable_pdump(port, ring, mp, bpf_prm, opts.promiscuous_mode, opts.snaplen, false, errbuf) != 0)
     {
         rte_free(bpf_prm);
         rte_ring_free(ring);
@@ -324,16 +324,16 @@ dpdk_capturer_t *new_dpdk_capturer(dpdk_capture_params_t params, char *errbuf)
         rte_mempool_free(mp);
 
         log_info("call cleanup_pdump_resources");
-        cleanup_pdump_resources(port, params.promiscuous_mode);
+        cleanup_pdump_resources(port, opts.promiscuous_mode);
 
         snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for dpdk_capturer_t");
         return NULL;
     }
-    capturer->base.capture = do_capture;
+    capturer->base.capture = dpdk_do_capture;
     capturer->base.destory = free_dpdk_capturer;
     capturer->port = port;
-    capturer->promiscuous_mode = params.promiscuous_mode;
-    capturer->snaplen = params.snaplen;
+    capturer->promiscuous_mode = opts.promiscuous_mode;
+    capturer->snaplen = opts.snaplen;
 
     capturer->bpf_prm = bpf_prm;
     capturer->ring = ring;
@@ -346,7 +346,7 @@ void free_dpdk_capturer(capturer_base_t *self)
     if (!self)
         return;
 
-    log_info("call free_dpdk_capturer");
+    log_info("free dpdk capturer");
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)self;
 
     rte_free(capturer->bpf_prm);

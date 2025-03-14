@@ -1,0 +1,24 @@
+{
+    "tasks": [
+        {
+            "interface": "eth0",
+            "snaplen": 2048,
+            "capturer": {
+                "type": "libpcap",
+                "libpcap": {
+                    "buffer_size_mb": 256,
+                    "bpf_filter": ""
+                }
+            },
+            "outputs": [
+                {
+                    "type": "file",
+                    "rate_limit_mbps": 10,
+                    "file": {
+                        "name": "test_libpcap.pcap"
+                    }
+                }
+            ]
+        }
+    ]
+}
