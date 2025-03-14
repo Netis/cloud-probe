@@ -46,7 +46,6 @@ static void free_task(TaskConfig *task)
     if (!task)
         return;
 
-    // Free capturer config
     if (task->capturer.type)
     {
         if (strcmp(task->capturer.type, CAPTURER_ENGINE_LIBPCAP) == 0)
@@ -331,15 +330,15 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         }
         output->config.gre.host = strdup(host->valuestring);
 
-        // Keybit
-        cJSON *keybit = cJSON_GetObjectItemCaseSensitive(gre_obj, "keybit");
-        if (!keybit)
-            output->config.gre.keybit = 0xffffffff;
-        else if (cJSON_IsNumber(keybit))
-            output->config.gre.keybit = keybit->valueint;
+        // Service Tag
+        cJSON *service_tag = cJSON_GetObjectItemCaseSensitive(gre_obj, "service_tag");
+        if (!service_tag)
+            output->config.gre.service_tag = 0xffffffff;
+        else if (cJSON_IsNumber(service_tag))
+            output->config.gre.service_tag = service_tag->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid gre.keybit");
+            set_cjson_parse_error(err, "invalid gre.service_tag");
             return PARSE_ERROR;
         }
 
@@ -398,14 +397,14 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         }
 
         // Keybit
-        cJSON *keybit = cJSON_GetObjectItemCaseSensitive(zmq_obj, "keybit");
-        if (!keybit)
-            output->config.zmq.keybit = 0xffffffff;
-        else if (cJSON_IsNumber(keybit))
-            output->config.zmq.keybit = keybit->valueint;
+        cJSON *service_tag = cJSON_GetObjectItemCaseSensitive(zmq_obj, "service_tag");
+        if (!service_tag)
+            output->config.zmq.service_tag = 0xffffffff;
+        else if (cJSON_IsNumber(service_tag))
+            output->config.zmq.service_tag = service_tag->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid zmq.keybit");
+            set_cjson_parse_error(err, "invalid zmq.service_tag");
             return PARSE_ERROR;
         }
     }

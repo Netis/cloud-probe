@@ -30,7 +30,7 @@ typedef struct
         struct
         {
             char *host;
-            uint32_t keybit;
+            uint32_t service_tag;
             char *bind_device;
         } gre;
 
@@ -39,7 +39,7 @@ typedef struct
             char *host;
             int port;
             int hwm;
-            uint32_t keybit;
+            uint32_t service_tag;
         } zmq;
 
         struct

@@ -124,12 +124,14 @@ int main(int argc, char **argv)
     progname = argv[0];
 
     parse_opts(argc, argv);
-    print_opts();
 
-    if (dpdk_init(errbuf) != 0)
+    if (enable_dpdk_dumpcap)
     {
-        log_fatal(errbuf);
-        exit(EXIT_FAILURE);
+        if (dpdk_init(errbuf) != 0)
+        {
+            log_fatal(errbuf);
+            exit(EXIT_FAILURE);
+        }
     }
 
     cJSONParseError err;

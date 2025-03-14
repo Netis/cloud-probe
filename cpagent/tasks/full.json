@@ -30,14 +30,14 @@
                     },
                     "gre": {
                         "host": "10.1.2.3",
-                        "keybit": 34,
+                        "service_tag": 34,
                         "bind_device": "eth3"
                     },
                     "zmq": {
                         "host": "10.1.2.3",
                         "port": 1234,
                         "hwm": 1000,
-                        "keybit": 3
+                        "service_tag": 3
                     },
                     "file": {
                         "name": "test_dpdk.pcap"

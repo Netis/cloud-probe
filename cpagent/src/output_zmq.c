@@ -125,7 +125,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     }
 
     mpls_header mpls_hdr;
-    uint32_t mpls_hdr_uint32 = make_mpls_hdr(direct, output->keybit);
+    uint32_t mpls_hdr_uint32 = make_mpls_hdr(direct, output->service_tag);
     memcpy(&mpls_hdr, &mpls_hdr_uint32, sizeof(mpls_header));
 
     memcpy(&(pkts_buf->buf[buff_pos]), &mpls_hdr, sizeof(mpls_header));

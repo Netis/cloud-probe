@@ -6,6 +6,7 @@
 #include "libpcap.h"
 #include "log.h"
 #include "output_file.h"
+#include "output_zmq.h"
 #include "task.h"
 #include "taskconf.h"
 
@@ -30,7 +31,7 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
             .ring_size = task_cfg->capturer.config.dpdk_pdump.ring_size,
             .num_mbufs = 2 * task_cfg->capturer.config.dpdk_pdump.ring_size,
         };
-        log_info("dpdk pdump options, interface %s, snaplen %d, ring_size: %d, num_mbufs: %d, bpf_filter: `%s`",
+        log_info("dpdk_pdump options, interface %s, snaplen %d, ring_size: %d, num_mbufs: %d, bpf_filter: `%s`",
                  opts.interface, opts.snaplen, opts.ring_size, opts.num_mbufs, opts.bpf_filter);
 
         task->capturer = (capturer_base_t *)new_dpdk_capturer(opts, errbuf);
@@ -69,6 +70,14 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
             if (!output)
                 goto error;
 
+            task->outputs[task->num_outputs++] = (output_base_t *)output;
+        }
+        else if (strcmp(output_cfg->type, OUTPUT_TYPE_ZMQ) == 0)
+        {
+            zmq_output_t *output = new_zmq_output(output_cfg->config.zmq.host, output_cfg->config.zmq.port,
+                                                  output_cfg->config.zmq.hwm, errbuf);
+            if (!output)
+                goto error;
             task->outputs[task->num_outputs++] = (output_base_t *)output;
         }
         else

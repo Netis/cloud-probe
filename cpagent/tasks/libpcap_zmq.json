@@ -1,0 +1,26 @@
+{
+    "tasks": [
+        {
+            "interface": "eth0",
+            "snaplen": 2048,
+            "capturer": {
+                "type": "libpcap",
+                "libpcap": {
+                    "buffer_size_mb": 256,
+                    "bpf_filter": ""
+                }
+            },
+            "outputs": [
+                {
+                    "type": "zmq",
+                    "rate_limit_mbps": 10,
+                    "zmq": {
+                        "host": "127.0.0.1",
+                        "port": 5555,
+                        "hwm": 1000
+                    }
+                }
+            ]
+        }
+    ]
+}

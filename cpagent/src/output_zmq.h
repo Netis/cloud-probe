@@ -41,7 +41,7 @@ typedef struct ZmqOutput
     output_base_t base;
     void *context; // zmq_ctx_new
     void *pusher;  // zmq_socket(context, ZMQ_PUSH);
-    uint16_t keybit;
+    uint16_t service_tag;
     batch_pkts_buf_t pkts_buf;
 
     output_stats_t stats;
