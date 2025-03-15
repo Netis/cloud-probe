@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include <pcap/pcap.h>
 
+#include "capturer.h"
 #include "common.h"
 #include "error.h"
 #include "libpcap.h"
@@ -19,7 +21,13 @@ int libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
     switch (ret)
     {
     case 1:
-        handler(hdr, data, PKT_DIR_INCOMING, user);
+        int direction = PKT_DIR_UNKNOWN;
+        if (capturer->req_pattern == NULL)
+            direction = PKT_DIR_NONCHECK;
+        else
+            direction = classify_packet_direction(capturer->req_pattern, hdr, data);
+
+        handler(hdr, data, direction, user);
         return 1;
     case 0:
         // timeout
@@ -30,13 +38,45 @@ int libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
     }
 }
 
+static req_pattern_t *new_req_pattern_by_cfg(ReqPatternConfig cfg, const char *interface, char *errbuf)
+{
+    req_pattern_t *req_pattern = (req_pattern_t *)calloc(1, sizeof(req_pattern_t *));
+    if (!req_pattern)
+    {
+        error_format(errbuf, "failed to allocate memory for req_pattern_t");
+        return NULL;
+    }
+
+    if (strcmp(cfg.type, REQ_PATTERN_TYPE_NONE_STR) == 0)
+        req_pattern->type = REQ_PATTERN_TYPE_NONE;
+    else if (strcmp(cfg.type, REQ_PATTERN_TYPE_AUTO_STR) == 0)
+    {
+        req_pattern->type = REQ_PATTERN_TYPE_AUTO;
+        if (get_mac_addr(interface, req_pattern->config._auto.mac_addr, errbuf) != 0)
+            goto error;
+
+        char mac_addr_str[MAC_ADDR_STR_BUFSIZE];
+        format_mac_addr(req_pattern->config._auto.mac_addr, mac_addr_str);
+        log_info("interface '%s' mac addr: %s", interface, mac_addr_str);
+    }
+    else if (strcmp(cfg.type, REQ_PATTERN_TYPE_CUSTOM_STR) == 0)
+    {
+        req_pattern->type = REQ_PATTERN_TYPE_CUSTOM;
+        // TODO: parse custom
+    }
+    return req_pattern;
+error:
+    free_req_pattern(req_pattern);
+    return NULL;
+}
+
 libpcap_capturer_t *new_libpcap_capturer(libpcap_options_t opts, char *errbuf)
 {
     int self_netns_fd;
     if (opts.netns && strcmp(opts.netns, "") != 0)
     {
         self_netns_fd = get_self_netns_fd(errbuf);
-        if (self_netns_fd != 0)
+        if (self_netns_fd == -1)
             return NULL;
 
         if (enter_netns_by_path(opts.netns, errbuf) != 0)
@@ -44,6 +84,13 @@ libpcap_capturer_t *new_libpcap_capturer(libpcap_options_t opts, char *errbuf)
             close(self_netns_fd);
             return NULL;
         }
+    }
+
+    req_pattern_t *req_pattern = new_req_pattern_by_cfg(opts.req_pattern, opts.interface, errbuf);
+    if (!req_pattern)
+    {
+        error_wrap_format(errbuf, "create req_pattern_t error");
+        return NULL;
     }
 
     char pcap_errbuf[PCAP_ERRBUF_SIZE];
@@ -127,6 +174,23 @@ error:
     return NULL;
 }
 
+capturer_base_t *new_libpcap_capture_by_cfg(TaskConfig *task_cfg, char *errbuf)
+{
+    libpcap_options_t opts = {
+        .interface = task_cfg->interface,
+        .snaplen = task_cfg->snaplen,
+        .promisc = 0,
+        .buffer_size = task_cfg->capturer.config.libpcap.buffer_size_mb * 1024 * 1024,
+        .bpf_filter = task_cfg->capturer.config.libpcap.bpf_filter,
+        .netns = task_cfg->netns,
+        .req_pattern = task_cfg->req_pattern,
+    };
+    log_info("libpcap options, interface %s, snaplen %d, buffer_size: %d, bpf_filter: `%s`", opts.interface,
+             opts.snaplen, opts.buffer_size, opts.bpf_filter);
+
+    return (capturer_base_t *)new_libpcap_capturer(opts, errbuf);
+}
+
 void free_libpcap_capturer(capturer_base_t *self)
 {
     if (!self)
@@ -135,6 +199,7 @@ void free_libpcap_capturer(capturer_base_t *self)
     libpcap_capturer_t *capturer = (libpcap_capturer_t *)self;
 
     log_info("free libpcap capturer");
+    free_req_pattern(capturer->req_pattern);
     pcap_close(capturer->p);
     free(capturer);
 }

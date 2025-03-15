@@ -1,10 +1,14 @@
 #ifndef CPAGENT_DPDK_PDUMP_H
 #define CPAGENT_DPDK_PDUMP_H
 
-#include "capturer.h"
+#include <stdint.h>
+
 #include <rte_mempool.h>
 #include <rte_ring.h>
-#include <stdint.h>
+
+#include "capturer.h"
+#include "common.h"
+#include "taskconf.h"
 
 typedef struct DpdkPdumpOptions
 {
@@ -17,11 +21,14 @@ typedef struct DpdkPdumpOptions
     char *ring_name;
     uint32_t ring_size;
     size_t num_mbufs;
+
+    ReqPatternConfig req_pattern;
 } dpdk_pdump_options_t;
 
 typedef struct DpdkCapturer
 {
     capturer_base_t base;
+    req_pattern_t *req_pattern;
 
     uint16_t port;
     bool promiscuous_mode;
@@ -30,9 +37,11 @@ typedef struct DpdkCapturer
     struct rte_bpf_prm *bpf_prm;
     struct rte_ring *ring;
     struct rte_mempool *mp;
+
 } dpdk_capturer_t;
 
 int dpdk_init(char *errbuf);
+capturer_base_t *new_dpdk_capture_by_cfg(TaskConfig *task_cfg, char *errbuf);
 dpdk_capturer_t *new_dpdk_capturer(dpdk_pdump_options_t opts, char *errbuf);
 void free_dpdk_capturer(capturer_base_t *capturer);
 

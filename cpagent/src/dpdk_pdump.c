@@ -274,7 +274,15 @@ int dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
 
         header.len = rte_pktmbuf_pkt_len(m);
         header.caplen = RTE_MIN(header.len, capturer->snaplen);
-        handler(&header, rte_pktmbuf_read(m, 0, header.caplen, temp_data), PKT_DIR_INCOMING, user);
+        uint8_t *pkt_data = rte_pktmbuf_read(m, 0, header.caplen, temp_data);
+
+        int direction = PKT_DIR_UNKNOWN;
+        if (capturer->req_pattern == NULL)
+            direction = PKT_DIR_NONCHECK;
+        else
+            direction = classify_packet_direction(capturer->req_pattern, &header, pkt_data);
+
+        handler(&header, pkt_data, PKT_DIR_NONCHECK, user);
     }
     rte_pktmbuf_free_bulk(pkts, n);
     return n;
@@ -340,6 +348,26 @@ dpdk_capturer_t *new_dpdk_capturer(dpdk_pdump_options_t opts, char *errbuf)
     capturer->ring = ring;
     capturer->mp = mp;
     return capturer;
+}
+
+capturer_base_t *new_dpdk_capture_by_cfg(TaskConfig *task_cfg, char *errbuf)
+{
+
+    dpdk_pdump_options_t opts = {
+        .interface = task_cfg->interface,
+        .snaplen = task_cfg->snaplen,
+        .promiscuous_mode = true,
+        .bpf_filter = task_cfg->capturer.config.dpdk_pdump.bpf_filter,
+        .pool_name = "cpagent_capture_mbufs",
+        .ring_name = "cpagent_capture_ring",
+        .ring_size = task_cfg->capturer.config.dpdk_pdump.ring_size,
+        .num_mbufs = 2 * task_cfg->capturer.config.dpdk_pdump.ring_size,
+        .req_pattern = task_cfg->req_pattern,
+    };
+    log_info("dpdk_pdump options, interface %s, snaplen %d, ring_size: %d, num_mbufs: %d, bpf_filter: `%s`",
+             opts.interface, opts.snaplen, opts.ring_size, opts.num_mbufs, opts.bpf_filter);
+
+    return (capturer_base_t *)new_dpdk_capturer(opts, errbuf);
 }
 
 void free_dpdk_capturer(capturer_base_t *self)

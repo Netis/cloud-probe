@@ -6,6 +6,8 @@
 
 #include <pcap/pcap.h>
 
+#include "taskconf.h"
+
 typedef void (*PacketHandler)(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct, void *user);
 
 typedef struct CapturerBase
@@ -13,6 +15,14 @@ typedef struct CapturerBase
     int (*capture)(struct CapturerBase *capturer, PacketHandler handler, void *user);
     void (*destory)(struct CapturerBase *capturer);
 } capturer_base_t;
+
+typedef capturer_base_t *(*CapturerFactory)(TaskConfig *task_cfg, char *errbuf);
+
+typedef struct CapturerEntry
+{
+    const char *name;
+    CapturerFactory factory;
+} capturer_entry_t;
 
 static int capture_packets(capturer_base_t *capturer, PacketHandler handler, void *user)
 {

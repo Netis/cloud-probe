@@ -108,14 +108,6 @@ static void parse_opts(int argc, char **argv)
     }
 }
 
-static void print_opts()
-{
-    printf("Task file: %s\n", tasks_file ? tasks_file : "None");
-    printf("Enable dpdk dumpcap: %s\n", enable_dpdk_dumpcap ? "Yes" : "No");
-    printf("CPU set: %s\n", cpu_set ? cpu_set : "None");
-    printf("Unix socket: %s\n", unix_socket ? unix_socket : "None");
-}
-
 static void signal_handler(int sig_num) { __atomic_store_n(&quit_signal, true, __ATOMIC_RELAXED); }
 
 int main(int argc, char **argv)
@@ -160,10 +152,10 @@ int main(int argc, char **argv)
                 free_capture_task(tasks[j]);
 
             free(tasks);
-            log_fatal(errbuf);
+            log_fatal("new task-%d error: %s", i, errbuf);
             exit(EXIT_FAILURE);
         }
-        log_info("create task %d success", i);
+        log_info("create task-%d success", i);
         tasks[i] = task;
     }
 

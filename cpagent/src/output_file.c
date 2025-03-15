@@ -9,6 +9,7 @@
 #include "error.h"
 #include "log.h"
 #include "output_file.h"
+#include "taskconf.h"
 
 int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
@@ -58,6 +59,12 @@ file_output_t *new_file_output(const char *name, uint32_t snaplen, char *errbuf)
     output->fp = fp;
     output->dumper = dumper;
     return output;
+}
+
+output_base_t *new_file_output_by_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+{
+
+    return (output_base_t *)new_file_output(output_cfg->config.file.name, task_cfg->snaplen, errbuf);
 }
 
 void free_file_output(output_base_t *self)

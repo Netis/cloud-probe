@@ -1,11 +1,17 @@
 #ifndef CPAGENT_TASKCONF_H
 #define CPAGENT_TASKCONF_H
 
-#include "cjson_utils.h"
 #include <stdint.h>
 
-#define CAPTURER_ENGINE_DPDK_PDUMP "dpdk_pdump"
-#define CAPTURER_ENGINE_LIBPCAP "libpcap"
+#include "cjson_utils.h"
+
+#define CAPTURER_TYPE_DPDK_PDUMP "dpdk_pdump"
+#define CAPTURER_TYPE_LIBPCAP "libpcap"
+
+#define REQ_PATTERN_TYPE_AUTO_STR "auto"
+#define REQ_PATTERN_TYPE_CUSTOM_STR "custom"
+#define REQ_PATTERN_TYPE_NONE_STR "none"
+
 #define OUTPUT_TYPE_VXLAN "vxlan"
 #define OUTPUT_TYPE_GRE "gre"
 #define OUTPUT_TYPE_ZMQ "zmq"
@@ -72,9 +78,22 @@ typedef struct
 
 typedef struct
 {
+    char *type;
+    struct
+    {
+        char **patterns;
+        int num_patterns;
+    } custom;
+} ReqPatternConfig;
+
+typedef struct
+{
     char *interface;
     int snaplen;
     char *netns;
+
+    ReqPatternConfig req_pattern;
+
     CapturerConfig capturer;
 
     OutputConfig **outputs;

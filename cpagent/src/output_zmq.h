@@ -1,9 +1,12 @@
 #ifndef CPAGENT_OUTPUT_ZMQ_H
 #define CPAGENT_OUTPUT_ZMQ_H
 
-#include "output.h"
 #include <stdint.h>
+
 #include <zmq.h>
+
+#include "output.h"
+#include "taskconf.h"
 
 #define MAX_BATCH_BUF_LENGTH 1048576 // 1 * 1024 * 1024;
 #define MAX_PKTS_TIMEDIFF_SEC 1
@@ -47,6 +50,7 @@ typedef struct ZmqOutput
     output_stats_t stats;
 } zmq_output_t;
 
+output_base_t *new_zmq_output_by_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);
 zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf);
 void free_zmq_output(output_base_t *output);
 

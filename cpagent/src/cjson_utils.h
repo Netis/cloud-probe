@@ -1,9 +1,12 @@
 #ifndef cJSON_Common__h
 #define cJSON_Common__h
 
-#include "cJSON/cJSON.h"
 #include <stdarg.h>
 #include <stdio.h>
+
+#include "cJSON/cJSON.h"
+
+#define CJSON_ERRBUF_SIZE 256
 
 typedef enum
 {
@@ -14,7 +17,7 @@ typedef enum
 typedef struct
 {
     cJSONParseCode code;
-    char message[256];
+    char message[CJSON_ERRBUF_SIZE];
 } cJSONParseError;
 
 void set_cjson_parse_error(cJSONParseError *err, const char *format, ...);

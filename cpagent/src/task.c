@@ -10,6 +10,40 @@
 #include "task.h"
 #include "taskconf.h"
 
+capturer_entry_t capturer_entries[] = {
+    {CAPTURER_TYPE_LIBPCAP, new_libpcap_capture_by_cfg},
+    {CAPTURER_TYPE_DPDK_PDUMP, new_dpdk_capture_by_cfg},
+};
+
+output_entry_t output_entries[] = {
+    {OUTPUT_TYPE_FILE, new_file_output_by_cfg},
+    {OUTPUT_TYPE_ZMQ, new_zmq_output_by_cfg},
+};
+
+CapturerFactory find_capturer_factory(const char *name)
+{
+    for (int i = 0; i < sizeof(capturer_entries) / sizeof(capturer_entry_t); i++)
+    {
+        if (strcmp(capturer_entries[i].name, name) == 0)
+        {
+            return capturer_entries[i].factory;
+        }
+    }
+    return NULL;
+}
+
+OutputFactory find_output_factory(const char *name)
+{
+    for (int i = 0; i < sizeof(output_entries) / sizeof(output_entry_t); i++)
+    {
+        if (strcmp(output_entries[i].name, name) == 0)
+        {
+            return output_entries[i].factory;
+        }
+    }
+    return NULL;
+}
+
 capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
 {
     capture_task_t *task = (capture_task_t *)calloc(1, sizeof(capture_task_t));
@@ -19,73 +53,32 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
         return NULL;
     }
 
-    if (strcmp(task_cfg->capturer.type, CAPTURER_ENGINE_DPDK_PDUMP) == 0)
-    {
-        dpdk_pdump_options_t opts = {
-            .interface = task_cfg->interface,
-            .snaplen = task_cfg->snaplen,
-            .promiscuous_mode = true,
-            .bpf_filter = task_cfg->capturer.config.dpdk_pdump.bpf_filter,
-            .pool_name = "cpagent_capture_mbufs",
-            .ring_name = "cpagent_capture_ring",
-            .ring_size = task_cfg->capturer.config.dpdk_pdump.ring_size,
-            .num_mbufs = 2 * task_cfg->capturer.config.dpdk_pdump.ring_size,
-        };
-        log_info("dpdk_pdump options, interface %s, snaplen %d, ring_size: %d, num_mbufs: %d, bpf_filter: `%s`",
-                 opts.interface, opts.snaplen, opts.ring_size, opts.num_mbufs, opts.bpf_filter);
-
-        task->capturer = (capturer_base_t *)new_dpdk_capturer(opts, errbuf);
-        if (!task->capturer)
-            goto error;
-    }
-    else if (strcmp(task_cfg->capturer.type, CAPTURER_ENGINE_LIBPCAP) == 0)
-    {
-        libpcap_options_t opts = {
-            .interface = task_cfg->interface,
-            .snaplen = task_cfg->snaplen,
-            .promisc = 0,
-            .buffer_size = task_cfg->capturer.config.libpcap.buffer_size_mb * 1024 * 1024,
-            .bpf_filter = task_cfg->capturer.config.libpcap.bpf_filter,
-            .netns = task_cfg->netns,
-        };
-        log_info("libpcap options, interface %s, snaplen %d, buffer_size: %d, bpf_filter: `%s`", opts.interface,
-                 opts.snaplen, opts.buffer_size, opts.bpf_filter);
-
-        task->capturer = (capturer_base_t *)new_libpcap_capturer(opts, errbuf);
-        if (!task->capturer)
-            goto error;
-    }
-    else
+    CapturerFactory factory = find_capturer_factory(task_cfg->capturer.type);
+    if (!factory)
     {
         snprintf(errbuf, ERROR_BUFFER_SIZE, "unsupport capturer type %s", task_cfg->capturer.type);
         goto error;
     }
+    task->capturer = factory(task_cfg, errbuf);
+    if (!task->capturer)
+        goto error;
 
     task->outputs = (output_base_t **)calloc(task_cfg->num_outputs, sizeof(output_base_t *));
     for (int i = 0; i < task_cfg->num_outputs; ++i)
     {
         OutputConfig *output_cfg = task_cfg->outputs[i];
-        if (strcmp(output_cfg->type, OUTPUT_TYPE_FILE) == 0)
-        {
-            file_output_t *output = new_file_output(output_cfg->config.file.name, task_cfg->snaplen, errbuf);
-            if (!output)
-                goto error;
-
-            task->outputs[task->num_outputs++] = (output_base_t *)output;
-        }
-        else if (strcmp(output_cfg->type, OUTPUT_TYPE_ZMQ) == 0)
-        {
-            zmq_output_t *output = new_zmq_output(output_cfg->config.zmq.host, output_cfg->config.zmq.port,
-                                                  output_cfg->config.zmq.hwm, errbuf);
-            if (!output)
-                goto error;
-            task->outputs[task->num_outputs++] = (output_base_t *)output;
-        }
-        else
+        OutputFactory factory = find_output_factory(output_cfg->type);
+        if (!factory)
         {
             snprintf(errbuf, ERROR_BUFFER_SIZE, "unsupport output type: %s", output_cfg->type);
             goto error;
         }
+
+        output_base_t *output = factory(task_cfg, output_cfg, errbuf);
+        if (!output)
+            goto error;
+
+        task->outputs[task->num_outputs++] = output;
     }
     return task;
 

@@ -1,9 +1,12 @@
 #ifndef CPAGENT_OUTPUT_FILE_H
 #define CPAGENT_OUTPUT_FILE_H
 
-#include "output.h"
-#include <pcap/pcap.h>
 #include <stdio.h>
+
+#include <pcap/pcap.h>
+
+#include "output.h"
+#include "taskconf.h"
 
 typedef struct FileOutput
 {
@@ -13,6 +16,7 @@ typedef struct FileOutput
     pcap_dumper_t *dumper;
 } file_output_t;
 
+output_base_t *new_file_output_by_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);
 file_output_t *new_file_output(const char *name, uint32_t snaplen, char *errbuf);
 void free_file_output(output_base_t *output);
 

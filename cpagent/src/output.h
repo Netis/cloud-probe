@@ -6,6 +6,8 @@
 
 #include <pcap/pcap.h>
 
+#include "taskconf.h"
+
 typedef struct OutputStats
 {
     uint64_t total_fwd_count;
@@ -18,6 +20,14 @@ typedef struct OutputBase
                        int direct);
     void (*destory)(struct OutputBase *output);
 } output_base_t;
+
+typedef output_base_t *(*OutputFactory)(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);
+
+typedef struct OutputEntry
+{
+    const char *name;
+    OutputFactory factory;
+} output_entry_t;
 
 static inline int output_send_packet(output_base_t *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
                                      int direct)

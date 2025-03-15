@@ -1,13 +1,13 @@
 {
     "tasks": [
         {
-            "interface": "eth0",
+            "interface": "0000:00:08.0",
             "snaplen": 2048,
             "capturer": {
-                "type": "libpcap",
-                "libpcap": {
-                    "buffer_size_mb": 256,
-                    "bpf_filter": ""
+                "type": "dpdk_pdump",
+                "dpdk_pdump": {
+                    "bpf_filter": "",
+                    "ring_size": 2048
                 }
             },
             "outputs": [
@@ -15,7 +15,7 @@
                     "type": "file",
                     "rate_limit_mbps": 10,
                     "file": {
-                        "name": "test_libpcap.pcap"
+                        "name": "tmp/test_dpdk.pcap"
                     }
                 }
             ]

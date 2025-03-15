@@ -4,6 +4,15 @@
             "interface": "eth0",
             "snaplen": 2048,
             "netns": "/proc/1432897/ns/net",
+            "req_pattern": {
+                "type": "custom",
+                "custom": {
+                    "patterns": [
+                        "host 10.1.2.123",
+                        "port 80"
+                    ]
+                }
+            },
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
@@ -18,7 +27,7 @@
             },
             "outputs": [
                 {
-                    "type": "vxlan",
+                    "type": "file",
                     "rate_limit_mbps": 10,
                     "vxlan": {
                         "host": "10.1.2.3",
@@ -40,7 +49,7 @@
                         "service_tag": 3
                     },
                     "file": {
-                        "name": "test_dpdk.pcap"
+                        "name": "tmp/test.pcap"
                     }
                 }
             ]

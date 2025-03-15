@@ -2,7 +2,7 @@
 #include <fcntl.h>
 #include <sched.h>
 #include <stdio.h>
-#include <unistd.h>>
+#include <unistd.h>
 
 #include "capturer.h"
 #include "error.h"
@@ -29,7 +29,7 @@ int enter_netns_by_path(char *ns_path, char *errbuf)
     }
     if (setns(fd, CLONE_NEWNET) == -1)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "call setns error", ns_path);
+        snprintf(errbuf, ERROR_BUFFER_SIZE, "call setns for '%s' error", ns_path);
         close(fd);
         return -1;
     }

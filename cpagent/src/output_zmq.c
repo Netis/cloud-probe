@@ -204,6 +204,13 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
     return output;
 }
 
+output_base_t *new_zmq_output_by_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+{
+
+    return (output_base_t *)new_zmq_output(output_cfg->config.zmq.host, output_cfg->config.zmq.port,
+                                           output_cfg->config.zmq.hwm, errbuf);
+}
+
 void free_zmq_output(output_base_t *self)
 {
     if (!self)

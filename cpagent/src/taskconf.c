@@ -41,30 +41,56 @@ static void free_output(OutputConfig *output)
     return;
 }
 
+static void free_req_pattern(ReqPatternConfig *req_pattern)
+{
+    if (!req_pattern)
+        return;
+
+    if (req_pattern->type)
+    {
+        if (strcmp(req_pattern->type, REQ_PATTERN_TYPE_CUSTOM_STR) == 0)
+        {
+            for (int i = 0; i < req_pattern->custom.num_patterns; ++i)
+            {
+                free(req_pattern->custom.patterns[i]);
+            }
+            free(req_pattern->custom.patterns);
+        }
+    }
+
+    free(req_pattern->type);
+}
+
 static void free_task(TaskConfig *task)
 {
     if (!task)
         return;
 
+    // free capturer
     if (task->capturer.type)
     {
-        if (strcmp(task->capturer.type, CAPTURER_ENGINE_LIBPCAP) == 0)
+        if (strcmp(task->capturer.type, CAPTURER_TYPE_LIBPCAP) == 0)
         {
             free(task->capturer.config.libpcap.bpf_filter);
         }
-        else if (strcmp(task->capturer.type, CAPTURER_ENGINE_DPDK_PDUMP) == 0)
+        else if (strcmp(task->capturer.type, CAPTURER_TYPE_DPDK_PDUMP) == 0)
         {
             free(task->capturer.config.dpdk_pdump.bpf_filter);
         }
     }
+    free(task->capturer.type);
 
+    // free outputs
     for (int i = 0; i < task->num_outputs; i++)
         free_output(task->outputs[i]);
+    free(task->outputs);
 
-    free(task->capturer.type);
+    // free req_pattern
+    free_req_pattern(&task->req_pattern);
+
+    // free commons
     free(task->interface);
     free(task->netns);
-    free(task->outputs);
     free(task);
 }
 
@@ -73,7 +99,7 @@ void free_tasks_config(TasksAllConfig *config)
     if (!config)
         return;
 
-    for (int i = 0; i < config->num_tasks; i++)
+    for (int i = 0; i < config->num_tasks; ++i)
         free_task(config->tasks[i]);
 
     free(config->tasks);
@@ -96,9 +122,9 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         return PARSE_ERROR;
     }
 
-    if (strcmp(capturer->type, CAPTURER_ENGINE_LIBPCAP) == 0)
+    if (strcmp(capturer->type, CAPTURER_TYPE_LIBPCAP) == 0)
     {
-        cJSON *libpcap_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_ENGINE_LIBPCAP);
+        cJSON *libpcap_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_TYPE_LIBPCAP);
         if (!libpcap_obj)
         {
             set_cjson_parse_error(err, "missing libpcap config");
@@ -148,9 +174,9 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             return PARSE_ERROR;
         }
     }
-    else if (strcmp(capturer->type, CAPTURER_ENGINE_DPDK_PDUMP) == 0)
+    else if (strcmp(capturer->type, CAPTURER_TYPE_DPDK_PDUMP) == 0)
     {
-        cJSON *dpdk_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_ENGINE_DPDK_PDUMP);
+        cJSON *dpdk_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_TYPE_DPDK_PDUMP);
         if (!dpdk_obj)
         {
             set_cjson_parse_error(err, "missing dpdk_pdump config");
@@ -199,7 +225,6 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
 
 static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONParseError *err)
 {
-    // Common fields
     cJSON *type = cJSON_GetObjectItemCaseSensitive(output_obj, "type");
     if (!cJSON_IsString(type))
     {
@@ -428,10 +453,69 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
     }
     else
     {
-        set_cjson_parse_error(err, "Unknown output type: %s", output->type);
+        set_cjson_parse_error(err, "unknown output type: %s", output->type);
         return PARSE_ERROR;
     }
 
+    return 0;
+}
+
+static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *req_pattern, cJSONParseError *err)
+{
+    cJSON *type = cJSON_GetObjectItemCaseSensitive(req_pattern_obj, "type");
+    if (!cJSON_IsString(type))
+    {
+        set_cjson_parse_error(err, "missing or invalid output type");
+        return PARSE_ERROR;
+    }
+    req_pattern->type = strdup(type->valuestring);
+    if (!req_pattern->type)
+    {
+        set_cjson_parse_error(err, "memory allocation failed");
+        return PARSE_ERROR;
+    }
+
+    if (strcmp(req_pattern->type, REQ_PATTERN_TYPE_AUTO_STR) == 0)
+    {
+        // noops
+    }
+    else if (strcmp(req_pattern->type, REQ_PATTERN_TYPE_CUSTOM_STR) == 0)
+    {
+        cJSON *custom = cJSON_GetObjectItemCaseSensitive(req_pattern_obj, "custom");
+        if (!cJSON_IsObject(custom))
+        {
+            set_cjson_parse_error(err, "custom %d is not an object");
+            return PARSE_ERROR;
+        }
+        cJSON *patterns = cJSON_GetObjectItemCaseSensitive(custom, "patterns");
+        if (!cJSON_IsArray(patterns))
+        {
+            set_cjson_parse_error(err, "missing or invalid custom.patterns");
+            return PARSE_ERROR;
+        }
+        int num_patterns = cJSON_GetArraySize(patterns);
+        req_pattern->custom.patterns = (char **)calloc(num_patterns, sizeof(char *));
+        if (!req_pattern->custom.patterns)
+        {
+            set_cjson_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
+        for (int i = 0; i < num_patterns; i++)
+        {
+            cJSON *pattern = cJSON_GetArrayItem(patterns, i);
+            if (!cJSON_IsString(pattern))
+            {
+                set_cjson_parse_error(err, "custom.patterns %d is invalid", i);
+                return PARSE_ERROR;
+            }
+            req_pattern->custom.patterns[req_pattern->custom.num_patterns++] = strdup(pattern->valuestring);
+        }
+    }
+    else
+    {
+        set_cjson_parse_error(err, "unknown req_pattern type: %s", req_pattern->type);
+        return PARSE_ERROR;
+    }
     return 0;
 }
 
@@ -479,6 +563,26 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
     {
         set_cjson_parse_error(err, "invalid netns");
         return PARSE_ERROR;
+    }
+
+    // Parse req_pattern
+    cJSON *req_pattern = cJSON_GetObjectItemCaseSensitive(task_obj, "req_pattern");
+    if (!req_pattern)
+    {
+        task->req_pattern.type = strdup(REQ_PATTERN_TYPE_NONE_STR);
+    }
+    else if (!cJSON_IsObject(req_pattern))
+    {
+        set_cjson_parse_error(err, "invalid netns");
+        return PARSE_ERROR;
+    }
+    else
+    {
+        if (parse_req_pattern_config(req_pattern, &task->req_pattern, err) != 0)
+        {
+            wrap_cjson_parse_error(err, "parse req_pattern error");
+            return PARSE_ERROR;
+        }
     }
 
     // Parse capturer
