@@ -1,7 +1,7 @@
 #ifndef CPAGENT_OUTPUT_ZMQ_H
 #define CPAGENT_OUTPUT_ZMQ_H
 
-#include "output_common.h"
+#include "output.h"
 #include <stdint.h>
 #include <zmq.h>
 

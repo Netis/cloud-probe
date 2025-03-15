@@ -8,9 +8,10 @@
 #include <pcap/vlan.h>
 #include <zmq.h>
 
+#include "common.h"
 #include "error.h"
 #include "log.h"
-#include "output_common.h"
+#include "output.h"
 #include "output_zmq.h"
 
 static uint32_t make_mpls_hdr(int direct, int service_tag)

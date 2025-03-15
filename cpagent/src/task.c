@@ -46,6 +46,7 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
             .promisc = 0,
             .buffer_size = task_cfg->capturer.config.libpcap.buffer_size_mb * 1024 * 1024,
             .bpf_filter = task_cfg->capturer.config.libpcap.bpf_filter,
+            .netns = task_cfg->netns,
         };
         log_info("libpcap options, interface %s, snaplen %d, buffer_size: %d, bpf_filter: `%s`", opts.interface,
                  opts.snaplen, opts.buffer_size, opts.bpf_filter);
@@ -90,9 +91,9 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
 
 error:
     if (task->capturer)
-        task->capturer->destory(task->capturer);
+        destory_capturer(task->capturer);
     for (int i = 0; i < task->num_outputs; ++i)
-        task->outputs[i]->destory(task->outputs[i]);
+        destory_output(task->outputs[i]);
     free(task);
     return NULL;
 }
@@ -102,19 +103,19 @@ void free_capture_task(capture_task_t *task)
     if (!task)
         return;
 
-    task->capturer->destory(task->capturer);
+    destory_capturer(task->capturer);
     for (int i = 0; i < task->num_outputs; ++i)
-        task->outputs[i]->destory(task->outputs[i]);
+        destory_output(task->outputs[i]);
     free(task);
 }
 
-void task_handle_packet_cb(const struct pcap_pkthdr *header, const uint8_t *pkt_data, void *user_data)
+void task_handle_packet_cb(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct, void *user)
 {
-    capture_task_t *task = (capture_task_t *)user_data;
+    capture_task_t *task = (capture_task_t *)user;
 
     for (int i = 0; i < task->num_outputs; ++i)
     {
-        task->outputs[i]->send_packet(task->outputs[i], header, pkt_data, PKT_DIR_INCOMING);
+        output_send_packet(task->outputs[i], header, pkt_data, direct);
     }
 }
 

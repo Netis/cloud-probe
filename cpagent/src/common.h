@@ -1,12 +1,9 @@
-#ifndef CPAGENT_OUTPUT_COMMON_H
-#define CPAGENT_OUTPUT_COMMON_H
+#ifndef CPAGENT_COMMON_H
+#define CPAGENT_COMMON_H
 
 #include <endian.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include <sys/types.h>
-
-#include <pcap/pcap.h>
 
 #define PKT_DIR_UNKNOWN -1
 #define PKT_DIR_INCOMING 1
@@ -54,17 +51,4 @@ typedef struct
 #endif
 } mpls_header;
 
-typedef struct OutputStats
-{
-    uint64_t total_fwd_count;
-    uint64_t total_fwd_bytes;
-} output_stats_t;
-
-typedef struct OutputBase
-{
-    int (*send_packet)(struct OutputBase *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
-                       int direct);
-    void (*destory)(struct OutputBase *output);
-} output_base_t;
-
-#endif /* CPAGENT_OUTPUT_COMMON_H */
+#endif /* CPAGENT_COMMON_H */

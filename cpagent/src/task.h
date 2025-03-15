@@ -2,7 +2,7 @@
 #define CPAGENT_TASK_H
 
 #include "capturer.h"
-#include "output_common.h"
+#include "output.h"
 #include "taskconf.h"
 
 typedef struct CaptureTask

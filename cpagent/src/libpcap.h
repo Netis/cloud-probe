@@ -13,6 +13,7 @@ typedef struct LibpcapOptions
     int promisc;
     int buffer_size;
     char *bpf_filter;
+    char *netns;
 } libpcap_options_t;
 
 typedef struct LibpcapCapturer

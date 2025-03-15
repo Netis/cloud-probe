@@ -1,7 +1,7 @@
 #ifndef CPAGENT_OUTPUT_FILE_H
 #define CPAGENT_OUTPUT_FILE_H
 
-#include "output_common.h"
+#include "output.h"
 #include <pcap/pcap.h>
 #include <stdio.h>
 

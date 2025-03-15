@@ -36,6 +36,7 @@
 #include <pcap/bpf.h>
 #include <pcap/pcap.h>
 
+#include "common.h"
 #include "dpdk_pdump.h"
 #include "error.h"
 #include "log.h"
@@ -273,7 +274,7 @@ int dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
 
         header.len = rte_pktmbuf_pkt_len(m);
         header.caplen = RTE_MIN(header.len, capturer->snaplen);
-        handler(&header, rte_pktmbuf_read(m, 0, header.caplen, temp_data), user);
+        handler(&header, rte_pktmbuf_read(m, 0, header.caplen, temp_data), PKT_DIR_INCOMING, user);
     }
     rte_pktmbuf_free_bulk(pkts, n);
     return n;
