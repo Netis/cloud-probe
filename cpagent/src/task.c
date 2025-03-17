@@ -11,13 +11,13 @@
 #include "taskconf.h"
 
 capturer_entry_t capturer_entries[] = {
-    {CAPTURER_TYPE_LIBPCAP, new_libpcap_capture_by_cfg},
-    {CAPTURER_TYPE_DPDK_PDUMP, new_dpdk_capture_by_cfg},
+    {CAPTURER_TYPE_LIBPCAP, libpcap_capture_new_from_cfg},
+    {CAPTURER_TYPE_DPDK_PDUMP, dpdk_capture_new_from_cfg},
 };
 
 output_entry_t output_entries[] = {
-    {OUTPUT_TYPE_FILE, new_file_output_by_cfg},
-    {OUTPUT_TYPE_ZMQ, new_zmq_output_by_cfg},
+    {OUTPUT_TYPE_FILE, file_output_new_from_cfg},
+    {OUTPUT_TYPE_ZMQ, zmq_output_new_from_cfg},
 };
 
 CapturerFactory find_capturer_factory(const char *name)
@@ -49,14 +49,14 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
     capture_task_t *task = (capture_task_t *)calloc(1, sizeof(capture_task_t));
     if (!task)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for capture_task_t");
+        error_format(errbuf, "failed to allocate memory for capture_task_t");
         return NULL;
     }
 
     CapturerFactory factory = find_capturer_factory(task_cfg->capturer.type);
     if (!factory)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "unsupport capturer type %s", task_cfg->capturer.type);
+        error_format(errbuf, "unsupport capturer type %s", task_cfg->capturer.type);
         goto error;
     }
     task->capturer = factory(task_cfg, errbuf);
@@ -70,7 +70,7 @@ capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
         OutputFactory factory = find_output_factory(output_cfg->type);
         if (!factory)
         {
-            snprintf(errbuf, ERROR_BUFFER_SIZE, "unsupport output type: %s", output_cfg->type);
+            error_format(errbuf, "unsupport output type: %s", output_cfg->type);
             goto error;
         }
 

@@ -55,21 +55,20 @@ static struct rte_bpf_prm *compile_filter(const char *filter_str, uint32_t snapl
     pcap = pcap_open_dead(DLT_EN10MB, snaplen);
     if (!pcap)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "can not open pcap");
+        error_format(errbuf, "can not open pcap");
         return NULL;
     }
 
     if (pcap_compile(pcap, &bf, filter_str, 1, PCAP_NETMASK_UNKNOWN) != 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "pcap filter string not valid (%s)", pcap_geterr(pcap));
+        error_format(errbuf, "pcap filter string not valid (%s)", pcap_geterr(pcap));
         return NULL;
     }
 
     struct rte_bpf_prm *bpf_prm = rte_bpf_convert(&bf);
     if (bpf_prm == NULL)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "convert a bpf program to dpdk bpf code error: %s",
-                 rte_strerror(rte_errno));
+        error_format(errbuf, "convert a bpf program to dpdk bpf code error: %s", rte_strerror(rte_errno));
         pcap_freecode(&bf);
         pcap_close(pcap);
         return NULL;
@@ -151,7 +150,7 @@ int dpdk_init(char *errbuf)
     eal_argv = calloc(eal_argc + 1, sizeof(char *));
     if (eal_argv == NULL)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "EAL init failed: : no memory");
+        error_format(errbuf, "EAL init failed: : no memory");
         return -1;
     }
 
@@ -161,7 +160,7 @@ int dpdk_init(char *errbuf)
 
     if (rte_eal_init(eal_argc, eal_argv) < 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "EAL init failed: is primary process running?");
+        error_format(errbuf, "EAL init failed: is primary process running?");
         return -1;
     }
     return 0;
@@ -190,7 +189,7 @@ static struct rte_ring *create_ring(const char *ring_name, unsigned int ring_siz
         ring = rte_ring_create(ring_name, ring_size, rte_socket_id(), 0);
         if (ring == NULL)
         {
-            snprintf(errbuf, ERROR_BUFFER_SIZE, "could not create ring :%s", rte_strerror(rte_errno));
+            error_format(errbuf, "could not create ring :%s", rte_strerror(rte_errno));
             return NULL;
         }
     }
@@ -208,7 +207,7 @@ static struct rte_mempool *create_mempool(const char *pool_name, uint32_t num_mb
                                         rte_socket_id(), "ring_mp_sc");
     if (mp == NULL)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "mempool (%s) creation failed: %s", pool_name, rte_strerror(rte_errno));
+        error_format(errbuf, "mempool (%s) creation failed: %s", pool_name, rte_strerror(rte_errno));
         return NULL;
     }
 
@@ -230,7 +229,7 @@ static int enable_pdump(uint16_t port, struct rte_ring *ring, struct rte_mempool
     int ret = rte_pdump_enable_bpf(port, RTE_PDUMP_ALL_QUEUES, flags, snaplen, ring, mp, bpf_prm);
     if (ret < 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "Packet dump enable failed: %s", rte_strerror(-ret));
+        error_format(errbuf, "Packet dump enable failed: %s", rte_strerror(-ret));
         return -1;
     }
     log_info("exit rte_pdump_enable_bpf, port %d", port);
@@ -288,12 +287,12 @@ int dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
     return n;
 }
 
-dpdk_capturer_t *new_dpdk_capturer(dpdk_pdump_options_t opts, char *errbuf)
+dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
 {
     uint16_t port;
     if (rte_eth_dev_get_port_by_name(opts.interface, &port) != 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "interface %s not found", opts.interface);
+        error_format(errbuf, "interface %s not found", opts.interface);
         return NULL;
     }
 
@@ -335,11 +334,11 @@ dpdk_capturer_t *new_dpdk_capturer(dpdk_pdump_options_t opts, char *errbuf)
         log_info("call cleanup_pdump_resources");
         cleanup_pdump_resources(port, opts.promiscuous_mode);
 
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for dpdk_capturer_t");
+        error_format(errbuf, "failed to allocate memory for dpdk_capturer_t");
         return NULL;
     }
     capturer->base.capture = dpdk_do_capture;
-    capturer->base.destory = free_dpdk_capturer;
+    capturer->base.destory = dpdk_capturer_destory;
     capturer->port = port;
     capturer->promiscuous_mode = opts.promiscuous_mode;
     capturer->snaplen = opts.snaplen;
@@ -350,7 +349,7 @@ dpdk_capturer_t *new_dpdk_capturer(dpdk_pdump_options_t opts, char *errbuf)
     return capturer;
 }
 
-capturer_base_t *new_dpdk_capture_by_cfg(TaskConfig *task_cfg, char *errbuf)
+capturer_base_t *dpdk_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf)
 {
 
     dpdk_pdump_options_t opts = {
@@ -367,10 +366,10 @@ capturer_base_t *new_dpdk_capture_by_cfg(TaskConfig *task_cfg, char *errbuf)
     log_info("dpdk_pdump options, interface %s, snaplen %d, ring_size: %d, num_mbufs: %d, bpf_filter: `%s`",
              opts.interface, opts.snaplen, opts.ring_size, opts.num_mbufs, opts.bpf_filter);
 
-    return (capturer_base_t *)new_dpdk_capturer(opts, errbuf);
+    return (capturer_base_t *)dpdk_capturer_new(opts, errbuf);
 }
 
-void free_dpdk_capturer(capturer_base_t *self)
+void dpdk_capturer_destory(capturer_base_t *self)
 {
     if (!self)
         return;

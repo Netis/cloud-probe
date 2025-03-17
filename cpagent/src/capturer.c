@@ -13,7 +13,7 @@ int get_self_netns_fd(char *errbuf)
     int fd = open(ns_path, O_RDONLY);
     if (fd == -1)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "open %s error", ns_path);
+        error_format(errbuf, "open %s error", ns_path);
         return -1;
     }
     return fd;
@@ -24,12 +24,12 @@ int enter_netns_by_path(char *ns_path, char *errbuf)
     int fd = open(ns_path, O_RDONLY);
     if (fd == -1)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "open '%s' error", ns_path);
+        error_format(errbuf, "open '%s' error", ns_path);
         return -1;
     }
     if (setns(fd, CLONE_NEWNET) == -1)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "call setns for '%s' error", ns_path);
+        error_format(errbuf, "call setns for '%s' error", ns_path);
         close(fd);
         return -1;
     }
@@ -41,7 +41,7 @@ int enter_netns_by_fd(int fd, char *errbuf)
 {
     if (setns(fd, CLONE_NEWNET) == -1)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "call setns error");
+        error_format(errbuf, "call setns error");
         close(fd);
         return -1;
     }

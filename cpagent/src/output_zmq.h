@@ -8,9 +8,9 @@
 #include "output.h"
 #include "taskconf.h"
 
-#define MAX_BATCH_BUF_LENGTH 1048576 // 1 * 1024 * 1024;
-#define MAX_PKTS_TIMEDIFF_SEC 1
-#define BATCH_PKTS_VERSION 2
+#define ZMQ_MAX_BATCH_BUF_SIZE 1048576 // 1 * 1024 * 1024;
+#define ZMQ_PKTS_FLUSH_MAX_DUR_SEC 1
+#define ZMQ_BATCH_PKTS_VERSION 2
 
 typedef struct PmrPktHdr
 {
@@ -34,7 +34,7 @@ typedef struct BatchPktsBuf
     // buf format as below:
     // | batch_hdr | (pkt_data length  + pkt_hdr  + pkt_data) | (pkt_data_length  + pkt_hdr  + pkt_data) | ...
     // | 8 bytes   | (2 bytes          + 16 bytes + n bytes ) | (2 bytes          + 16 bytes + n bytes ) | ...
-    char buf[MAX_BATCH_BUF_LENGTH];
+    char buf[ZMQ_MAX_BATCH_BUF_SIZE];
     uint32_t batch_bufpos;
     long int first_pktsec;
 } batch_pkts_buf_t;
@@ -50,8 +50,8 @@ typedef struct ZmqOutput
     output_stats_t stats;
 } zmq_output_t;
 
-output_base_t *new_zmq_output_by_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);
-zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf);
-void free_zmq_output(output_base_t *output);
+output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);
+zmq_output_t *zmq_output_new(const char *host, int port, int hwm, char *errbuf);
+void zmq_output_destory(output_base_t *self);
 
 #endif /* CPAGENT_OUTPUT_ZMQ_H */

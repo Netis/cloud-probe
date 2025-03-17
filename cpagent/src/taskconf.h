@@ -1,6 +1,7 @@
 #ifndef CPAGENT_TASKCONF_H
 #define CPAGENT_TASKCONF_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "cjson_utils.h"
@@ -27,8 +28,8 @@ typedef struct
         {
             char *host;
             int port;
-            int capture_time;
-            uint8_t version;
+            bool capture_time;
+            uint8_t vni_version;
             uint32_t vni;
             char *bind_device;
         } vxlan;

@@ -18,12 +18,12 @@ int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     return 0;
 }
 
-file_output_t *new_file_output(const char *name, uint32_t snaplen, char *errbuf)
+file_output_t *file_output_new(const char *name, uint32_t snaplen, char *errbuf)
 {
     FILE *fp = fopen(name, "w+");
     if (!fp)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "open file %s error: %s", name, strerror(errno));
+        error_format(errbuf, "open file %s error: %s", name, strerror(errno));
         return NULL;
     }
     rewind(fp);
@@ -32,7 +32,7 @@ file_output_t *new_file_output(const char *name, uint32_t snaplen, char *errbuf)
     pcap = pcap_open_dead_with_tstamp_precision(DLT_EN10MB, snaplen, PCAP_TSTAMP_PRECISION_NANO);
     if (!pcap)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "pcap_open_dead failed");
+        error_format(errbuf, "pcap_open_dead failed");
         fclose(fp);
         return NULL;
     }
@@ -41,38 +41,38 @@ file_output_t *new_file_output(const char *name, uint32_t snaplen, char *errbuf)
     if (!dumper)
     {
         fclose(fp);
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "pcap_dump_fopen failed: %s", pcap_geterr(pcap));
+        error_format(errbuf, "pcap_dump_fopen failed: %s", pcap_geterr(pcap));
         return NULL;
     }
 
     file_output_t *output = (file_output_t *)calloc(1, sizeof(file_output_t));
     if (!output)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for file_output_t");
+        error_format(errbuf, "failed to allocate memory for file_output_t");
         pcap_dump_close(dumper);
         return NULL;
     }
 
     output->base.send_packet = file_write_packet;
-    output->base.destory = free_file_output;
+    output->base.destory = file_output_destory;
 
     output->fp = fp;
     output->dumper = dumper;
     return output;
 }
 
-output_base_t *new_file_output_by_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
 {
 
-    return (output_base_t *)new_file_output(output_cfg->config.file.name, task_cfg->snaplen, errbuf);
+    return (output_base_t *)file_output_new(output_cfg->config.file.name, task_cfg->snaplen, errbuf);
 }
 
-void free_file_output(output_base_t *self)
+void file_output_destory(output_base_t *self)
 {
     if (!self)
         return;
 
-    log_info("call free_file_output");
+    log_info("call file_output_destory");
     file_output_t *output = (file_output_t *)self;
 
     pcap_dump_close(output->dumper);

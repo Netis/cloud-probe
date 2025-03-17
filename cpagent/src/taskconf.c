@@ -283,9 +283,14 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         // Capture time
         cJSON *capture_time = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "capture_time");
         if (!capture_time)
-            output->config.vxlan.capture_time = 0;
+            output->config.vxlan.capture_time = false;
         if (cJSON_IsBool(capture_time))
-            output->config.vxlan.capture_time = cJSON_IsTrue(capture_time);
+        {
+            if (cJSON_IsTrue(capture_time))
+                output->config.vxlan.capture_time = true;
+            else
+                output->config.vxlan.capture_time = false;
+        }
         else
         {
             set_cjson_parse_error(err, "invalid vxlan.capture_time");
@@ -299,7 +304,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         {
             if (cJSON_IsNumber(vni1))
             {
-                output->config.vxlan.version = 1;
+                output->config.vxlan.vni_version = 1;
                 output->config.vxlan.vni = vni1->valueint;
             }
             else
@@ -312,7 +317,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         {
             if (cJSON_IsNumber(vni2))
             {
-                output->config.vxlan.version = 2;
+                output->config.vxlan.vni_version = 2;
                 output->config.vxlan.vni = vni2->valueint;
             }
             else
@@ -323,7 +328,8 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         }
         else
         {
-            output->config.vxlan.version = 0;
+            set_cjson_parse_error(err, "require vxlan.vni1 or vxlan.vni2");
+            return PARSE_ERROR;
         }
 
         // Bind device

@@ -23,6 +23,7 @@
 #define ETHER_TYPE_MPLS 0x8847
 
 #define MAC_ADDR_STR_BUFSIZE 18
+#define VXLAN_HEADER_LEN 8
 
 typedef struct
 {
@@ -55,9 +56,19 @@ typedef struct
 
 typedef struct
 {
+    uint8_t reserved1 : 4;
+    uint8_t rra : 4;
+    uint8_t service_tag_h : 4;
+    uint8_t reserved2 : 4;
+    uint8_t service_tag_l : 8;
+    uint8_t check;
+} pa_tag_t;
+
+struct vxlanhdr
+{
     uint32_t vx_flags;
     uint32_t vx_vni;
-} vxlan_hdr_t;
+};
 
 struct vlanhdr
 {

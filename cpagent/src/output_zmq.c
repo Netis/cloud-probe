@@ -56,9 +56,10 @@ int zmq_flush_packet(zmq_output_t *output)
 
 int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
-    zmq_output_t *output = (zmq_output_t *)self;
     if (direct == PKT_DIR_UNKNOWN)
         return -1;
+
+    zmq_output_t *output = (zmq_output_t *)self;
 
     uint64_t us = tv2us(&header->ts);
     // TODO: check_mbps_cb
@@ -79,9 +80,9 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     const bool is_pkt_num_exceeded = (pkts_buf->batch_hdr.pkts_num >= 65535);
     const bool is_time_diff_exceeded =
-        (pkts_buf->first_pktsec != 0 && header->ts.tv_sec > pkts_buf->first_pktsec + MAX_PKTS_TIMEDIFF_SEC);
+        (pkts_buf->first_pktsec != 0 && header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC);
     const bool is_buffer_full =
-        (pkts_buf->batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + length > MAX_BATCH_BUF_LENGTH);
+        (pkts_buf->batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + length > ZMQ_MAX_BATCH_BUF_SIZE);
     if (is_pkt_num_exceeded || is_time_diff_exceeded || is_buffer_full)
     {
         log_debug("send zmq message, last packet time: %d, first packet_time", header->ts.tv_sec,
@@ -143,26 +144,26 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     return 0;
 }
 
-zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
+zmq_output_t *zmq_output_new(const char *host, int port, int hwm, char *errbuf)
 {
     void *context = zmq_ctx_new();
     if (context == NULL)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "zmq_ctx_new() error: %s", zmq_strerror(errno));
+        error_format(errbuf, "zmq_ctx_new() error: %s", zmq_strerror(errno));
         return NULL;
     }
 
     void *pusher = zmq_socket(context, ZMQ_PUSH);
     if (pusher == NULL)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "zmq_socket() error: %s", zmq_strerror(errno));
+        error_format(errbuf, "zmq_socket() error: %s", zmq_strerror(errno));
         zmq_ctx_destroy(context);
         return NULL;
     }
 
     if (zmq_setsockopt(pusher, ZMQ_SNDHWM, &hwm, sizeof(hwm)) != 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "set hwm error: %s", zmq_strerror(errno));
+        error_format(errbuf, "set hwm error: %s", zmq_strerror(errno));
         zmq_close(pusher);
         zmq_ctx_destroy(context);
         return NULL;
@@ -171,7 +172,7 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
     int linger = 10 * 1000; // 10s
     if (zmq_setsockopt(pusher, ZMQ_LINGER, &linger, sizeof(linger)) != 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "set linger error: %s", zmq_strerror(errno));
+        error_format(errbuf, "set linger error: %s", zmq_strerror(errno));
         zmq_close(pusher);
         zmq_ctx_destroy(context);
         return NULL;
@@ -182,7 +183,7 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
 
     if (zmq_connect(pusher, address) != 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "zmq connect address %s error: %s", address, zmq_strerror(errno));
+        error_format(errbuf, "zmq connect address %s error: %s", address, zmq_strerror(errno));
         zmq_close(pusher);
         zmq_ctx_destroy(context);
         return NULL;
@@ -191,32 +192,32 @@ zmq_output_t *new_zmq_output(const char *host, int port, int hwm, char *errbuf)
     zmq_output_t *output = (zmq_output_t *)calloc(1, sizeof(zmq_output_t));
     if (!output)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "failed to allocate memory for zmq_output_t");
+        error_format(errbuf, "failed to allocate memory for zmq_output_t");
         zmq_close(pusher);
         zmq_ctx_destroy(context);
         return NULL;
     }
 
     output->base.send_packet = zmq_send_packet;
-    output->base.destory = free_zmq_output;
+    output->base.destory = zmq_output_destory;
     output->context = context;
     output->pusher = pusher;
     return output;
 }
 
-output_base_t *new_zmq_output_by_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
 {
 
-    return (output_base_t *)new_zmq_output(output_cfg->config.zmq.host, output_cfg->config.zmq.port,
+    return (output_base_t *)zmq_output_new(output_cfg->config.zmq.host, output_cfg->config.zmq.port,
                                            output_cfg->config.zmq.hwm, errbuf);
 }
 
-void free_zmq_output(output_base_t *self)
+void zmq_output_destory(output_base_t *self)
 {
     if (!self)
         return;
 
-    log_info("call free_zmq_output");
+    log_info("call zmq_output_destory");
     zmq_output_t *output = (zmq_output_t *)self;
 
     if (output->pusher)

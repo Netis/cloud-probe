@@ -24,19 +24,19 @@ int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
 {
     if (!ifname)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "ifname is empty");
+        error_format(errbuf, "ifname is empty");
         return -1;
     }
     if (!mac_addr)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "mac_addr buffer is NULL");
+        error_format(errbuf, "mac_addr buffer is NULL");
         return -1;
     }
 
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0)
     {
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "create socket error: %s", strerror(errno));
+        error_format(errbuf, "create socket error: %s", strerror(errno));
         return -1;
     }
 
@@ -48,7 +48,7 @@ int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
     if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
     {
         close(sockfd);
-        snprintf(errbuf, ERROR_BUFFER_SIZE, "ioctl error: %s", strerror(errno));
+        error_format(errbuf, "ioctl error: %s", strerror(errno));
         return -1;
     }
 

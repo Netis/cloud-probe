@@ -16,8 +16,8 @@ typedef struct FileOutput
     pcap_dumper_t *dumper;
 } file_output_t;
 
-output_base_t *new_file_output_by_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);
-file_output_t *new_file_output(const char *name, uint32_t snaplen, char *errbuf);
-void free_file_output(output_base_t *output);
+output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);
+file_output_t *file_output_new(const char *name, uint32_t snaplen, char *errbuf);
+void file_output_destory(output_base_t *self);
 
 #endif /* CPAGENT_OUTPUT_FILE_H */
