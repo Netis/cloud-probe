@@ -4,12 +4,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "dpdk_pdump.h"
 #include "error.h"
 #include "log.h"
 #include "task.h"
 #include "taskconf.h"
 #include <unistd.h>
+
+#ifdef ENABLE_DPDK
+#include "dpdk_pdump.h"
+#endif
 
 /* command line flags */
 static const char *progname;
@@ -31,7 +34,9 @@ static void usage(void)
 {
     printf("Usage: %s [options] ...\n\n", progname);
     printf("  -T, --tasks <file>      specify tasks config file\n");
+#ifdef ENABLE_DPDK
     printf("  --enable-dpdk-dumpcap   enable dpdk-dumpcap\n");
+#endif
     printf("  --cpu-set <cpu1,cpu2>   include only these CPUs in affinity settings\n");
     printf("  --unix-socket <file>    use unix socket to control suricata work\n");
     printf("  -v, --version           print version information and exit\n");
@@ -117,6 +122,7 @@ int main(int argc, char **argv)
 
     parse_opts(argc, argv);
 
+#ifdef ENABLE_DPDK
     if (enable_dpdk_dumpcap)
     {
         if (dpdk_init(errbuf) != 0)
@@ -125,6 +131,7 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
     }
+#endif
 
     cJSONParseError err;
     TasksAllConfig *config = parse_tasks_file(tasks_file, &err);
@@ -145,11 +152,11 @@ int main(int argc, char **argv)
     log_info("find tasks %d\n", num_tasks);
     for (int i = 0; i < num_tasks; ++i)
     {
-        capture_task_t *task = new_capture_task(config->tasks[i], errbuf);
+        capture_task_t *task = capture_task_new(config->tasks[i], errbuf);
         if (!task)
         {
             for (int j = 0; j < i; ++j)
-                free_capture_task(tasks[j]);
+                capture_task_destory(tasks[j]);
 
             free(tasks);
             log_fatal("new task-%d error: %s", i, errbuf);
@@ -169,7 +176,7 @@ int main(int argc, char **argv)
         int num_pkts = 0;
         for (int i = 0; i < num_tasks; ++i)
         {
-            num_pkts += task_poll_packets(tasks[i]);
+            num_pkts += capture_task_poll_packets(tasks[i]);
         }
 
         if (num_pkts == 0)
@@ -180,7 +187,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < num_tasks; ++i)
     {
         log_info("free task: %d", i);
-        free_capture_task(tasks[i]);
+        capture_task_destory(tasks[i]);
     }
     free(tasks);
 

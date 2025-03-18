@@ -20,7 +20,7 @@ typedef struct
     char message[CJSON_ERRBUF_SIZE];
 } cJSONParseError;
 
-void set_cjson_parse_error(cJSONParseError *err, const char *format, ...);
-void wrap_cjson_parse_error(cJSONParseError *err, const char *format, ...);
+void cjson_set_parse_error(cJSONParseError *err, const char *format, ...);
+void cjson_wrap_parse_error(cJSONParseError *err, const char *format, ...);
 
 #endif /* cJSON_Common__h */

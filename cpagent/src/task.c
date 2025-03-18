@@ -1,7 +1,7 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "capturer.h"
-#include "dpdk_pdump.h"
 #include "error.h"
 #include "libpcap.h"
 #include "log.h"
@@ -12,9 +12,15 @@
 #include "task.h"
 #include "taskconf.h"
 
+#ifdef ENABLE_DPDK
+#include "dpdk_pdump.h"
+#endif
+
 static capturer_entry_t capturer_entries[] = {
     {CAPTURER_TYPE_LIBPCAP, libpcap_capture_new_from_cfg},
+#ifdef ENABLE_DPDK
     {CAPTURER_TYPE_DPDK_PDUMP, dpdk_capture_new_from_cfg},
+#endif
 };
 
 static output_entry_t output_entries[] = {
@@ -48,7 +54,7 @@ static OutputFactory find_output_factory(const char *name)
     return NULL;
 }
 
-capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf)
+capture_task_t *capture_task_new(TaskConfig *task_cfg, char *errbuf)
 {
     capture_task_t *task = (capture_task_t *)calloc(1, sizeof(capture_task_t));
     if (!task)
@@ -95,7 +101,7 @@ error:
     return NULL;
 }
 
-void free_capture_task(capture_task_t *task)
+void capture_task_destory(capture_task_t *task)
 {
     if (!task)
         return;
@@ -116,7 +122,7 @@ void task_handle_packet_cb(const struct pcap_pkthdr *header, const uint8_t *pkt_
     }
 }
 
-int task_poll_packets(capture_task_t *task)
+int capture_task_poll_packets(capture_task_t *task)
 {
     return task->capturer->capture(task->capturer, task_handle_packet_cb, task);
 }

@@ -6,7 +6,7 @@
 
 #include "cjson_utils.h"
 
-void set_cjson_parse_error(cJSONParseError *err, const char *format, ...)
+void cjson_set_parse_error(cJSONParseError *err, const char *format, ...)
 {
     if (!err)
         return;
@@ -18,7 +18,7 @@ void set_cjson_parse_error(cJSONParseError *err, const char *format, ...)
     va_end(args);
 }
 
-void wrap_cjson_parse_error(cJSONParseError *err, const char *format, ...)
+void cjson_wrap_parse_error(cJSONParseError *err, const char *format, ...)
 {
     if (!err)
         return;

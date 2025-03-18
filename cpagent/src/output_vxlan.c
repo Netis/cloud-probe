@@ -20,6 +20,12 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
 
     size_t length = (size_t)(header->caplen <= 65535 ? header->caplen : 65535);
 
+    if (output->rate_limit_mbps > 0)
+    {
+        if (token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length) != 0)
+            return -1;
+    }
+
     struct vxlanhdr *vxlan_hdr = (struct vxlanhdr *)output->buf;
     memcpy(&(output->buf[VXLAN_HEADER_LEN]), pkt_data, length);
 
@@ -114,6 +120,12 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
     output->base.send_packet = vxlan_send_packet;
     output->base.destory = vxlan_output_destory;
 
+    if (opts.rate_limit_mbps > 0)
+    {
+        token_bucket_init(&output->throttle, opts.rate_limit_mbps * 1000000);
+    }
+    output->rate_limit_mbps = opts.rate_limit_mbps;
+
     output->vni_version = opts.vni_version;
     output->vni = opts.vni;
     output->capture_time = opts.capture_time;
@@ -130,8 +142,9 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
         .capture_time = output_cfg->config.vxlan.capture_time,
         .vni_version = output_cfg->config.vxlan.vni_version,
         .vni = output_cfg->config.vxlan.vni,
-        .pmtudisc = output_cfg->config.vxlan.pmtudisc,
         .bind_device = output_cfg->config.vxlan.bind_device,
+        .pmtudisc = output_cfg->config.vxlan.pmtudisc,
+        .rate_limit_mbps = output_cfg->rate_limit_mbps,
     };
     return (output_base_t *)vxlan_output_new(opts, errbuf);
 }

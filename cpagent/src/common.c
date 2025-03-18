@@ -73,7 +73,7 @@ void format_mac_addr(const uint8_t *mac_addr, char *buf)
     *ptr = '\0';
 }
 
-void free_req_pattern(req_pattern_t *req_pattern)
+void req_pattern_destory(req_pattern_t *req_pattern)
 {
     if (!req_pattern)
         return;
@@ -98,7 +98,7 @@ void free_req_pattern(req_pattern_t *req_pattern)
     free(req_pattern);
 }
 
-static bool match_pattern_by_ipport(req_pattern_t *req_pattern, const struct in_addr *ip, const uint16_t port)
+static bool req_pattern_match_by_ipport(req_pattern_t *req_pattern, const struct in_addr *ip, const uint16_t port)
 {
     if (req_pattern->type != REQ_PATTERN_TYPE_CUSTOM)
         return false;
@@ -125,7 +125,8 @@ static bool match_pattern_by_ipport(req_pattern_t *req_pattern, const struct in_
     return match;
 }
 
-int classify_packet_direction(req_pattern_t *req_pattern, const struct pcap_pkthdr *header, const uint8_t *pkt_data)
+int req_pattern_judge_pkt_direction(req_pattern_t *req_pattern, const struct pcap_pkthdr *header,
+                                    const uint8_t *pkt_data)
 {
     struct ether_header *eth_hdr;
     eth_hdr = (struct ether_header *)pkt_data;
@@ -167,9 +168,9 @@ int classify_packet_direction(req_pattern_t *req_pattern, const struct pcap_pkth
             break;
         }
 
-        if (match_pattern_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->saddr, sport))
+        if (req_pattern_match_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->saddr, sport))
             return PKT_DIR_OUTGOING;
-        else if (match_pattern_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->daddr, dport))
+        else if (req_pattern_match_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->daddr, dport))
             return PKT_DIR_INCOMING;
         else
             return PKT_DIR_UNKNOWN;
@@ -201,9 +202,9 @@ int classify_packet_direction(req_pattern_t *req_pattern, const struct pcap_pkth
                 dport = ntohs(udp_hdr->dest);
             }
 
-            if (match_pattern_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->saddr, sport))
+            if (req_pattern_match_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->saddr, sport))
                 return PKT_DIR_OUTGOING;
-            else if (match_pattern_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->daddr, dport))
+            else if (req_pattern_match_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->daddr, dport))
                 return PKT_DIR_INCOMING;
             else
                 return PKT_DIR_UNKNOWN;

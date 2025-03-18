@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "output.h"
+#include "ratelimit.h"
 #include "taskconf.h"
 
 #define GRE_OUTPUT_BUFSIZE 65551 // 8(GRE_HEADER_LEN) + 65535
@@ -15,12 +16,16 @@ typedef struct GreOptions
     uint32_t service_tag;
     char *bind_device;
     int pmtudisc;
+    uint64_t rate_limit_mbps;
 
 } gre_options_t;
 
 typedef struct GreOutput
 {
     output_base_t base;
+
+    uint64_t rate_limit_mbps;
+    token_bucket_t throttle;
 
     uint32_t service_tag;
     struct sockaddr_in remote_addr;

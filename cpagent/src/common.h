@@ -12,9 +12,9 @@
 #include <pcap/pcap.h>
 
 #define PKT_DIR_UNKNOWN -1
+#define PKT_DIR_NONCHECK 0
 #define PKT_DIR_INCOMING 1
 #define PKT_DIR_OUTGOING 2
-#define PKT_DIR_NONCHECK 0
 
 #define REQ_PATTERN_TYPE_NONE 0
 #define REQ_PATTERN_TYPE_AUTO 1
@@ -105,19 +105,11 @@ typedef struct ReqPattern
     } config;
 } req_pattern_t;
 
-static inline uint64_t tv2us(const struct timeval *tv)
-{
-    uint64_t us;
-
-    us = tv->tv_usec;
-    us += (tv->tv_sec * 1000000);
-
-    return us;
-}
-
 int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf);
 void format_mac_addr(const uint8_t *mac_addr, char *buf);
-void free_req_pattern(req_pattern_t *req_pattern);
-int classify_packet_direction(req_pattern_t *req_pattern, const struct pcap_pkthdr *header, const uint8_t *pkt_data);
+
+void req_pattern_destory(req_pattern_t *req_pattern);
+int req_pattern_judge_pkt_direction(req_pattern_t *req_pattern, const struct pcap_pkthdr *header,
+                                    const uint8_t *pkt_data);
 
 #endif /* CPAGENT_COMMON_H */

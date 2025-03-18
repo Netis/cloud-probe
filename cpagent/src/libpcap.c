@@ -25,7 +25,7 @@ int libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
         if (capturer->req_pattern == NULL)
             direction = PKT_DIR_NONCHECK;
         else
-            direction = classify_packet_direction(capturer->req_pattern, hdr, data);
+            direction = req_pattern_judge_pkt_direction(capturer->req_pattern, hdr, data);
 
         handler(hdr, data, direction, user);
         return 1;
@@ -38,7 +38,7 @@ int libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
     }
 }
 
-static req_pattern_t *new_req_pattern_from_cfg(ReqPatternConfig cfg, const char *interface, char *errbuf)
+static req_pattern_t *req_pattern_new_from_cfg(ReqPatternConfig cfg, const char *interface, char *errbuf)
 {
     req_pattern_t *req_pattern = (req_pattern_t *)calloc(1, sizeof(req_pattern_t *));
     if (!req_pattern)
@@ -66,7 +66,7 @@ static req_pattern_t *new_req_pattern_from_cfg(ReqPatternConfig cfg, const char 
     }
     return req_pattern;
 error:
-    free_req_pattern(req_pattern);
+    req_pattern_destory(req_pattern);
     return NULL;
 }
 
@@ -86,7 +86,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
         }
     }
 
-    req_pattern_t *req_pattern = new_req_pattern_from_cfg(opts.req_pattern, opts.interface, errbuf);
+    req_pattern_t *req_pattern = req_pattern_new_from_cfg(opts.req_pattern, opts.interface, errbuf);
     if (!req_pattern)
     {
         error_wrap_format(errbuf, "create req_pattern_t error");
@@ -199,7 +199,7 @@ void libpcap_capturer_destory(capturer_base_t *self)
     libpcap_capturer_t *capturer = (libpcap_capturer_t *)self;
 
     log_info("free libpcap capturer");
-    free_req_pattern(capturer->req_pattern);
+    req_pattern_destory(capturer->req_pattern);
     pcap_close(capturer->p);
     free(capturer);
 }

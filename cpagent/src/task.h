@@ -12,8 +12,8 @@ typedef struct CaptureTask
     int num_outputs;
 } capture_task_t;
 
-capture_task_t *new_capture_task(TaskConfig *task_cfg, char *errbuf);
-void free_capture_task(capture_task_t *task);
-int task_poll_packets(capture_task_t *task);
+capture_task_t *capture_task_new(TaskConfig *task_cfg, char *errbuf);
+void capture_task_destory(capture_task_t *task);
+int capture_task_poll_packets(capture_task_t *task);
 
 #endif /* CPAGENT_TASK_H */

@@ -21,7 +21,7 @@
 typedef struct
 {
     char *type;
-    int rate_limit_mbps;
+    uint64_t rate_limit_mbps;
     union
     {
         struct

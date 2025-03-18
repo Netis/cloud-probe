@@ -279,7 +279,7 @@ int dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
         if (capturer->req_pattern == NULL)
             direction = PKT_DIR_NONCHECK;
         else
-            direction = classify_packet_direction(capturer->req_pattern, &header, pkt_data);
+            direction = req_pattern_judge_pkt_direction(capturer->req_pattern, &header, pkt_data);
 
         handler(&header, pkt_data, PKT_DIR_NONCHECK, user);
     }

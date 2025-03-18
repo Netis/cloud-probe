@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 
 #include "output.h"
+#include "ratelimit.h"
 #include "taskconf.h"
 
 #define VXLAN_OUTPUT_BUFSIZE 65551 // 8(VXLAN_HEADER_LEN) + 65535 + 8(capture_time)
@@ -20,12 +21,16 @@ typedef struct VxlanOptions
     uint32_t vni;
     char *bind_device;
     int pmtudisc;
+    uint64_t rate_limit_mbps;
 
 } vxlan_options_t;
 
 typedef struct VxlanOutput
 {
     output_base_t base;
+
+    uint64_t rate_limit_mbps;
+    token_bucket_t throttle;
 
     uint8_t vni_version;
     uint32_t vni;

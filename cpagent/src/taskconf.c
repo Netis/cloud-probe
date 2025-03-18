@@ -42,7 +42,7 @@ static void free_output(OutputConfig *output)
     return;
 }
 
-static void free_req_pattern(ReqPatternConfig *req_pattern)
+static void req_pattern_destory(ReqPatternConfig *req_pattern)
 {
     if (!req_pattern)
         return;
@@ -87,7 +87,7 @@ static void free_task(TaskConfig *task)
     free(task->outputs);
 
     // free req_pattern
-    free_req_pattern(&task->req_pattern);
+    req_pattern_destory(&task->req_pattern);
 
     // free commons
     free(task->interface);
@@ -112,14 +112,14 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
     cJSON *type = cJSON_GetObjectItemCaseSensitive(engine_obj, "type");
     if (!cJSON_IsString(type))
     {
-        set_cjson_parse_error(err, "missing or invalid capturer type");
+        cjson_set_parse_error(err, "missing or invalid capturer type");
         return PARSE_ERROR;
     }
 
     capturer->type = strdup(type->valuestring);
     if (!capturer->type)
     {
-        set_cjson_parse_error(err, "memory allocation failed");
+        cjson_set_parse_error(err, "memory allocation failed");
         return PARSE_ERROR;
     }
 
@@ -128,7 +128,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         cJSON *libpcap_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_TYPE_LIBPCAP);
         if (!libpcap_obj)
         {
-            set_cjson_parse_error(err, "missing libpcap config");
+            cjson_set_parse_error(err, "missing libpcap config");
             return PARSE_ERROR;
         }
 
@@ -141,13 +141,13 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             capturer->config.libpcap.bpf_filter = strdup(bpf_filter->valuestring);
             if (!capturer->config.libpcap.bpf_filter)
             {
-                set_cjson_parse_error(err, "Memory allocation failed");
+                cjson_set_parse_error(err, "Memory allocation failed");
                 return PARSE_ERROR;
             }
         }
         else
         {
-            set_cjson_parse_error(err, "invalid libpcap.bpf_filter");
+            cjson_set_parse_error(err, "invalid libpcap.bpf_filter");
             return PARSE_ERROR;
         }
 
@@ -159,7 +159,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             capturer->config.libpcap.buffer_size_mb = buffer_size->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid libpcap.buffer_size_mb");
+            cjson_set_parse_error(err, "invalid libpcap.buffer_size_mb");
             return PARSE_ERROR;
         }
 
@@ -171,7 +171,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             capturer->config.libpcap.timeout_ms = timeout->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid libpcap.timeout_ms");
+            cjson_set_parse_error(err, "invalid libpcap.timeout_ms");
             return PARSE_ERROR;
         }
     }
@@ -180,7 +180,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         cJSON *dpdk_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_TYPE_DPDK_PDUMP);
         if (!dpdk_obj)
         {
-            set_cjson_parse_error(err, "missing dpdk_pdump config");
+            cjson_set_parse_error(err, "missing dpdk_pdump config");
             return PARSE_ERROR;
         }
 
@@ -193,13 +193,13 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             capturer->config.dpdk_pdump.bpf_filter = strdup(bpf_filter->valuestring);
             if (!capturer->config.dpdk_pdump.bpf_filter)
             {
-                set_cjson_parse_error(err, "Memory allocation failed");
+                cjson_set_parse_error(err, "Memory allocation failed");
                 return PARSE_ERROR;
             }
         }
         else
         {
-            set_cjson_parse_error(err, "invalid dpdkdump.bpf_filter");
+            cjson_set_parse_error(err, "invalid dpdkdump.bpf_filter");
             return PARSE_ERROR;
         }
 
@@ -211,13 +211,13 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             capturer->config.dpdk_pdump.ring_size = ring_size->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid dpdk_pdump.ring_size");
+            cjson_set_parse_error(err, "invalid dpdk_pdump.ring_size");
             return PARSE_ERROR;
         }
     }
     else
     {
-        set_cjson_parse_error(err, "unknown capturer type: %s", capturer->type);
+        cjson_set_parse_error(err, "unknown capturer type: %s", capturer->type);
         return PARSE_ERROR;
     }
 
@@ -229,13 +229,13 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
     cJSON *type = cJSON_GetObjectItemCaseSensitive(output_obj, "type");
     if (!cJSON_IsString(type))
     {
-        set_cjson_parse_error(err, "missing or invalid output type");
+        cjson_set_parse_error(err, "missing or invalid output type");
         return PARSE_ERROR;
     }
     output->type = strdup(type->valuestring);
     if (!output->type)
     {
-        set_cjson_parse_error(err, "memory allocation failed");
+        cjson_set_parse_error(err, "memory allocation failed");
         return PARSE_ERROR;
     }
 
@@ -243,10 +243,17 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
     if (!rate_limit)
         output->rate_limit_mbps = 0;
     else if (cJSON_IsNumber(rate_limit))
+    {
+        if (rate_limit->valueint < 0)
+        {
+            cjson_set_parse_error(err, "invalid rate_limit_mbps");
+            return PARSE_ERROR;
+        }
         output->rate_limit_mbps = rate_limit->valueint;
+    }
     else
     {
-        set_cjson_parse_error(err, "invalid rate_limit_mbps");
+        cjson_set_parse_error(err, "invalid rate_limit_mbps");
         return PARSE_ERROR;
     }
 
@@ -256,7 +263,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *vxlan_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_VXLAN);
         if (!vxlan_obj)
         {
-            set_cjson_parse_error(err, "missing vxlan config");
+            cjson_set_parse_error(err, "missing vxlan config");
             return PARSE_ERROR;
         }
 
@@ -264,7 +271,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *host = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "host");
         if (!cJSON_IsString(host))
         {
-            wrap_cjson_parse_error(err, "missing or invalid vxlan.host");
+            cjson_wrap_parse_error(err, "missing or invalid vxlan.host");
             return PARSE_ERROR;
         }
         output->config.vxlan.host = strdup(host->valuestring);
@@ -277,7 +284,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             output->config.vxlan.port = port->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid vxlan.port");
+            cjson_set_parse_error(err, "invalid vxlan.port");
             return PARSE_ERROR;
         }
 
@@ -294,7 +301,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         }
         else
         {
-            set_cjson_parse_error(err, "invalid vxlan.capture_time");
+            cjson_set_parse_error(err, "invalid vxlan.capture_time");
             return PARSE_ERROR;
         }
 
@@ -310,7 +317,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             }
             else
             {
-                set_cjson_parse_error(err, "invalid vxlan.vni1");
+                cjson_set_parse_error(err, "invalid vxlan.vni1");
                 return PARSE_ERROR;
             }
         }
@@ -323,13 +330,13 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             }
             else
             {
-                set_cjson_parse_error(err, "invalid vxlan.vni2");
+                cjson_set_parse_error(err, "invalid vxlan.vni2");
                 return PARSE_ERROR;
             }
         }
         else
         {
-            set_cjson_parse_error(err, "require vxlan.vni1 or vxlan.vni2");
+            cjson_set_parse_error(err, "require vxlan.vni1 or vxlan.vni2");
             return PARSE_ERROR;
         }
 
@@ -341,7 +348,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             output->config.vxlan.bind_device = strdup(bind->valuestring);
         else
         {
-            set_cjson_parse_error(err, "invalid vxlan.bind_device");
+            cjson_set_parse_error(err, "invalid vxlan.bind_device");
             return PARSE_ERROR;
         }
 
@@ -360,13 +367,13 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
                 output->config.vxlan.pmtudisc = IP_PMTUDISC_WANT;
             else
             {
-                set_cjson_parse_error(err, "invalid vxlan.pmtudisc %s", pmtudisc->valuestring);
+                cjson_set_parse_error(err, "invalid vxlan.pmtudisc %s", pmtudisc->valuestring);
                 return PARSE_ERROR;
             }
         }
         else
         {
-            set_cjson_parse_error(err, "invalid vxlan.pmtudisc");
+            cjson_set_parse_error(err, "invalid vxlan.pmtudisc");
             return PARSE_ERROR;
         }
     }
@@ -375,14 +382,14 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *gre_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_GRE);
         if (!gre_obj)
         {
-            set_cjson_parse_error(err, "missing gre config");
+            cjson_set_parse_error(err, "missing gre config");
             return PARSE_ERROR;
         }
 
         cJSON *host = cJSON_GetObjectItemCaseSensitive(gre_obj, "host");
         if (!cJSON_IsString(host))
         {
-            wrap_cjson_parse_error(err, "missing or invalid gre.host");
+            cjson_wrap_parse_error(err, "missing or invalid gre.host");
             return PARSE_ERROR;
         }
         output->config.gre.host = strdup(host->valuestring);
@@ -395,7 +402,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             output->config.gre.service_tag = service_tag->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid gre.service_tag");
+            cjson_set_parse_error(err, "invalid gre.service_tag");
             return PARSE_ERROR;
         }
 
@@ -407,7 +414,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             output->config.gre.bind_device = strdup(bind->valuestring);
         else
         {
-            set_cjson_parse_error(err, "invalid gre.bind_device");
+            cjson_set_parse_error(err, "invalid gre.bind_device");
             return PARSE_ERROR;
         }
 
@@ -426,13 +433,13 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
                 output->config.gre.pmtudisc = IP_PMTUDISC_WANT;
             else
             {
-                set_cjson_parse_error(err, "invalid gre.pmtudisc %s", pmtudisc->valuestring);
+                cjson_set_parse_error(err, "invalid gre.pmtudisc %s", pmtudisc->valuestring);
                 return PARSE_ERROR;
             }
         }
         else
         {
-            set_cjson_parse_error(err, "invalid gre.pmtudisc");
+            cjson_set_parse_error(err, "invalid gre.pmtudisc");
             return PARSE_ERROR;
         }
     }
@@ -441,7 +448,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *zmq_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_ZMQ);
         if (!zmq_obj)
         {
-            set_cjson_parse_error(err, "missing zmq config");
+            cjson_set_parse_error(err, "missing zmq config");
             return PARSE_ERROR;
         }
 
@@ -449,7 +456,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *host = cJSON_GetObjectItemCaseSensitive(zmq_obj, "host");
         if (!cJSON_IsString(host))
         {
-            wrap_cjson_parse_error(err, "missing or invalid zmq.host");
+            cjson_wrap_parse_error(err, "missing or invalid zmq.host");
             return PARSE_ERROR;
         }
         output->config.zmq.host = strdup(host->valuestring);
@@ -462,7 +469,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             output->config.zmq.port = port->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid zmq.port");
+            cjson_set_parse_error(err, "invalid zmq.port");
             return PARSE_ERROR;
         }
 
@@ -474,7 +481,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             output->config.zmq.hwm = hwm->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid zmq.hwm");
+            cjson_set_parse_error(err, "invalid zmq.hwm");
             return PARSE_ERROR;
         }
 
@@ -486,7 +493,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             output->config.zmq.service_tag = service_tag->valueint;
         else
         {
-            set_cjson_parse_error(err, "invalid zmq.service_tag");
+            cjson_set_parse_error(err, "invalid zmq.service_tag");
             return PARSE_ERROR;
         }
     }
@@ -495,7 +502,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *file_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_FILE);
         if (!file_obj)
         {
-            set_cjson_parse_error(err, "missing file config");
+            cjson_set_parse_error(err, "missing file config");
             return PARSE_ERROR;
         }
 
@@ -503,14 +510,14 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *name = cJSON_GetObjectItemCaseSensitive(file_obj, "name");
         if (!cJSON_IsString(name))
         {
-            wrap_cjson_parse_error(err, "missing or invalid file.name");
+            cjson_wrap_parse_error(err, "missing or invalid file.name");
             return PARSE_ERROR;
         }
         output->config.file.name = strdup(name->valuestring);
     }
     else
     {
-        set_cjson_parse_error(err, "unknown output type: %s", output->type);
+        cjson_set_parse_error(err, "unknown output type: %s", output->type);
         return PARSE_ERROR;
     }
 
@@ -522,13 +529,13 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
     cJSON *type = cJSON_GetObjectItemCaseSensitive(req_pattern_obj, "type");
     if (!cJSON_IsString(type))
     {
-        set_cjson_parse_error(err, "missing or invalid output type");
+        cjson_set_parse_error(err, "missing or invalid output type");
         return PARSE_ERROR;
     }
     req_pattern->type = strdup(type->valuestring);
     if (!req_pattern->type)
     {
-        set_cjson_parse_error(err, "memory allocation failed");
+        cjson_set_parse_error(err, "memory allocation failed");
         return PARSE_ERROR;
     }
 
@@ -541,20 +548,20 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
         cJSON *custom = cJSON_GetObjectItemCaseSensitive(req_pattern_obj, "custom");
         if (!cJSON_IsObject(custom))
         {
-            set_cjson_parse_error(err, "custom %d is not an object");
+            cjson_set_parse_error(err, "custom %d is not an object");
             return PARSE_ERROR;
         }
         cJSON *patterns = cJSON_GetObjectItemCaseSensitive(custom, "patterns");
         if (!cJSON_IsArray(patterns))
         {
-            set_cjson_parse_error(err, "missing or invalid custom.patterns");
+            cjson_set_parse_error(err, "missing or invalid custom.patterns");
             return PARSE_ERROR;
         }
         int num_patterns = cJSON_GetArraySize(patterns);
         req_pattern->custom.patterns = (char **)calloc(num_patterns, sizeof(char *));
         if (!req_pattern->custom.patterns)
         {
-            set_cjson_parse_error(err, "memory allocation failed");
+            cjson_set_parse_error(err, "memory allocation failed");
             return PARSE_ERROR;
         }
         for (int i = 0; i < num_patterns; i++)
@@ -562,7 +569,7 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
             cJSON *pattern = cJSON_GetArrayItem(patterns, i);
             if (!cJSON_IsString(pattern))
             {
-                set_cjson_parse_error(err, "custom.patterns %d is invalid", i);
+                cjson_set_parse_error(err, "custom.patterns %d is invalid", i);
                 return PARSE_ERROR;
             }
             req_pattern->custom.patterns[req_pattern->custom.num_patterns++] = strdup(pattern->valuestring);
@@ -570,7 +577,7 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
     }
     else
     {
-        set_cjson_parse_error(err, "unknown req_pattern type: %s", req_pattern->type);
+        cjson_set_parse_error(err, "unknown req_pattern type: %s", req_pattern->type);
         return PARSE_ERROR;
     }
     return 0;
@@ -582,13 +589,13 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
     cJSON *interface = cJSON_GetObjectItemCaseSensitive(task_obj, "interface");
     if (!cJSON_IsString(interface))
     {
-        set_cjson_parse_error(err, "missing or invalid interface");
+        cjson_set_parse_error(err, "missing or invalid interface");
         return PARSE_ERROR;
     }
     task->interface = strdup(interface->valuestring);
     if (!task->interface)
     {
-        set_cjson_parse_error(err, "memory allocation failed");
+        cjson_set_parse_error(err, "memory allocation failed");
         return PARSE_ERROR;
     }
 
@@ -599,7 +606,7 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
         task->snaplen = snaplen->valueint;
     else
     {
-        set_cjson_parse_error(err, "invalid snaplen");
+        cjson_set_parse_error(err, "invalid snaplen");
         return PARSE_ERROR;
     }
 
@@ -612,13 +619,13 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
         task->netns = strdup(netns->valuestring);
         if (!task->netns)
         {
-            set_cjson_parse_error(err, "memory allocation failed");
+            cjson_set_parse_error(err, "memory allocation failed");
             return PARSE_ERROR;
         }
     }
     else
     {
-        set_cjson_parse_error(err, "invalid netns");
+        cjson_set_parse_error(err, "invalid netns");
         return PARSE_ERROR;
     }
 
@@ -630,14 +637,14 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
     }
     else if (!cJSON_IsObject(req_pattern))
     {
-        set_cjson_parse_error(err, "invalid netns");
+        cjson_set_parse_error(err, "invalid netns");
         return PARSE_ERROR;
     }
     else
     {
         if (parse_req_pattern_config(req_pattern, &task->req_pattern, err) != 0)
         {
-            wrap_cjson_parse_error(err, "parse req_pattern error");
+            cjson_wrap_parse_error(err, "parse req_pattern error");
             return PARSE_ERROR;
         }
     }
@@ -646,12 +653,12 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
     cJSON *capturer = cJSON_GetObjectItemCaseSensitive(task_obj, "capturer");
     if (!cJSON_IsObject(capturer))
     {
-        set_cjson_parse_error(err, "missing or invalid capturer config");
+        cjson_set_parse_error(err, "missing or invalid capturer config");
         return PARSE_ERROR;
     }
     if (parse_capturer_config(capturer, &task->capturer, err) != 0)
     {
-        wrap_cjson_parse_error(err, "parse capturer error");
+        cjson_wrap_parse_error(err, "parse capturer error");
         return PARSE_ERROR;
     }
 
@@ -659,7 +666,7 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
     cJSON *outputs = cJSON_GetObjectItemCaseSensitive(task_obj, "outputs");
     if (!cJSON_IsArray(outputs))
     {
-        set_cjson_parse_error(err, "missing or invalid outputs config");
+        cjson_set_parse_error(err, "missing or invalid outputs config");
         return PARSE_ERROR;
     }
 
@@ -667,7 +674,7 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
     task->outputs = (OutputConfig **)calloc(num_outputs, sizeof(OutputConfig *));
     if (!task->outputs)
     {
-        set_cjson_parse_error(err, "memory allocation failed");
+        cjson_set_parse_error(err, "memory allocation failed");
         return PARSE_ERROR;
     }
 
@@ -676,20 +683,20 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
         cJSON *output_obj = cJSON_GetArrayItem(outputs, i);
         if (!cJSON_IsObject(output_obj))
         {
-            set_cjson_parse_error(err, "output %d is not an object", i);
+            cjson_set_parse_error(err, "output %d is not an object", i);
             return PARSE_ERROR;
         }
 
         OutputConfig *output = (OutputConfig *)calloc(1, sizeof(OutputConfig));
         if (!output)
         {
-            set_cjson_parse_error(err, "memory allocation failed");
+            cjson_set_parse_error(err, "memory allocation failed");
             return PARSE_ERROR;
         }
         if (parse_output_config(output_obj, output, err) != 0)
         {
             free_output(output);
-            wrap_cjson_parse_error(err, "parse output error");
+            cjson_wrap_parse_error(err, "parse output error");
             return PARSE_ERROR;
         }
         task->outputs[task->num_outputs++] = output;
@@ -703,14 +710,14 @@ TasksAllConfig *parse_tasks_config(char *data, cJSONParseError *err)
     cJSON *json = cJSON_Parse(data);
     if (!json)
     {
-        set_cjson_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
+        cjson_set_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
         return NULL;
     }
 
     TasksAllConfig *config = (TasksAllConfig *)calloc(1, sizeof(TasksAllConfig));
     if (!config)
     {
-        set_cjson_parse_error(err, "memory allocation failed");
+        cjson_set_parse_error(err, "memory allocation failed");
         cJSON_Delete(json);
         return NULL;
     }
@@ -718,7 +725,7 @@ TasksAllConfig *parse_tasks_config(char *data, cJSONParseError *err)
     cJSON *tasks = cJSON_GetObjectItemCaseSensitive(json, "tasks");
     if (!cJSON_IsArray(tasks))
     {
-        set_cjson_parse_error(err, "missing or invalid tasks array");
+        cjson_set_parse_error(err, "missing or invalid tasks array");
         goto error;
     }
 
@@ -726,7 +733,7 @@ TasksAllConfig *parse_tasks_config(char *data, cJSONParseError *err)
     config->tasks = (TaskConfig **)calloc(num_tasks, sizeof(TaskConfig *));
     if (!config->tasks)
     {
-        set_cjson_parse_error(err, "memory allocation failed");
+        cjson_set_parse_error(err, "memory allocation failed");
         goto error;
     }
 
@@ -735,21 +742,21 @@ TasksAllConfig *parse_tasks_config(char *data, cJSONParseError *err)
         cJSON *task_obj = cJSON_GetArrayItem(tasks, i);
         if (!cJSON_IsObject(task_obj))
         {
-            set_cjson_parse_error(err, "task %d is not an object", i);
+            cjson_set_parse_error(err, "task %d is not an object", i);
             goto error;
         }
 
         TaskConfig *task = (TaskConfig *)calloc(1, sizeof(TaskConfig));
         if (!task)
         {
-            set_cjson_parse_error(err, "memory allocation failed");
+            cjson_set_parse_error(err, "memory allocation failed");
             goto error;
         }
 
         if (parse_task_config(task_obj, task, err) != 0)
         {
             free_task(task);
-            wrap_cjson_parse_error(err, "parse task %d error", i);
+            cjson_wrap_parse_error(err, "parse task %d error", i);
             goto error;
         }
         config->tasks[config->num_tasks++] = task;
@@ -769,7 +776,7 @@ static char *read_file_contents(const char *filename, cJSONParseError *error)
     FILE *fp = fopen(filename, "rb");
     if (!fp)
     {
-        set_cjson_parse_error(error, "failed to open file: %s", filename);
+        cjson_set_parse_error(error, "failed to open file: %s", filename);
         return NULL;
     }
 
@@ -779,7 +786,7 @@ static char *read_file_contents(const char *filename, cJSONParseError *error)
 
     if (length <= 0)
     {
-        set_cjson_parse_error(error, "empty file: %s", filename);
+        cjson_set_parse_error(error, "empty file: %s", filename);
         fclose(fp);
         return NULL;
     }
@@ -787,14 +794,14 @@ static char *read_file_contents(const char *filename, cJSONParseError *error)
     char *buffer = (char *)malloc(length + 1);
     if (!buffer)
     {
-        set_cjson_parse_error(error, "memory allocation failed for file buffer");
+        cjson_set_parse_error(error, "memory allocation failed for file buffer");
         fclose(fp);
         return NULL;
     }
 
     if (fread(buffer, 1, length, fp) != (size_t)length)
     {
-        set_cjson_parse_error(error, "partial read of file: %s", filename);
+        cjson_set_parse_error(error, "partial read of file: %s", filename);
         free(buffer);
         fclose(fp);
         return NULL;

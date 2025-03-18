@@ -14,7 +14,7 @@
 #include "output.h"
 #include "output_zmq.h"
 
-static uint32_t make_mpls_hdr(int direct, int service_tag)
+static uint32_t make_mpls_hdr(int direct, uint32_t service_tag)
 {
     uint32_t flag = 0;
     mpls_header *hdr = (mpls_header *)&flag;
@@ -31,7 +31,7 @@ static uint32_t make_mpls_hdr(int direct, int service_tag)
 
 int zmq_flush_packet(zmq_output_t *output)
 {
-    batch_pkts_buf_t *pkts_buf = &output->pkts_buf;
+    zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
 
     uint64_t send_num = pkts_buf->batch_hdr.pkts_num;
     pkts_buf->batch_hdr.pkts_num = htons(pkts_buf->batch_hdr.pkts_num);
@@ -49,7 +49,7 @@ int zmq_flush_packet(zmq_output_t *output)
     }
 
     pkts_buf->first_pktsec = 0;
-    pkts_buf->batch_bufpos = sizeof(pkts_buf->batch_hdr);
+    pkts_buf->batch_bufpos = sizeof(zmq_pkt_batch_hdr_t);
     pkts_buf->batch_hdr.pkts_num = 0;
     return 0;
 }
@@ -61,28 +61,33 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     zmq_output_t *output = (zmq_output_t *)self;
 
-    uint64_t us = tv2us(&header->ts);
-    // TODO: check_mbps_cb
+    uint16_t length = (uint16_t)(header->caplen <= 65531 ? header->caplen : 65531) + sizeof(mpls_header);
 
-    batch_pkts_buf_t *pkts_buf = &output->pkts_buf;
+    if (output->rate_limit_mbps > 0)
+    {
+        if (token_bucket_consume(&output->throttle, length) != 0)
+            return -1;
+    }
 
+    zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
     if (pkts_buf->batch_hdr.pkts_num == 0)
         pkts_buf->first_pktsec = header->ts.tv_sec;
 
-    uint16_t length = (uint16_t)(header->caplen <= 65531 ? header->caplen : 65531) + sizeof(mpls_header);
-
-    pmr_pkt_hdr_t small_pkthdr = {
+    zmq_pkt_hdr_t pkt_hdr = {
         htonl((uint32_t)header->ts.tv_sec),
         htonl((uint32_t)header->ts.tv_usec),
-        htonl((uint32_t)header->caplen + sizeof(mpls_header)),
+        htonl((uint32_t)length),
         htonl((uint32_t)header->len + sizeof(mpls_header)),
     };
 
     const bool is_pkt_num_exceeded = (pkts_buf->batch_hdr.pkts_num >= 65535);
+
     const bool is_time_diff_exceeded =
         (pkts_buf->first_pktsec != 0 && header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC);
+
     const bool is_buffer_full =
-        (pkts_buf->batch_bufpos + sizeof(length) + sizeof(small_pkthdr) + length > ZMQ_MAX_BATCH_BUF_SIZE);
+        (pkts_buf->batch_bufpos + sizeof(length) + sizeof(pkt_hdr) + length > ZMQ_MAX_BATCH_BUF_SIZE);
+
     if (is_pkt_num_exceeded || is_time_diff_exceeded || is_buffer_full)
     {
         log_debug("send zmq message, last packet time: %d, first packet_time", header->ts.tv_sec,
@@ -100,8 +105,8 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     memcpy(&(pkts_buf->buf[buff_pos]), &hlen, sizeof(hlen));
     buff_pos += sizeof(length);
 
-    memcpy(&(pkts_buf->buf[buff_pos]), &small_pkthdr, sizeof(small_pkthdr));
-    buff_pos += sizeof(small_pkthdr);
+    memcpy(&(pkts_buf->buf[buff_pos]), &pkt_hdr, sizeof(pkt_hdr));
+    buff_pos += sizeof(pkt_hdr);
 
     struct ether_header *eth_hdr = (struct ether_header *)pkt_data;
     struct vlan_tag *vlan_hdr = NULL;
@@ -139,12 +144,12 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     const size_t payload_copy_len = length - eth_header_size - sizeof(mpls_header) - vlan_size;
     memcpy(&(pkts_buf->buf[buff_pos]), pkt_data + payload_offset, payload_copy_len);
 
-    pkts_buf->batch_bufpos += sizeof(length) + sizeof(small_pkthdr) + length;
+    pkts_buf->batch_bufpos += sizeof(length) + sizeof(pkt_hdr) + length;
     pkts_buf->batch_hdr.pkts_num++;
     return 0;
 }
 
-zmq_output_t *zmq_output_new(const char *host, int port, int hwm, char *errbuf)
+zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
 {
     void *context = zmq_ctx_new();
     if (context == NULL)
@@ -161,7 +166,7 @@ zmq_output_t *zmq_output_new(const char *host, int port, int hwm, char *errbuf)
         return NULL;
     }
 
-    if (zmq_setsockopt(pusher, ZMQ_SNDHWM, &hwm, sizeof(hwm)) != 0)
+    if (zmq_setsockopt(pusher, ZMQ_SNDHWM, &opts.hwm, sizeof(opts.hwm)) != 0)
     {
         error_format(errbuf, "set hwm error: %s", zmq_strerror(errno));
         zmq_close(pusher);
@@ -179,7 +184,7 @@ zmq_output_t *zmq_output_new(const char *host, int port, int hwm, char *errbuf)
     }
 
     char address[256];
-    snprintf(address, sizeof(address), "tcp://%s:%d", host, port);
+    snprintf(address, sizeof(address), "tcp://%s:%d", opts.host, opts.port);
 
     if (zmq_connect(pusher, address) != 0)
     {
@@ -200,16 +205,38 @@ zmq_output_t *zmq_output_new(const char *host, int port, int hwm, char *errbuf)
 
     output->base.send_packet = zmq_send_packet;
     output->base.destory = zmq_output_destory;
+
     output->context = context;
     output->pusher = pusher;
+
+    if (opts.rate_limit_mbps > 0)
+    {
+        token_bucket_init(&output->throttle, opts.rate_limit_mbps * 1000000);
+    }
+    output->rate_limit_mbps = opts.rate_limit_mbps;
+
+    output->service_tag = opts.service_tag;
+    output->pkts_buf.first_pktsec = 0;
+    output->pkts_buf.batch_bufpos = sizeof(zmq_pkt_batch_hdr_t);
+
+    output->pkts_buf.batch_hdr.pkts_num = 0;
+    output->pkts_buf.batch_hdr.version = htons(ZMQ_BATCH_PKTS_VERSION);
+    output->pkts_buf.batch_hdr.keybit = htonl(opts.service_tag);
+
+    // TODO: uuid
     return output;
 }
 
 output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
 {
-
-    return (output_base_t *)zmq_output_new(output_cfg->config.zmq.host, output_cfg->config.zmq.port,
-                                           output_cfg->config.zmq.hwm, errbuf);
+    zmq_options_t opts = {
+        .host = output_cfg->config.zmq.host,
+        .port = output_cfg->config.zmq.port,
+        .hwm = output_cfg->config.zmq.hwm,
+        .service_tag = output_cfg->config.zmq.service_tag,
+        .rate_limit_mbps = output_cfg->rate_limit_mbps,
+    };
+    return (output_base_t *)zmq_output_new(opts, errbuf);
 }
 
 void zmq_output_destory(output_base_t *self)

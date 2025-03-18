@@ -21,6 +21,12 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     size_t length = (size_t)(header->caplen <= 65535 ? header->caplen : 65535);
 
+    if (output->rate_limit_mbps > 0)
+    {
+        if (token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length) != 0)
+            return -1;
+    }
+
     struct grehdr *gre_hdr = (struct grehdr *)output->buf;
     gre_hdr->keybit = htonl(output->service_tag | (direct << 28));
     memcpy(&(output->buf[GRE_HEADER_LEN]), pkt_data, length);
@@ -82,13 +88,19 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
     }
 
     struct grehdr gre_hdr;
-    gre_hdr.flags = htonl(0x2000);
-    gre_hdr.protocol = htons(0x6558);
+    gre_hdr.flags = htons(0x2000);    // K = 1
+    gre_hdr.protocol = htons(0x6558); // Ethernet over GRE
     gre_hdr.keybit = htonl(opts.service_tag);
     memcpy(output->buf, &gre_hdr, GRE_HEADER_LEN);
 
     output->base.send_packet = gre_send_packet;
     output->base.destory = gre_output_destory;
+
+    if (opts.rate_limit_mbps > 0)
+    {
+        token_bucket_init(&output->throttle, opts.rate_limit_mbps * 1000000);
+    }
+    output->rate_limit_mbps = opts.rate_limit_mbps;
 
     output->service_tag = opts.service_tag;
     output->remote_addr = remote_addr;
@@ -102,8 +114,9 @@ output_base_t *gre_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
     gre_options_t opts = {
         .host = output_cfg->config.gre.host,
         .service_tag = output_cfg->config.gre.service_tag,
-        .pmtudisc = output_cfg->config.gre.pmtudisc,
         .bind_device = output_cfg->config.gre.bind_device,
+        .pmtudisc = output_cfg->config.gre.pmtudisc,
+        .rate_limit_mbps = output_cfg->rate_limit_mbps,
     };
     return (output_base_t *)gre_output_new(opts, errbuf);
 }
