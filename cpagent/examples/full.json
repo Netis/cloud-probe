@@ -35,12 +35,14 @@
                         "capture_time": false,
                         "vni1": 1,
                         "vni2": 33,
-                        "bind_device": "eth3"
+                        "bind_device": "eth3",
+                        "pmtudisc": "want"
                     },
                     "gre": {
                         "host": "10.1.2.3",
                         "service_tag": 34,
-                        "bind_device": "eth3"
+                        "bind_device": "eth3",
+                        "pmtudisc": "want"
                     },
                     "zmq": {
                         "host": "10.1.2.3",

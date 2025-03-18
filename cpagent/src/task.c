@@ -6,21 +6,25 @@
 #include "libpcap.h"
 #include "log.h"
 #include "output_file.h"
+#include "output_gre.h"
+#include "output_vxlan.h"
 #include "output_zmq.h"
 #include "task.h"
 #include "taskconf.h"
 
-capturer_entry_t capturer_entries[] = {
+static capturer_entry_t capturer_entries[] = {
     {CAPTURER_TYPE_LIBPCAP, libpcap_capture_new_from_cfg},
     {CAPTURER_TYPE_DPDK_PDUMP, dpdk_capture_new_from_cfg},
 };
 
-output_entry_t output_entries[] = {
+static output_entry_t output_entries[] = {
     {OUTPUT_TYPE_FILE, file_output_new_from_cfg},
     {OUTPUT_TYPE_ZMQ, zmq_output_new_from_cfg},
+    {OUTPUT_TYPE_GRE, gre_output_new_from_cfg},
+    {OUTPUT_TYPE_VXLAN, vxlan_output_new_from_cfg},
 };
 
-CapturerFactory find_capturer_factory(const char *name)
+static CapturerFactory find_capturer_factory(const char *name)
 {
     for (int i = 0; i < sizeof(capturer_entries) / sizeof(capturer_entry_t); i++)
     {
@@ -32,7 +36,7 @@ CapturerFactory find_capturer_factory(const char *name)
     return NULL;
 }
 
-OutputFactory find_output_factory(const char *name)
+static OutputFactory find_output_factory(const char *name)
 {
     for (int i = 0; i < sizeof(output_entries) / sizeof(output_entry_t); i++)
     {

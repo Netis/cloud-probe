@@ -32,6 +32,7 @@ typedef struct
             uint8_t vni_version;
             uint32_t vni;
             char *bind_device;
+            int pmtudisc;
         } vxlan;
 
         struct
@@ -39,6 +40,7 @@ typedef struct
             char *host;
             uint32_t service_tag;
             char *bind_device;
+            int pmtudisc;
         } gre;
 
         struct

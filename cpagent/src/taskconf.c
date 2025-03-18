@@ -1,3 +1,4 @@
+#include <netinet/in.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -343,6 +344,31 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             set_cjson_parse_error(err, "invalid vxlan.bind_device");
             return PARSE_ERROR;
         }
+
+        // pmtudisc
+        cJSON *pmtudisc = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "pmtudisc");
+        if (!pmtudisc)
+            output->config.vxlan.pmtudisc = -1;
+        if (cJSON_IsString(pmtudisc))
+        {
+
+            if (strcmp(pmtudisc->valuestring, "do") == 0)
+                output->config.vxlan.pmtudisc = IP_PMTUDISC_DO;
+            else if (strcmp(pmtudisc->valuestring, "dont") == 0)
+                output->config.vxlan.pmtudisc = IP_PMTUDISC_DONT;
+            else if (strcmp(pmtudisc->valuestring, "want") == 0)
+                output->config.vxlan.pmtudisc = IP_PMTUDISC_WANT;
+            else
+            {
+                set_cjson_parse_error(err, "invalid vxlan.pmtudisc %s", pmtudisc->valuestring);
+                return PARSE_ERROR;
+            }
+        }
+        else
+        {
+            set_cjson_parse_error(err, "invalid vxlan.pmtudisc");
+            return PARSE_ERROR;
+        }
     }
     else if (strcmp(output->type, OUTPUT_TYPE_GRE) == 0)
     {
@@ -382,6 +408,31 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         else
         {
             set_cjson_parse_error(err, "invalid gre.bind_device");
+            return PARSE_ERROR;
+        }
+
+        // pmtudisc
+        cJSON *pmtudisc = cJSON_GetObjectItemCaseSensitive(gre_obj, "pmtudisc");
+        if (!pmtudisc)
+            output->config.gre.pmtudisc = -1;
+        if (cJSON_IsString(pmtudisc))
+        {
+
+            if (strcmp(pmtudisc->valuestring, "do") == 0)
+                output->config.gre.pmtudisc = IP_PMTUDISC_DO;
+            else if (strcmp(pmtudisc->valuestring, "dont") == 0)
+                output->config.gre.pmtudisc = IP_PMTUDISC_DONT;
+            else if (strcmp(pmtudisc->valuestring, "want") == 0)
+                output->config.gre.pmtudisc = IP_PMTUDISC_WANT;
+            else
+            {
+                set_cjson_parse_error(err, "invalid gre.pmtudisc %s", pmtudisc->valuestring);
+                return PARSE_ERROR;
+            }
+        }
+        else
+        {
+            set_cjson_parse_error(err, "invalid gre.pmtudisc");
             return PARSE_ERROR;
         }
     }

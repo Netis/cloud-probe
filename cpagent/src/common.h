@@ -24,6 +24,7 @@
 
 #define MAC_ADDR_STR_BUFSIZE 18
 #define VXLAN_HEADER_LEN 8
+#define GRE_HEADER_LEN 8
 
 typedef struct
 {
@@ -74,6 +75,13 @@ struct vlanhdr
 {
     uint16_t tci;
     uint16_t h_proto;
+};
+
+struct grehdr
+{
+    uint16_t flags;
+    uint16_t protocol;
+    uint32_t keybit;
 };
 
 typedef struct ReqPattern

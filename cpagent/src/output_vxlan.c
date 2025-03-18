@@ -43,15 +43,17 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
             ((pa_tag_t *)&vxlan_hdr->vx_vni)->reserved2 = 0;
             ((pa_tag_t *)&vxlan_hdr->vx_vni)->check = 0;
         }
+        // TODO: add check sum
     }
     else
     {
         vxlan_hdr->vx_vni = htonl(output->vni + direct);
     }
 
-    ssize_t send_bytes = sendto(output->socket_fd, &(output->buf[0]), length + VXLAN_HEADER_LEN, 0,
-                                (struct sockaddr *)&output->remote_ip, sizeof(struct sockaddr_in));
+    ssize_t send_bytes = sendto(output->socket_fd, output->buf, VXLAN_HEADER_LEN + length, 0,
+                                (struct sockaddr *)&output->remote_addr, sizeof(struct sockaddr_in));
 
+    // TODO: retry if errno == ENOBUFS
     if (send_bytes == -1)
     {
         return -1;
@@ -61,16 +63,16 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
 
 vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
 {
-    struct sockaddr_in remote_ip;
-    memset(&remote_ip, 0, sizeof(struct sockaddr_in));
+    struct sockaddr_in remote_addr;
+    memset(&remote_addr, 0, sizeof(struct sockaddr_in));
 
-    if (inet_pton(AF_INET, opts.host, &remote_ip.sin_addr) != 1)
+    if (inet_pton(AF_INET, opts.host, &remote_addr.sin_addr) != 1)
     {
         error_format("invalid vxlan host: %s", opts.host);
         return NULL;
     }
-    remote_ip.sin_family = AF_INET;
-    remote_ip.sin_port = htons(opts.port);
+    remote_addr.sin_family = AF_INET;
+    remote_addr.sin_port = htons(opts.port);
 
     int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd == -1)
@@ -115,7 +117,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
     output->vni_version = opts.vni_version;
     output->vni = opts.vni;
     output->capture_time = opts.capture_time;
-    output->remote_ip = remote_ip;
+    output->remote_addr = remote_addr;
     output->socket_fd = socket_fd;
     return output;
 }
@@ -126,9 +128,10 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
         .host = output_cfg->config.vxlan.host,
         .port = output_cfg->config.vxlan.port,
         .capture_time = output_cfg->config.vxlan.capture_time,
-        .bind_device = output_cfg->config.vxlan.bind_device,
         .vni_version = output_cfg->config.vxlan.vni_version,
         .vni = output_cfg->config.vxlan.vni,
+        .pmtudisc = output_cfg->config.vxlan.pmtudisc,
+        .bind_device = output_cfg->config.vxlan.bind_device,
     };
     return (output_base_t *)vxlan_output_new(opts, errbuf);
 }
@@ -142,4 +145,5 @@ void vxlan_output_destory(output_base_t *self)
     vxlan_output_t *output = (vxlan_output_t *)self;
 
     close(output->socket_fd);
+    free(output);
 }
