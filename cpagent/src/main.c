@@ -3,12 +3,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
+#include "common.h"
 #include "error.h"
 #include "log.h"
 #include "task.h"
 #include "taskconf.h"
-#include <unistd.h>
 
 #ifdef ENABLE_DPDK
 #include "dpdk_pdump.h"
@@ -18,7 +19,7 @@
 static const char *progname;
 static const char *tasks_file = NULL;
 static bool enable_dpdk_dumpcap = false;
-static const char *cpu_set = NULL;
+static int cpu_id = -1;
 static const char *unix_socket = "control.socket";
 
 static bool quit_signal;
@@ -30,6 +31,27 @@ static const char *version(void)
     return str;
 }
 
+static unsigned long get_uint(const char *arg, const char *name, unsigned int limit)
+{
+    unsigned long u;
+    char *endp;
+
+    u = strtoul(arg, &endp, 0);
+    if (*arg == '\0' || *endp != '\0')
+    {
+        fprintf(stderr, "Specified %s \"%s\" is not a valid number\n", name, arg);
+        exit(EXIT_FAILURE);
+    }
+
+    if (limit && u > limit)
+    {
+        fprintf(stderr, "Specified %s \"%s\" is too large (greater than %u)\n", name, arg, limit);
+        exit(EXIT_FAILURE);
+    }
+
+    return u;
+}
+
 static void usage(void)
 {
     printf("Usage: %s [options] ...\n\n", progname);
@@ -37,7 +59,7 @@ static void usage(void)
 #ifdef ENABLE_DPDK
     printf("  --enable-dpdk-dumpcap   enable dpdk-dumpcap\n");
 #endif
-    printf("  --cpu-set <cpu1,cpu2>   include only these CPUs in affinity settings\n");
+    printf("  --cpu <cpu1>            set cpu affinity\n");
     printf("  --unix-socket <file>    use unix socket to control suricata work\n");
     printf("  -v, --version           print version information and exit\n");
     printf("  -h, --help              display this help and exit\n");
@@ -47,7 +69,7 @@ static void usage(void)
 enum
 {
     OPT_ENABLE_DPDK_DUMPCAP = 256,
-    OPT_CPU_SET,
+    OPT_CPU_ID,
     OPT_UNIX_SOCKET
 };
 
@@ -56,7 +78,7 @@ static void parse_opts(int argc, char **argv)
     struct option long_options[] = {
         {"tasks", required_argument, NULL, 'T'},
         {"enable-dpdk-dumpcap", no_argument, NULL, OPT_ENABLE_DPDK_DUMPCAP},
-        {"cpu-set", required_argument, NULL, OPT_CPU_SET},
+        {"cpu", required_argument, NULL, OPT_CPU_ID},
         {"unix-socket", required_argument, NULL, OPT_UNIX_SOCKET},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'v'},
@@ -74,8 +96,8 @@ static void parse_opts(int argc, char **argv)
         case OPT_ENABLE_DPDK_DUMPCAP:
             enable_dpdk_dumpcap = true;
             break;
-        case OPT_CPU_SET:
-            cpu_set = optarg;
+        case OPT_CPU_ID:
+            cpu_id = get_uint(optarg, "cpu", 0);
             break;
         case OPT_UNIX_SOCKET:
             unix_socket = optarg;
@@ -132,6 +154,15 @@ int main(int argc, char **argv)
         }
     }
 #endif
+
+    if (cpu_id >= 0)
+    {
+        if (set_cpu_affinity(cpu_id) != 0)
+        {
+            log_fatal("set cpu affinity fail");
+            exit(EXIT_FAILURE);
+        }
+    }
 
     cJSONParseError err;
     TasksAllConfig *config = parse_tasks_file(tasks_file, &err);

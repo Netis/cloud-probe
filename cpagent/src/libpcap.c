@@ -10,6 +10,7 @@
 #include "error.h"
 #include "libpcap.h"
 #include "log.h"
+#include "req_pattern.h"
 
 int libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
 {
@@ -36,38 +37,6 @@ int libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
         // error
         return 0;
     }
-}
-
-static req_pattern_t *req_pattern_new_from_cfg(ReqPatternConfig cfg, const char *interface, char *errbuf)
-{
-    req_pattern_t *req_pattern = (req_pattern_t *)calloc(1, sizeof(req_pattern_t *));
-    if (!req_pattern)
-    {
-        error_format(errbuf, "failed to allocate memory for req_pattern_t");
-        return NULL;
-    }
-
-    if (strcmp(cfg.type, REQ_PATTERN_TYPE_NONE_STR) == 0)
-        req_pattern->type = REQ_PATTERN_TYPE_NONE;
-    else if (strcmp(cfg.type, REQ_PATTERN_TYPE_AUTO_STR) == 0)
-    {
-        req_pattern->type = REQ_PATTERN_TYPE_AUTO;
-        if (get_mac_addr(interface, req_pattern->config._auto.mac_addr, errbuf) != 0)
-            goto error;
-
-        char mac_addr_str[MAC_ADDR_STR_BUFSIZE];
-        format_mac_addr(req_pattern->config._auto.mac_addr, mac_addr_str);
-        log_info("interface '%s' mac addr: %s", interface, mac_addr_str);
-    }
-    else if (strcmp(cfg.type, REQ_PATTERN_TYPE_CUSTOM_STR) == 0)
-    {
-        req_pattern->type = REQ_PATTERN_TYPE_CUSTOM;
-        // TODO: parse custom
-    }
-    return req_pattern;
-error:
-    req_pattern_destory(req_pattern);
-    return NULL;
 }
 
 libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)

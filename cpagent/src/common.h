@@ -2,23 +2,12 @@
 #define CPAGENT_COMMON_H
 
 #include <endian.h>
-#include <linux/if_ether.h>
-#include <netinet/in.h>
-#include <stdbool.h>
 #include <stdint.h>
-#include <sys/time.h>
-#include <sys/types.h>
-
-#include <pcap/pcap.h>
 
 #define PKT_DIR_UNKNOWN -1
 #define PKT_DIR_NONCHECK 0
 #define PKT_DIR_INCOMING 1
 #define PKT_DIR_OUTGOING 2
-
-#define REQ_PATTERN_TYPE_NONE 0
-#define REQ_PATTERN_TYPE_AUTO 1
-#define REQ_PATTERN_TYPE_CUSTOM 2
 
 #define ETHER_TYPE_MPLS 0x8847
 
@@ -84,32 +73,9 @@ struct grehdr
     uint32_t keybit;
 };
 
-typedef struct ReqPattern
-{
-    int type;
-    union
-    {
-        struct
-        {
-            uint8_t mac_addr[ETH_ALEN];
-        } _auto;
-        struct
-        {
-            struct in_addr *ips;
-            int num_ips;
-
-            uint32_t *ports;
-            int num_ports;
-        } custom;
-
-    } config;
-} req_pattern_t;
-
 int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf);
 void format_mac_addr(const uint8_t *mac_addr, char *buf);
 
-void req_pattern_destory(req_pattern_t *req_pattern);
-int req_pattern_judge_pkt_direction(req_pattern_t *req_pattern, const struct pcap_pkthdr *header,
-                                    const uint8_t *pkt_data);
+int set_cpu_affinity(int cpu);
 
 #endif /* CPAGENT_COMMON_H */

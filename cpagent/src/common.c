@@ -1,11 +1,8 @@
+#define _GNU_SOURCE // 启用GNU扩展
 #include <errno.h>
 #include <linux/if_ether.h>
-#include <net/ethernet.h>
 #include <net/if.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
+#include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,9 +10,6 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#include <pcap/pcap.h>
-#include <pcap/vlan.h>
 
 #include "common.h"
 #include "error.h"
@@ -73,149 +67,14 @@ void format_mac_addr(const uint8_t *mac_addr, char *buf)
     *ptr = '\0';
 }
 
-void req_pattern_destory(req_pattern_t *req_pattern)
+int set_cpu_affinity(int cpu)
 {
-    if (!req_pattern)
-        return;
-
-    switch (req_pattern->type)
+    cpu_set_t cpu_mask;
+    CPU_ZERO(&cpu_mask);
+    CPU_SET(cpu, &cpu_mask);
+    if (sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask) != 0)
     {
-    case REQ_PATTERN_TYPE_CUSTOM:
-        if (req_pattern->config.custom.num_ips > 0)
-        {
-            free(req_pattern->config.custom.ips);
-            req_pattern->config.custom.ips = NULL;
-            req_pattern->config.custom.num_ips = 0;
-        }
-        if (req_pattern->config.custom.num_ports > 0)
-        {
-            free(req_pattern->config.custom.ports);
-            req_pattern->config.custom.ports = NULL;
-            req_pattern->config.custom.num_ports = 0;
-        }
-        break;
+        return -1;
     }
-    free(req_pattern);
-}
-
-static bool req_pattern_match_by_ipport(req_pattern_t *req_pattern, const struct in_addr *ip, const uint16_t port)
-{
-    if (req_pattern->type != REQ_PATTERN_TYPE_CUSTOM)
-        return false;
-
-    bool match = false;
-    for (int i = 0; i < req_pattern->config.custom.num_ips; ++i)
-    {
-        if (req_pattern->config.custom.ips[i].s_addr == ip->s_addr)
-        {
-            match = true;
-            break;
-        }
-    }
-    if (match)
-    {
-        for (int i = 0; i < req_pattern->config.custom.num_ports; ++i)
-        {
-            if (req_pattern->config.custom.ports[i] == port)
-                return true;
-
-            match = false;
-        }
-    }
-    return match;
-}
-
-int req_pattern_judge_pkt_direction(req_pattern_t *req_pattern, const struct pcap_pkthdr *header,
-                                    const uint8_t *pkt_data)
-{
-    struct ether_header *eth_hdr;
-    eth_hdr = (struct ether_header *)pkt_data;
-
-    if (req_pattern->type == REQ_PATTERN_TYPE_AUTO)
-    {
-        if (memcmp(eth_hdr->ether_shost, req_pattern->config._auto.mac_addr, ETH_ALEN) == 0)
-            return PKT_DIR_OUTGOING;
-        else
-            return PKT_DIR_INCOMING;
-    }
-
-    size_t eth_hdr_len = sizeof(struct ether_header);
-
-    uint16_t eth_type = ntohs(eth_hdr->ether_type);
-    switch (eth_type)
-    {
-    case ETHERTYPE_IP:
-        if (req_pattern->type == REQ_PATTERN_TYPE_NONE)
-            return PKT_DIR_NONCHECK;
-
-        struct iphdr *ip_hdr = (struct iphdr *)(pkt_data + eth_hdr_len);
-        size_t ip_hdr_len = ip_hdr->ihl * 4;
-        uint16_t sport = 0;
-        uint16_t dport = 0;
-        switch (ip_hdr->protocol)
-        {
-        case IPPROTO_TCP:
-            struct tcphdr *tcp_hdr = (struct tcphdr *)(pkt_data + eth_hdr_len + ip_hdr_len);
-            sport = ntohs(tcp_hdr->source);
-            dport = ntohs(tcp_hdr->dest);
-            break;
-        case IPPROTO_UDP:
-            struct udphdr *udp_hdr = (struct udphdr *)(pkt_data + eth_hdr_len + ip_hdr_len);
-            sport = ntohs(udp_hdr->source);
-            dport = ntohs(udp_hdr->dest);
-
-            // TODO: check vxlan
-            break;
-        }
-
-        if (req_pattern_match_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->saddr, sport))
-            return PKT_DIR_OUTGOING;
-        else if (req_pattern_match_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->daddr, dport))
-            return PKT_DIR_INCOMING;
-        else
-            return PKT_DIR_UNKNOWN;
-
-        break;
-    case ETHERTYPE_VLAN:
-        if (req_pattern->type == REQ_PATTERN_TYPE_NONE)
-            return PKT_DIR_NONCHECK;
-
-        struct vlanhdr *vlan_hdr = (struct vlanhdr *)(pkt_data + eth_hdr_len);
-        uint16_t h_proto = ntohs(vlan_hdr->h_proto);
-        switch (h_proto)
-        {
-        case ETHERTYPE_IP:
-            struct iphdr *ip_hdr = (struct iphdr *)(pkt_data + eth_hdr_len + VLAN_TAG_LEN);
-            size_t ip_hdr_len = ip_hdr->ihl * 4;
-            uint16_t sport = 0;
-            uint16_t dport = 0;
-            switch (ip_hdr->protocol)
-            {
-            case IPPROTO_TCP:
-                struct tcphdr *tcp_hdr = (struct tcphdr *)(pkt_data + eth_hdr_len + VLAN_TAG_LEN + ip_hdr_len);
-                sport = ntohs(tcp_hdr->source);
-                dport = ntohs(tcp_hdr->dest);
-                break;
-            case IPPROTO_UDP:
-                struct udphdr *udp_hdr = (struct udphdr *)(pkt_data + eth_hdr_len + VLAN_TAG_LEN + ip_hdr_len);
-                sport = ntohs(udp_hdr->source);
-                dport = ntohs(udp_hdr->dest);
-            }
-
-            if (req_pattern_match_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->saddr, sport))
-                return PKT_DIR_OUTGOING;
-            else if (req_pattern_match_by_ipport(req_pattern, (const struct in_addr *)&ip_hdr->daddr, dport))
-                return PKT_DIR_INCOMING;
-            else
-                return PKT_DIR_UNKNOWN;
-
-            break;
-        default:
-            break;
-        }
-        break;
-    default:
-        break;
-    }
-    return PKT_DIR_UNKNOWN;
+    return 0;
 }

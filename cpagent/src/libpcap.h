@@ -5,6 +5,7 @@
 
 #include "capturer.h"
 #include "common.h"
+#include "req_pattern.h"
 #include "taskconf.h"
 
 typedef struct LibpcapOptions
