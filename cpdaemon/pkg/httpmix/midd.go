@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"git.netisdev.com/eh/erhai-utils/pkg/logger/slogx"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 )
 
 func Recoverer(logger *slog.Logger) func(next http.Handler) http.Handler {

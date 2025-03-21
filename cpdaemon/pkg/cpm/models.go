@@ -1,0 +1,167 @@
+package cpm
+
+const (
+	ReqPatternType_AUTO   = "AUTO"
+	ReqPatternType_CUSTOM = "CUSTOM"
+
+	PacketChannelType_TCP   = "GRE"
+	PacketChannelType_ZMQ   = "ZMQ"
+	PacketChannelType_VXLAN = "VXLAN"
+	PacketChannelType_FILE  = "FILE"
+
+	ApiVersion_V1 = "v1"
+
+	Status_Active   = "active"
+	Status_Inactive = "inactive"
+	Status_Error    = "error"
+
+	SyncMode_Pull = "pull"
+	SyncMode_Push = "push"
+
+	DeployEnv_INSTANCE = "INSTANCE"
+	DeployEnv_HOST     = "HOST"
+)
+
+type BodyError struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}
+
+type RegisterRequest struct {
+	Name               string   `json:"name"`
+	UUID               string   `json:"uuid"`
+	Service            string   `json:"service"`
+	NodeName           string   `json:"nodeName"`
+	Namespace          string   `json:"namespace"`
+	PodName            string   `json:"podName"`
+	PlatformId         string   `json:"platformId"` // 必须参数，需要正确填写
+	ApiVersion         string   `json:"apiVersion"`
+	SupportApiVersions []string `json:"supportApiVersions"` // 必须参数，需要正确填写
+
+	StartTimestamp      int64        `json:"startTimestamp"`
+	StartMicroTimestamp int64        `json:"startMicroTimestamp"`
+	ClientVersion       string       `json:"clientVersion"`
+	Labels              []LabelEntry `json:"labels"`            // 不能为nil，可以为空数组
+	NetworkInterfaces   []NicEntry   `json:"networkInterfaces"` // 不能为nil，可以为空数组
+	DeployEnv           string       `json:"deployEnv"`         // 必须参数，需要正确填写
+	PaUUID              string       `json:"paUUID"`            // 关键参数，如果为空，会由cpm自动生成
+}
+
+func (r *RegisterRequest) FixZero() error {
+	if r.Labels == nil {
+		r.Labels = []LabelEntry{}
+	}
+	if r.NetworkInterfaces == nil {
+		r.NetworkInterfaces = []NicEntry{}
+	}
+	return nil
+}
+
+type RegisterResponse struct {
+	Id                       int64      `json:"id"`
+	PaUUID                   string     `json:"paUUID"`
+	Name                     string     `json:"name"`
+	RegisterRequestIpAddress string     `json:"registerRequestIpAddress"`
+	NodeName                 string     `json:"nodeName"`
+	PlatformId               string     `json:"platformId"`
+	StartTimestamp           int64      `json:"startTimestamp"`
+	StartMicroTimestamp      int64      `json:"startMicroTimestamp"`
+	SyncInterval             int32      `json:"syncInterval"`
+	ClientVersion            string     `json:"clientVersion"`
+	CreateTime               int64      `json:"createTime"`
+	NetworkInterfaces        []NicEntry `json:"networkInterfaces"`
+	Status                   string     `json:"status"`
+}
+
+type SyncStrategyResult struct {
+	Changed  bool
+	Response *SyncStrategyResponse
+}
+
+type SyncStrategyResponse struct {
+	Id           int32           `json:"id"`
+	DaemonId     int32           `json:"daemonId"`
+	Version      int32           `json:"version"`
+	SyncInterval int32           `json:"syncInterval"`
+	CpuLimit     *float64        `json:"cpuLimit"`
+	MemLimit     *int64          `json:"memLimit"`
+	Strategy     []StrategyEntry `json:"strategy"`
+}
+
+type StrategyEntry struct {
+	InterfaceNames []string `json:"interfaceNames"`
+	InstanceNames  []string `json:"instanceNames"`
+	ContainerIds   []string `json:"containerIds"`
+
+	Bpf              *string `json:"bpf"`
+	SliceLen         *int32  `json:"sliceLen"`
+	BuffLimit        *int64  `json:"buffLimit"`
+	CapTime          *int32  `json:"capTime"`
+	ForwardRateLimit *int32  `json:"forwardRateLimit"`
+
+	HasServiceTag bool   `json:"hasServiceTag"`
+	ServiceTag    *int32 `json:"serviceTag"`
+
+	HasReqPattern  bool    `json:"hasReqPattern"`
+	ReqPattern     *string `json:"reqPattern"`
+	ReqPatternType *string `json:"reqPatternType"`
+
+	Startup *string `json:"startup"`
+
+	PacketChannelType string `json:"packetChannelType"`
+
+	Address string `json:"address"`
+	Port    *int32 `json:"port"`
+
+	DumpDir      *string `json:"dumpDir"`
+	DumpInterval *int32  `json:"dumpInterval"`
+
+	HasObservationTag    bool     `json:"hasObservationTag"`
+	ObservationDomainIds []uint32 `json:"observationDomainIds"`
+	ObservationPointIds  []uint8  `json:"observationPointIds"`
+
+	HasExtensionFlag bool  `json:"hasExtensionFlag"`
+	ExtensionFlag    *int8 `json:"extensionFlag"`
+}
+
+type SyncMetricsRequest struct {
+	Logs    []LogEntry    `json:"logs"`
+	Metrics []MetricEntry `json:"metrics"`
+	Pid     int32         `json:"pid"`
+}
+
+type NicEntry struct {
+	Index         int32    `json:"index"`
+	Name          string   `json:"name"`
+	Mac           string   `json:"mac"`
+	Flags         int32    `json:"flags"`
+	Mtu           int32    `json:"mtu"`
+	InetAddresses []string `json:"inetAddresses"`
+}
+
+type LabelEntry struct {
+	Value string `json:"value"`
+}
+
+type LogEntry struct {
+	Timestamp      int64  `json:"logTimestamp"`
+	MicroTimestamp int64  `json:"logMicroTimestamp"`
+	Level          string `json:"logLevel"`
+	Details        string `json:"logDetails"`
+}
+
+type MetricEntry struct {
+	SamplingTimestamp      int64   `json:"samplingTimestamp"`
+	SamplingMicroTimestamp int64   `json:"samplingMicroTimestamp"`
+	StartTime              int64   `json:"startTime"`
+	CpuLoad                float64 `json:"cpuLoad"`
+	CpuLoadRate            float64 `json:"cpuLoadRate"`
+	MemUse                 int64   `json:"memUse"`
+	MemUseRate             float64 `json:"memUseRate"`
+	CapBytes               uint64  `json:"capBytes"`
+	CapPackets             uint64  `json:"capPackets"`
+	CapDrop                uint64  `json:"capDrop"`
+	FwdBytes               uint64  `json:"fwdBytes"`
+	FwdPackets             uint64  `json:"fwdPackets"`
+	CapBuff                uint64  `json:"capBuff"`
+}

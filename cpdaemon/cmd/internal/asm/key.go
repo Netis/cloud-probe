@@ -15,10 +15,32 @@ var VKey = struct {
 			Port    string
 		}
 	}
+	Cpm struct {
+		BaseUrl string
+		Client  struct {
+			Timeout               string
+			DialTimeout           string
+			ResponseHeaderTimeout string
+			MaxIdleConns          string
+			MaxIdleConnsPerHost   string
+			Pkcs12CertFile        string
+			Pkcs12CertPassword    string
+		}
+		RegConfig struct {
+			Name          string
+			UuidFile      string
+			IncludingNICs string
+			PodName       string
+			Namespace     string
+			PlatformId    string
+			Labels        string
+			DeployEnv     string
+		}
+	}
 }{}
 
 func SetDefaults(vp *viper.Viper) {
-	vp.SetDefault(VKey.Listen.Http.Port, 9900)
+	vp.SetDefault(VKey.Listen.Http.Port, 9022)
 }
 
 func init() {

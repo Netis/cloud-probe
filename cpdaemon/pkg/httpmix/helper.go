@@ -7,7 +7,7 @@ import (
 
 	"github.com/gorilla/schema"
 
-	"git.netisdev.com/eh/erhai-utils/pkg/logger/slogx"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 )
 
 var DefaultSchemaDecoder = schema.NewDecoder()

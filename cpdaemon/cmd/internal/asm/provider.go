@@ -9,14 +9,13 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	"git.netisdev.com/eh/erhai-utils/pkg/logger"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 )
 
 func (sg Singleton) Mux() *chi.Mux {
@@ -50,7 +49,6 @@ func NewMux() (*chi.Mux, error) {
 
 	r.Mount("/debug/pprof/", http.HandlerFunc(pprof.Index))
 	r.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	r.HandleFunc("/debug/log/filter", logger.DebugFilter.ServeHTTP)
 
 	return r, nil
 }
