@@ -133,7 +133,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         }
 
         // BPF Filter
-        cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "bpf_filter");
+        cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "bpf");
         if (!bpf_filter)
             capturer->config.libpcap.bpf_filter = strdup("");
         else if (cJSON_IsString(bpf_filter))
@@ -147,7 +147,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         }
         else
         {
-            cjson_set_parse_error(err, "invalid libpcap.bpf_filter");
+            cjson_set_parse_error(err, "invalid libpcap.bpf");
             return PARSE_ERROR;
         }
 
@@ -185,7 +185,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         }
 
         // BPF Filter
-        cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "bpf_filter");
+        cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "bpf");
         if (!bpf_filter)
             capturer->config.dpdk_pdump.bpf_filter = strdup("");
         else if (cJSON_IsString(bpf_filter))
@@ -199,7 +199,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         }
         else
         {
-            cjson_set_parse_error(err, "invalid dpdkdump.bpf_filter");
+            cjson_set_parse_error(err, "invalid dpdkdump.bpf");
             return PARSE_ERROR;
         }
 

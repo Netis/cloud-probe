@@ -1,5 +1,7 @@
 package cpm
 
+import "fmt"
+
 const (
 	ReqPatternType_AUTO   = "AUTO"
 	ReqPatternType_CUSTOM = "CUSTOM"
@@ -22,9 +24,26 @@ const (
 	DeployEnv_HOST     = "HOST"
 )
 
+var SupportApiVersions = []string{
+	ApiVersion_V1,
+}
+
 type BodyError struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
+}
+
+func (e BodyError) Error() string {
+	return fmt.Sprintf("body error: code: %d, msg: %s", e.Code, e.Msg)
+}
+
+type HttpError struct {
+	StatusCode int
+	Body       []byte
+}
+
+func (e HttpError) Error() string {
+	return fmt.Sprintf("http error: status_code: %d, body: %s", e.StatusCode, string(e.Body))
 }
 
 type RegisterRequest struct {
@@ -79,8 +98,8 @@ type SyncStrategyResult struct {
 }
 
 type SyncStrategyResponse struct {
-	Id           int32           `json:"id"`
-	DaemonId     int32           `json:"daemonId"`
+	Id           int64           `json:"id"`
+	DaemonId     int64           `json:"daemonId"`
 	Version      int32           `json:"version"`
 	SyncInterval int32           `json:"syncInterval"`
 	CpuLimit     *float64        `json:"cpuLimit"`
@@ -106,6 +125,7 @@ type StrategyEntry struct {
 	ReqPattern     *string `json:"reqPattern"`
 	ReqPatternType *string `json:"reqPatternType"`
 
+	// example: "-s 65535 -t 0"
 	Startup *string `json:"startup"`
 
 	PacketChannelType string `json:"packetChannelType"`
@@ -131,11 +151,11 @@ type SyncMetricsRequest struct {
 }
 
 type NicEntry struct {
-	Index         int32    `json:"index"`
+	Index         int      `json:"index"`
 	Name          string   `json:"name"`
 	Mac           string   `json:"mac"`
-	Flags         int32    `json:"flags"`
-	Mtu           int32    `json:"mtu"`
+	Flags         int      `json:"flags"`
+	Mtu           int      `json:"mtu"`
 	InetAddresses []string `json:"inetAddresses"`
 }
 

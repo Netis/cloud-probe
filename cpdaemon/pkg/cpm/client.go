@@ -74,7 +74,11 @@ func NewHttpClient(baseUrl string, cfg ClientConfig) (*HttpClient, error) {
 	}, nil
 }
 
+// 如果重复注册，并且paUUID不相同，会被cpm认为是一个新实例，从而导致问题
+// 如果重复注册，并且paUUID相同，会被cpm认为是同一个实例，并更新其他属性
 func (c *HttpClient) Register(ctx context.Context, req RegisterRequest) (*RegisterResponse, error) {
+	req.FixZero()
+
 	data, err := json.Marshal(req)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -107,7 +111,7 @@ func (c *HttpClient) Register(ctx context.Context, req RegisterRequest) (*Regist
 	return &res, nil
 }
 
-func (c *HttpClient) SyncStrategy(ctx context.Context, daemonId int, version int) (*SyncStrategyResult, error) {
+func (c *HttpClient) SyncStrategy(ctx context.Context, daemonId int64, version int32) (*SyncStrategyResult, error) {
 	endpoint := c.getEndpoint(fmt.Sprintf("/api/v1/daemons/%d/sync/strategy", daemonId))
 	query := endpoint.Query()
 	query.Add("version", fmt.Sprintf("%d", version))
@@ -176,7 +180,7 @@ func (c *HttpClient) checkBodyError(body []byte) error {
 		return nil
 	}
 	if res.Code >= 400 {
-		return errors.New(res.Msg)
+		return errors.WithStack(res)
 	}
 	return nil
 }
@@ -194,18 +198,9 @@ func (c *HttpClient) makeError(resp *http.Response) error {
 		return errors.Wrapf(err, "read body error")
 	}
 
-	return errors.WithStack(Error{StatusCode: resp.StatusCode, Body: body})
+	return errors.WithStack(HttpError{StatusCode: resp.StatusCode, Body: body})
 }
 
 func (c *HttpClient) discardBody(resp *http.Response) {
 	_, _ = io.Copy(io.Discard, resp.Body)
-}
-
-type Error struct {
-	StatusCode int
-	Body       []byte
-}
-
-func (e Error) Error() string {
-	return fmt.Sprintf("status_code: %d, body: %s", e.StatusCode, string(e.Body))
 }

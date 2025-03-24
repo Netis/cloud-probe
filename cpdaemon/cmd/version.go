@@ -5,9 +5,9 @@ import (
 	"runtime/debug"
 
 	"github.com/spf13/cobra"
-)
 
-var Version string
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
+)
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
@@ -16,9 +16,8 @@ func init() {
 var versionCmd = &cobra.Command{
 	Use: "version",
 	Run: func(cmd *cobra.Command, args []string) {
-		if Version != "" {
-			fmt.Printf("version: %s\n\n", Version)
-		}
+		fmt.Printf("version: %s\n\n", version.Version)
+
 		info, ok := debug.ReadBuildInfo()
 		if !ok {
 			return

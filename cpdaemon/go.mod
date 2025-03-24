@@ -4,9 +4,11 @@ go 1.24.1
 
 require (
 	github.com/go-chi/chi/v5 v5.2.1
+	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.6.0
 	github.com/gorilla/schema v1.4.1
 	github.com/pkg/errors v0.9.1
+	github.com/samber/lo v1.49.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.0
 	github.com/stretchr/testify v1.10.0

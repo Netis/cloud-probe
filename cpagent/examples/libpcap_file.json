@@ -9,8 +9,7 @@
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
-                    "buffer_size_mb": 256,
-                    "bpf_filter": ""
+                    "buffer_size_mb": 256
                 }
             },
             "outputs": [

@@ -1,6 +1,8 @@
 package asm
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/spf13/viper"
@@ -15,6 +17,9 @@ var VKey = struct {
 			Port    string
 		}
 	}
+	Agent struct {
+		Executable string
+	}
 	Cpm struct {
 		BaseUrl string
 		Client  struct {
@@ -26,21 +31,32 @@ var VKey = struct {
 			Pkcs12CertFile        string
 			Pkcs12CertPassword    string
 		}
-		RegConfig struct {
+		Reg struct {
 			Name          string
 			UuidFile      string
-			IncludingNICs string
-			PodName       string
-			Namespace     string
 			PlatformId    string
-			Labels        string
 			DeployEnv     string
+			Labels        string
+			IncludingNICs string
+
+			PodName   string
+			Namespace string
+			NodeName  string
 		}
+		TasksFile string
 	}
 }{}
 
 func SetDefaults(vp *viper.Viper) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
 	vp.SetDefault(VKey.Listen.Http.Port, 9022)
+	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
+	vp.SetDefault(VKey.Cpm.TasksFile, filepath.Join(cwd, "cpm-tasks.json"))
+	vp.SetDefault(VKey.Agent.Executable, "cpagent")
 }
 
 func init() {

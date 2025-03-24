@@ -6,7 +6,6 @@
             "capturer": {
                 "type": "dpdk_pdump",
                 "dpdk_pdump": {
-                    "bpf_filter": "",
                     "ring_size": 2048
                 }
             },

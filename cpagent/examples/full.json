@@ -8,20 +8,22 @@
                 "type": "custom",
                 "custom": {
                     "patterns": [
-                        "host 10.1.2.123",
-                        "port 80"
+                        "host nic.eth0 and port 8011",
+                        "(host 172.16.1.1 or host 172.16.1.2) and port 8011",
+                        "host 172.16.1.1 and (port 8011 or port 8012)",
+                        "(host 172.16.1.1 or host 172.16.1.2) and (port 8011 or port 8012)"
                     ]
                 }
             },
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
-                    "bpf_filter": "",
+                    "bpf": "",
                     "buffer_size_mb": 256,
                     "timeout_ms": 3
                 },
                 "dpdk_pdump": {
-                    "bpf_filter": "",
+                    "bpf": "",
                     "ring_size": 2048
                 }
             },
@@ -29,6 +31,7 @@
                 {
                     "type": "file",
                     "rate_limit_mbps": 10,
+                    "slice": 2048,
                     "vxlan": {
                         "host": "10.1.2.3",
                         "port": 4789,
