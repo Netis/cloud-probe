@@ -84,8 +84,7 @@ typedef struct
     char *type;
     struct
     {
-        char **patterns;
-        int num_patterns;
+        char *pattern;
     } custom;
 } ReqPatternConfig;
 

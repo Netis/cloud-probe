@@ -7,12 +7,7 @@
             "req_pattern": {
                 "type": "custom",
                 "custom": {
-                    "patterns": [
-                        "host nic.eth0 and port 8011",
-                        "(host 172.16.1.1 or host 172.16.1.2) and port 8011",
-                        "host 172.16.1.1 and (port 8011 or port 8012)",
-                        "(host 172.16.1.1 or host 172.16.1.2) and (port 8011 or port 8012)"
-                    ]
+                    "pattern": "host nic.eth0 and port 8011"
                 }
             },
             "capturer": {

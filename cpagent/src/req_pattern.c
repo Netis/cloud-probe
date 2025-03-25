@@ -69,6 +69,11 @@ req_pattern_t *req_pattern_new_from_cfg(ReqPatternConfig cfg, const char *interf
     }
     else if (strcmp(cfg.type, REQ_PATTERN_TYPE_CUSTOM_STR) == 0)
     {
+        // pattern example:
+        // 1. host nic.eth0 and port 8011
+        // 2. (host 172.16.1.1 or host 172.16.1.2) and port 8011
+        // 3. host 172.16.1.1 and (port 8011 or port 8012)
+        // 4. (host 172.16.1.1 or host 172.16.1.2) and (port 8011 or port 8012)
         req_pattern->type = REQ_PATTERN_TYPE_CUSTOM;
         // TODO: parse custom
     }

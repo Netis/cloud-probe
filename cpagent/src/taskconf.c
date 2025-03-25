@@ -51,11 +51,7 @@ static void req_pattern_destory(ReqPatternConfig *req_pattern)
     {
         if (strcmp(req_pattern->type, REQ_PATTERN_TYPE_CUSTOM_STR) == 0)
         {
-            for (int i = 0; i < req_pattern->custom.num_patterns; ++i)
-            {
-                free(req_pattern->custom.patterns[i]);
-            }
-            free(req_pattern->custom.patterns);
+            free(req_pattern->custom.pattern);
         }
     }
 
@@ -554,28 +550,19 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
             cjson_set_parse_error(err, "custom %d is not an object");
             return PARSE_ERROR;
         }
-        cJSON *patterns = cJSON_GetObjectItemCaseSensitive(custom, "patterns");
-        if (!cJSON_IsArray(patterns))
+        cJSON *pattern = cJSON_GetObjectItemCaseSensitive(custom, "pattern");
+        if (!pattern)
         {
-            cjson_set_parse_error(err, "missing or invalid custom.patterns");
-            return PARSE_ERROR;
+            req_pattern->custom.pattern = strdup("");
         }
-        int num_patterns = cJSON_GetArraySize(patterns);
-        req_pattern->custom.patterns = (char **)calloc(num_patterns, sizeof(char *));
-        if (!req_pattern->custom.patterns)
+        else if (cJSON_IsString(pattern))
         {
-            cjson_set_parse_error(err, "memory allocation failed");
-            return PARSE_ERROR;
+            req_pattern->custom.pattern = strdup(type->valuestring);
         }
-        for (int i = 0; i < num_patterns; i++)
+        else
         {
-            cJSON *pattern = cJSON_GetArrayItem(patterns, i);
-            if (!cJSON_IsString(pattern))
-            {
-                cjson_set_parse_error(err, "custom.patterns %d is invalid", i);
-                return PARSE_ERROR;
-            }
-            req_pattern->custom.patterns[req_pattern->custom.num_patterns++] = strdup(pattern->valuestring);
+            cjson_set_parse_error(err, "invalid custom.pattern");
+            return PARSE_ERROR;
         }
     }
     else
