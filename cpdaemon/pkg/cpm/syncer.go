@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
 )
@@ -47,9 +48,11 @@ func (c *RegConfig) Validate() error {
 }
 
 type SyncerConfig struct {
-	RegCfg       RegConfig
-	RegInterval  time.Duration
-	SyncInterval time.Duration
+	AgentCfg         agent.AgentConfig
+	RegCfg           RegConfig
+	RegRetryInterval time.Duration
+	SyncInterval     time.Duration
+	TasksFile        string
 }
 
 type Syncer struct {
@@ -62,8 +65,9 @@ type Syncer struct {
 	startTime         time.Time
 	networkInterfaces []NicEntry
 
-	regResp  *RegisterResponse
-	syncResp *SyncStrategyResponse
+	regResp             *RegisterResponse
+	syncResp            *SyncStrategyResponse
+	syncActiveInstances []string
 }
 
 func NewSyncer(client *HttpClient, cfg SyncerConfig) (*Syncer, error) {
@@ -72,7 +76,7 @@ func NewSyncer(client *HttpClient, cfg SyncerConfig) (*Syncer, error) {
 	}
 
 	s := &Syncer{
-		agentMgr: NewAgentManager(),
+		agentMgr: NewAgentManager(cfg.AgentCfg, cfg.TasksFile),
 		client:   client,
 		cfg:      cfg,
 		lg:       slog.Default().With(slogx.LoggerName("cpm.syncer")),
@@ -188,7 +192,7 @@ func (s *Syncer) registerLoop(ctx context.Context) error {
 			}
 
 			s.lg.Error("register failed, will retry", slogx.Error(err))
-			tm.Reset(s.cfg.RegInterval)
+			tm.Reset(s.cfg.RegRetryInterval)
 		}
 	}
 }
@@ -245,25 +249,24 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-tm.C:
-			err := s.doSyncStrategy(ctx)
+			var lastVersion int32
+			if s.syncResp != nil {
+				lastVersion = s.syncResp.Version
+			}
+			res, err := s.client.SyncStrategy(ctx, s.regResp.Id, lastVersion)
 			if err != nil {
 				return err
+			}
+
+			if err := s.applyStrategy(ctx, res); err != nil {
+				s.lg.Error("apply strategy failed", slogx.Error(err))
 			}
 			tm.Reset(s.cfg.SyncInterval)
 		}
 	}
 }
 
-func (s *Syncer) doSyncStrategy(ctx context.Context) error {
-	var lastVersion int32
-	if s.syncResp != nil {
-		lastVersion = s.syncResp.Version
-	}
-	res, err := s.client.SyncStrategy(ctx, s.regResp.Id, lastVersion)
-	if err != nil {
-		return err
-	}
-
+func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) error {
 	if !res.Changed {
 		alive, err := s.agentMgr.IsAlive(ctx)
 		if err != nil {
@@ -271,16 +274,100 @@ func (s *Syncer) doSyncStrategy(ctx context.Context) error {
 			return nil
 		}
 		if !alive && s.syncResp != nil {
-			s.lg.Info("agent is not alive, will restart")
-			return s.agentMgr.CreateIfDead(ctx, s.syncResp)
+			activeInstances, err := s.activeInstancesIfRequired(s.syncResp)
+			if err != nil {
+				s.lg.Error("get active instances failed", slogx.Error(err))
+			}
+
+			numItems := s.syncResp.NumItems(activeInstances)
+			if numItems == 0 {
+				return nil
+			}
+
+			s.lg.Info(
+				"agent is not alive, will restart",
+				slog.Int("numItems", numItems),
+			)
+
+			if err := s.agentMgr.CreateIfDead(ctx, s.syncResp, activeInstances); err != nil {
+				return err
+			}
+			s.syncActiveInstances = activeInstances
+			return nil
 		}
-		return nil
+
+		return s.UpdateIfInstanceChanged(ctx)
 	}
 
-	s.lg.Info("strategy changed", slog.Int("version", int(res.Response.Version)))
-	if err := s.agentMgr.Update(ctx, res.Response); err != nil {
+	activeInstances, err := s.activeInstancesIfRequired(res.Response)
+	if err != nil {
+		s.lg.Error("get active instances failed", slogx.Error(err))
+	}
+	s.lg.Info(
+		"strategy changed",
+		slog.Int("version", int(res.Response.Version)),
+		slog.Int("numItems", res.Response.NumItems(activeInstances)),
+	)
+
+	if err := s.agentMgr.Update(ctx, res.Response, activeInstances); err != nil {
 		return err
 	}
 	s.syncResp = res.Response
+	s.syncActiveInstances = activeInstances
 	return nil
+}
+
+func (s *Syncer) UpdateIfInstanceChanged(ctx context.Context) error {
+	if s.syncResp == nil {
+		return nil
+	}
+	if !s.syncResp.HasInstances() {
+		return nil
+	}
+
+	activeInstances, err := s.activeInstances()
+	if err != nil {
+		s.lg.Error("get active instances failed", slogx.Error(err))
+		return nil
+	}
+
+	needUpdate := false
+	for _, strategy := range s.syncResp.Strategy {
+		for _, instanceName := range strategy.InstanceNames {
+			syncExists := slices.Contains(s.syncActiveInstances, instanceName)
+			currExists := slices.Contains(activeInstances, instanceName)
+			if syncExists != currExists {
+				needUpdate = true
+				break
+			}
+		}
+		if needUpdate {
+			break
+		}
+	}
+	if !needUpdate {
+		return nil
+	}
+
+	s.lg.Info(
+		"instances changed, will restart agent",
+		slog.Int("numItems", s.syncResp.NumItems(activeInstances)),
+	)
+	if err := s.agentMgr.Update(ctx, s.syncResp, activeInstances); err != nil {
+		return err
+	}
+	s.syncActiveInstances = activeInstances
+	return nil
+}
+
+func (s *Syncer) activeInstancesIfRequired(resp *SyncStrategyResponse) ([]string, error) {
+	if !resp.HasInstances() {
+		return nil, nil
+	}
+	return s.activeInstances()
+}
+
+func (s *Syncer) activeInstances() ([]string, error) {
+	// TODO:
+	return nil, nil
 }

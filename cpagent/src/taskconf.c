@@ -464,7 +464,10 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         // Port
         cJSON *port = cJSON_GetObjectItemCaseSensitive(zmq_obj, "port");
         if (!port)
-            output->config.zmq.port = 4789;
+        {
+            cjson_set_parse_error(err, "missing zmq.port");
+            return PARSE_ERROR;
+        }
         else if (cJSON_IsNumber(port))
             output->config.zmq.port = port->valueint;
         else

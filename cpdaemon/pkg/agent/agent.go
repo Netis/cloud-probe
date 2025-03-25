@@ -16,16 +16,20 @@ import (
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 )
 
-type Agent struct {
-	Name        string
-	Executable  string
-	Environment map[string]string
-	WorkDir     string
+type AgentConfig struct {
+	Executable string
+	Env        map[string]string
+	WorkDir    string
+}
 
-	CpuLimit  *float64
-	MemLimit  *int64
-	Tasks     []TaskConfig
+type Agent struct {
+	Name      string
+	Config    AgentConfig
 	TasksFile string
+
+	CpuLimit *float64
+	MemLimit *int64
+	Tasks    []TaskConfig
 
 	mu       sync.Mutex
 	cmd      *exec.Cmd
@@ -34,14 +38,15 @@ type Agent struct {
 
 func (a *Agent) IsAlive(ctx context.Context) (bool, error) {
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	cmd := a.cmd
+	a.mu.Unlock()
 
-	if a.cmd == nil || a.cmd.Process == nil {
+	if cmd == nil || cmd.Process == nil {
 		return false, nil
 	}
 
 	// 发送SIG0（空信号）不会影响进程，用于检测是否存在
-	err := a.cmd.Process.Signal(syscall.Signal(0))
+	err := cmd.Process.Signal(syscall.Signal(0))
 
 	switch {
 	case err == nil:
@@ -68,12 +73,12 @@ func (a *Agent) Start(ctx context.Context) error {
 	args := []string{
 		"--tasks", a.TasksFile,
 	}
-	cmd := exec.Command(a.Executable, args...)
+	cmd := exec.Command(a.Config.Executable, args...)
 	cmd.Env = os.Environ()
-	for k, v := range a.Environment {
+	for k, v := range a.Config.Env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
-	cmd.Dir = a.WorkDir
+	cmd.Dir = a.Config.WorkDir
 
 	if err := cmd.Start(); err != nil {
 		return errors.Wrapf(err, "start agent %s failed", a.Name)
@@ -139,6 +144,7 @@ func (a *Agent) Stop() error {
 }
 
 func (a *Agent) clean() error {
+	// TODO:
 	return nil
 }
 

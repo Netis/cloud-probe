@@ -1,12 +1,15 @@
 package cpm
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 const (
 	ReqPatternType_AUTO   = "AUTO"
 	ReqPatternType_CUSTOM = "CUSTOM"
 
-	PacketChannelType_TCP   = "GRE"
+	PacketChannelType_GRE   = "GRE"
 	PacketChannelType_ZMQ   = "ZMQ"
 	PacketChannelType_VXLAN = "VXLAN"
 	PacketChannelType_FILE  = "FILE"
@@ -24,9 +27,18 @@ const (
 	DeployEnv_HOST     = "HOST"
 )
 
-var SupportApiVersions = []string{
-	ApiVersion_V1,
-}
+var (
+	SupportApiVersions = []string{
+		ApiVersion_V1,
+	}
+
+	SupportPacketChannelTypes = []string{
+		PacketChannelType_GRE,
+		PacketChannelType_ZMQ,
+		PacketChannelType_VXLAN,
+		PacketChannelType_FILE,
+	}
+)
 
 type BodyError struct {
 	Code int    `json:"code"`
@@ -107,6 +119,34 @@ type SyncStrategyResponse struct {
 	Strategy     []StrategyEntry `json:"strategy"`
 }
 
+func (r *SyncStrategyResponse) HasInstances() bool {
+	for _, strategy := range r.Strategy {
+		if len(strategy.InstanceNames) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *SyncStrategyResponse) NumItems(activeInstances []string) int {
+	var n int
+	for _, strategy := range r.Strategy {
+		switch {
+		case len(strategy.ContainerIds) > 0:
+			n += len(strategy.ContainerIds)
+		case len(strategy.InterfaceNames) > 0:
+			n += len(strategy.InterfaceNames)
+		case len(strategy.InstanceNames) > 0:
+			for _, instanceName := range strategy.InstanceNames {
+				if slices.Contains(activeInstances, instanceName) {
+					n++
+				}
+			}
+		}
+	}
+	return n
+}
+
 type StrategyEntry struct {
 	InterfaceNames []string `json:"interfaceNames"`
 	InstanceNames  []string `json:"instanceNames"`
@@ -125,6 +165,8 @@ type StrategyEntry struct {
 	ReqPattern     *string `json:"reqPattern"`
 	ReqPatternType *string `json:"reqPatternType"`
 
+	ApiVersion *string `json:"apiVersion"`
+
 	// example: "-s 65535 -t 0"
 	Startup *string `json:"startup"`
 
@@ -136,12 +178,12 @@ type StrategyEntry struct {
 	DumpDir      *string `json:"dumpDir"`
 	DumpInterval *int32  `json:"dumpInterval"`
 
+	// vni2
 	HasObservationTag    bool     `json:"hasObservationTag"`
 	ObservationDomainIds []uint32 `json:"observationDomainIds"`
 	ObservationPointIds  []uint8  `json:"observationPointIds"`
-
-	HasExtensionFlag bool  `json:"hasExtensionFlag"`
-	ExtensionFlag    *int8 `json:"extensionFlag"`
+	HasExtensionFlag     bool     `json:"hasExtensionFlag"`
+	ExtensionFlag        *int8    `json:"extensionFlag"`
 }
 
 type SyncMetricsRequest struct {

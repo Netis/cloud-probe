@@ -13,8 +13,9 @@ func InitServer(
 	ins *Instance,
 ) (ServerEps, func(), error) {
 	panic(wire.Build(
-		// wire.FieldsOf(new(*Instance), "Vp"),
-
+		wire.FieldsOf(new(*Instance), "Vp"),
+		NewCpmClient,
+		NewCpmSyncer,
 		GetMux,
 		NewServerEps,
 	))

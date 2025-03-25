@@ -17,7 +17,16 @@ func InitServer(ctx context.Context, ins *Instance) (ServerEps, func(), error) {
 	if err != nil {
 		return ServerEps{}, nil, err
 	}
-	serverEps, err := NewServerEps(mux)
+	viper := ins.Vp
+	httpClient, err := NewCpmClient(viper)
+	if err != nil {
+		return ServerEps{}, nil, err
+	}
+	syncer, err := NewCpmSyncer(ins, viper, httpClient)
+	if err != nil {
+		return ServerEps{}, nil, err
+	}
+	serverEps, err := NewServerEps(mux, syncer)
 	if err != nil {
 		return ServerEps{}, nil, err
 	}

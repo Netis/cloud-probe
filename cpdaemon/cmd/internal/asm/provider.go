@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"reflect"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/cpm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 )
@@ -97,12 +100,59 @@ func (ins *Instance) ListenHTTP(
 	return nil
 }
 
+func NewCpmClient(vp *viper.Viper) (*cpm.HttpClient, error) {
+	return cpm.NewHttpClient(vp.GetString(VKey.Cpm.BaseUrl), cpm.ClientConfig{
+		Timeout:               vp.GetDuration(VKey.Cpm.Client.Timeout),
+		DialTimeout:           vp.GetDuration(VKey.Cpm.Client.DialTimeout),
+		ResponseHeaderTimeout: vp.GetDuration(VKey.Cpm.Client.ResponseHeaderTimeout),
+		MaxIdleConns:          vp.GetInt(VKey.Cpm.Client.MaxIdleConns),
+		MaxIdleConnsPerHost:   vp.GetInt(VKey.Cpm.Client.MaxIdleConnsPerHost),
+	})
+}
+
+func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*cpm.Syncer, error) {
+	regName := vp.GetString(VKey.Cpm.Reg.Name)
+	if regName == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			return nil, errors.Wrapf(err, "get hostname")
+		}
+		regName = hostname
+	}
+	syncer, err := cpm.NewSyncer(cpmClient, cpm.SyncerConfig{
+		AgentCfg: agent.AgentConfig{
+			Executable: vp.GetString(VKey.Agent.Executable),
+		},
+		RegCfg: cpm.RegConfig{
+			Name:          regName,
+			UuidFile:      vp.GetString(VKey.Cpm.Reg.UuidFile),
+			NodeName:      vp.GetString(VKey.Cpm.Reg.NodeName),
+			PlatformId:    vp.GetString(VKey.Cpm.Reg.PlatformId),
+			DeployEnv:     vp.GetString(VKey.Cpm.Reg.DeployEnv),
+			Labels:        vp.GetStringSlice(VKey.Cpm.Reg.Labels),
+			IncludingNICs: vp.GetStringSlice(VKey.Cpm.Reg.IncludingNICs),
+
+			PodName:   vp.GetString(VKey.Cpm.Reg.PodName),
+			Namespace: vp.GetString(VKey.Cpm.Reg.Namespace),
+		},
+		RegRetryInterval: 5 * time.Second,
+		SyncInterval:     15 * time.Second,
+		TasksFile:        vp.GetString(VKey.Cpm.TasksFile),
+	})
+	if err != nil {
+		return nil, err
+	}
+	ins.Daemons = append(ins.Daemons, syncer.Run)
+	return syncer, nil
+}
+
 type ServerEps struct {
 	Mux *chi.Mux
 }
 
 func NewServerEps(
 	mux *chi.Mux,
+	_ *cpm.Syncer,
 ) (ServerEps, error) {
 	return ServerEps{Mux: mux}, nil
 }
