@@ -1,0 +1,15 @@
+{
+    "listen": {
+        "http": {
+            "port": 9022
+        }
+    },
+    "cpm": {
+        "baseUrl": "https://10.40.9.128:48018",
+        "reg": {
+            "name": "cpdaemon-v0.9-test",
+            "platformId": "",
+            "deployEnv": "INSTANCE"
+        }
+    }
+}

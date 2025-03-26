@@ -1,8 +1,6 @@
 package asm
 
 import (
-	"os"
-	"path/filepath"
 	"reflect"
 	"time"
 
@@ -20,6 +18,18 @@ var VKey = struct {
 	}
 	Agent struct {
 		Executable string
+	}
+	Kvm struct {
+		ListNameScript      string
+		ListInterfaceScript string
+	}
+	Container struct {
+		GetHostPidScript string
+	}
+	Cgroup struct {
+		Version   string
+		Root      string
+		Hierarchy string
 	}
 	Cpm struct {
 		BaseUrl string
@@ -44,22 +54,21 @@ var VKey = struct {
 			Namespace string
 			NodeName  string
 		}
-		TasksFile           string
-		AgentSockFile       string
-		AllowUnknownStartup string
+		Agent struct {
+			TasksFile string
+			SockFile  string
+		}
 	}
 }{}
 
 func SetDefaults(vp *viper.Viper) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
 	vp.SetDefault(VKey.Listen.Http.Port, 9022)
+
+	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
-	vp.SetDefault(VKey.Cpm.TasksFile, filepath.Join(cwd, "cpm-agent-tasks.json"))
-	vp.SetDefault(VKey.Cpm.AgentSockFile, filepath.Join(cwd, "cpm-agent.sock"))
+
+	vp.SetDefault(VKey.Cpm.Agent.TasksFile, "cpm-tasks.json")
+	vp.SetDefault(VKey.Cpm.Agent.SockFile, "cpm-agent.sock")
 	vp.SetDefault(VKey.Agent.Executable, "cpagent")
 
 	vp.SetDefault(VKey.Cpm.Client.Timeout, 15*time.Second)
@@ -68,7 +77,9 @@ func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Cpm.Client.MaxIdleConns, 10)
 	vp.SetDefault(VKey.Cpm.Client.MaxIdleConnsPerHost, 5)
 
-	vp.SetDefault(VKey.Cpm.AllowUnknownStartup, false)
+	vp.SetDefault(VKey.Cgroup.Version, "v1")
+	vp.SetDefault(VKey.Cgroup.Root, "/sys/fs/cgroup")
+	vp.SetDefault(VKey.Cgroup.Hierarchy, "cpagent")
 }
 
 func init() {

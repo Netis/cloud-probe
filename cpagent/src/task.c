@@ -7,6 +7,7 @@
 #include "log.h"
 #include "output_file.h"
 #include "output_gre.h"
+#include "output_rotating_file.h"
 #include "output_vxlan.h"
 #include "output_zmq.h"
 #include "task.h"
@@ -24,9 +25,8 @@ static capturer_entry_t capturer_entries[] = {
 };
 
 static output_entry_t output_entries[] = {
-    {OUTPUT_TYPE_FILE, file_output_new_from_cfg},
-    {OUTPUT_TYPE_ZMQ, zmq_output_new_from_cfg},
-    {OUTPUT_TYPE_GRE, gre_output_new_from_cfg},
+    {OUTPUT_TYPE_FILE, file_output_new_from_cfg},   {OUTPUT_TYPE_ROTATING_FILE, rotating_file_output_new_from_cfg},
+    {OUTPUT_TYPE_ZMQ, zmq_output_new_from_cfg},     {OUTPUT_TYPE_GRE, gre_output_new_from_cfg},
     {OUTPUT_TYPE_VXLAN, vxlan_output_new_from_cfg},
 };
 

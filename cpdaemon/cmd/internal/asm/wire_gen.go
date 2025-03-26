@@ -22,7 +22,8 @@ func InitServer(ctx context.Context, ins *Instance) (ServerEps, func(), error) {
 	if err != nil {
 		return ServerEps{}, nil, err
 	}
-	syncer, err := NewCpmSyncer(ins, viper, httpClient)
+	agentManager := NewCpmAgentMgr(viper)
+	syncer, err := NewCpmSyncer(ins, viper, httpClient, agentManager)
 	if err != nil {
 		return ServerEps{}, nil, err
 	}

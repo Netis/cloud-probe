@@ -17,11 +17,13 @@
 #define OUTPUT_TYPE_GRE "gre"
 #define OUTPUT_TYPE_ZMQ "zmq"
 #define OUTPUT_TYPE_FILE "file"
+#define OUTPUT_TYPE_ROTATING_FILE "rotating_file"
 
 typedef struct
 {
     char *type;
     uint64_t rate_limit_mbps;
+    int slice;
     union
     {
         struct
@@ -55,6 +57,12 @@ typedef struct
         {
             char *name;
         } file;
+
+        struct
+        {
+            char *file_root;
+            int max_file_interval;
+        } rotating_file;
     } config;
 } OutputConfig;
 

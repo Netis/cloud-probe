@@ -12,7 +12,7 @@ typedef void (*PacketHandler)(const struct pcap_pkthdr *header, const uint8_t *p
 
 typedef struct CapturerBase
 {
-    int (*capture)(struct CapturerBase *capturer, PacketHandler handler, void *user);
+    uint64_t (*capture)(struct CapturerBase *capturer, PacketHandler handler, void *user);
     void (*destory)(struct CapturerBase *capturer);
 } capturer_base_t;
 
@@ -24,7 +24,7 @@ typedef struct CapturerEntry
     CapturerFactory factory;
 } capturer_entry_t;
 
-static int capture_packets(capturer_base_t *capturer, PacketHandler handler, void *user)
+static uint64_t capture_packets(capturer_base_t *capturer, PacketHandler handler, void *user)
 {
     return capturer->capture(capturer, handler, user);
 }

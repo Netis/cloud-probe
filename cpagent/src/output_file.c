@@ -6,6 +6,7 @@
 
 #include <pcap/pcap.h>
 
+#include "common.h"
 #include "error.h"
 #include "log.h"
 #include "output_file.h"
@@ -13,12 +14,15 @@
 
 int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
+    if (direct == PKT_DIR_UNKNOWN)
+        return -1;
+
     file_output_t *output = (file_output_t *)self;
     pcap_dump((u_char *)output->dumper, header, pkt_data);
     return 0;
 }
 
-file_output_t *file_output_new(const char *name, uint32_t snaplen, char *errbuf)
+file_output_t *file_output_new(const char *name, int snaplen, char *errbuf)
 {
     FILE *fp = fopen(name, "w+");
     if (!fp)
@@ -29,7 +33,7 @@ file_output_t *file_output_new(const char *name, uint32_t snaplen, char *errbuf)
     rewind(fp);
 
     pcap_t *pcap;
-    pcap = pcap_open_dead_with_tstamp_precision(DLT_EN10MB, snaplen, PCAP_TSTAMP_PRECISION_NANO);
+    pcap = pcap_open_dead(DLT_EN10MB, snaplen);
     if (!pcap)
     {
         error_format(errbuf, "pcap_open_dead failed");
@@ -41,6 +45,7 @@ file_output_t *file_output_new(const char *name, uint32_t snaplen, char *errbuf)
     if (!dumper)
     {
         fclose(fp);
+        pcap_close(pcap);
         error_format(errbuf, "pcap_dump_fopen failed: %s", pcap_geterr(pcap));
         return NULL;
     }
@@ -50,12 +55,14 @@ file_output_t *file_output_new(const char *name, uint32_t snaplen, char *errbuf)
     {
         error_format(errbuf, "failed to allocate memory for file_output_t");
         pcap_dump_close(dumper);
+        pcap_close(pcap);
         return NULL;
     }
 
     output->base.send_packet = file_write_packet;
     output->base.destory = file_output_destory;
 
+    output->pcap = pcap;
     output->fp = fp;
     output->dumper = dumper;
     return output;
@@ -76,5 +83,6 @@ void file_output_destory(output_base_t *self)
     file_output_t *output = (file_output_t *)self;
 
     pcap_dump_close(output->dumper);
+    pcap_close(output->pcap);
     free(output);
 }

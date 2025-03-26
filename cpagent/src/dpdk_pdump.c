@@ -251,7 +251,7 @@ static void show_count(uint64_t count)
     bt = fprintf(stderr, "%" PRIu64 " ", count);
 }
 
-int dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
+uint64_t dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
 {
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)self;
 

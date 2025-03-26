@@ -83,5 +83,5 @@ type FileOutputConfig struct {
 
 type RotatingFileOutputConfig struct {
 	FileRoot        string `json:"file_root"`
-	MaxFileInterval int32  `json:"max_file_interval"` // seconds
+	MaxFileInterval *int32 `json:"max_file_interval,omitempty"` // seconds
 }

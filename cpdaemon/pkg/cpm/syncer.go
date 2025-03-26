@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
 )
@@ -48,16 +47,15 @@ func (c *RegConfig) Validate() error {
 }
 
 type SyncerConfig struct {
-	AgentCfg         agent.AgentConfig
 	RegCfg           RegConfig
 	RegRetryInterval time.Duration
 	SyncInterval     time.Duration
-	TasksFile        string
 }
 
 type Syncer struct {
-	agentMgr *AgentManager
 	client   *HttpClient
+	agentMgr *AgentManager
+	virsh    VirshCmdExecutor
 	cfg      SyncerConfig
 	lg       *slog.Logger
 
@@ -70,14 +68,20 @@ type Syncer struct {
 	syncActiveInstances []string
 }
 
-func NewSyncer(client *HttpClient, cfg SyncerConfig) (*Syncer, error) {
+func NewSyncer(
+	client *HttpClient,
+	agentMgr *AgentManager,
+	virsh VirshCmdExecutor,
+	cfg SyncerConfig,
+) (*Syncer, error) {
 	if err := cfg.RegCfg.Validate(); err != nil {
 		return nil, err
 	}
 
 	s := &Syncer{
-		agentMgr: NewAgentManager(cfg.AgentCfg, cfg.TasksFile),
 		client:   client,
+		agentMgr: agentMgr,
+		virsh:    virsh,
 		cfg:      cfg,
 		lg:       slog.Default().With(slogx.LoggerName("cpm.syncer")),
 
@@ -247,6 +251,9 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			if err := s.agentMgr.Stop(); err != nil {
+				s.lg.Error("stop agent failed", slogx.Error(err))
+			}
 			return ctx.Err()
 		case <-tm.C:
 			var lastVersion int32
@@ -318,33 +325,28 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 }
 
 func (s *Syncer) UpdateIfInstanceChanged(ctx context.Context) error {
-	if s.syncResp == nil {
-		return nil
-	}
-	if !s.syncResp.HasInstances() {
+	if s.syncResp == nil || !s.syncResp.HasInstances() {
 		return nil
 	}
 
-	activeInstances, err := s.activeInstances()
+	activeInstances, err := s.virsh.ListNames()
 	if err != nil {
 		s.lg.Error("get active instances failed", slogx.Error(err))
 		return nil
 	}
 
-	needUpdate := false
-	for _, strategy := range s.syncResp.Strategy {
-		for _, instanceName := range strategy.InstanceNames {
-			syncExists := slices.Contains(s.syncActiveInstances, instanceName)
-			currExists := slices.Contains(activeInstances, instanceName)
-			if syncExists != currExists {
-				needUpdate = true
-				break
+	needUpdate := func() bool {
+		for _, strategy := range s.syncResp.Strategy {
+			for _, instanceName := range strategy.InstanceNames {
+				syncExists := slices.Contains(s.syncActiveInstances, instanceName)
+				currExists := slices.Contains(activeInstances, instanceName)
+				if syncExists != currExists {
+					return true
+				}
 			}
 		}
-		if needUpdate {
-			break
-		}
-	}
+		return false
+	}()
 	if !needUpdate {
 		return nil
 	}
@@ -364,10 +366,5 @@ func (s *Syncer) activeInstancesIfRequired(resp *SyncStrategyResponse) ([]string
 	if !resp.HasInstances() {
 		return nil, nil
 	}
-	return s.activeInstances()
-}
-
-func (s *Syncer) activeInstances() ([]string, error) {
-	// TODO:
-	return nil, nil
+	return s.virsh.ListNames()
 }

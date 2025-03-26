@@ -2,6 +2,7 @@ package asm
 
 import (
 	"context"
+	"crypto/tls"
 	"log/slog"
 	"net"
 	"net/http"
@@ -16,8 +17,10 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/container"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cpm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/kvm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 )
 
@@ -107,38 +110,64 @@ func NewCpmClient(vp *viper.Viper) (*cpm.HttpClient, error) {
 		ResponseHeaderTimeout: vp.GetDuration(VKey.Cpm.Client.ResponseHeaderTimeout),
 		MaxIdleConns:          vp.GetInt(VKey.Cpm.Client.MaxIdleConns),
 		MaxIdleConnsPerHost:   vp.GetInt(VKey.Cpm.Client.MaxIdleConnsPerHost),
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
 	})
 }
 
-func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*cpm.Syncer, error) {
+func NewCpmAgentMgr(vp *viper.Viper) *cpm.AgentManager {
+	return cpm.NewAgentManager(
+		cpm.AgentConfig{
+			Executable:      vp.GetString(VKey.Agent.Executable),
+			TasksFile:       vp.GetString(VKey.Cpm.Agent.TasksFile),
+			CgroupVersion:   vp.GetString(VKey.Cgroup.Version),
+			CgroupRoot:      vp.GetString(VKey.Cgroup.Root),
+			CgroupHierarchy: vp.GetString(VKey.Cgroup.Hierarchy),
+		},
+		cpm.AgentFactoryFunc(agent.NewAgent),
+		&kvm.VirshCmdExecutor{
+			ListNameScript:      vp.GetString(VKey.Kvm.ListNameScript),
+			ListInterfaceScript: vp.GetString(VKey.Kvm.ListInterfaceScript),
+		},
+		&container.ContainerCmdExecutor{
+			GetHostPidScript: vp.GetString(VKey.Container.GetHostPidScript),
+		},
+	)
+}
+
+func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient, agentMgr *cpm.AgentManager) (*cpm.Syncer, error) {
 	regName := vp.GetString(VKey.Cpm.Reg.Name)
 	if regName == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
-			return nil, errors.Wrapf(err, "get hostname")
+			return nil, errors.Wrapf(err, "get hostname failed")
 		}
 		regName = hostname
 	}
-	syncer, err := cpm.NewSyncer(cpmClient, cpm.SyncerConfig{
-		AgentCfg: agent.AgentConfig{
-			Executable: vp.GetString(VKey.Agent.Executable),
+	syncer, err := cpm.NewSyncer(
+		cpmClient,
+		agentMgr,
+		&kvm.VirshCmdExecutor{
+			ListNameScript:      vp.GetString(VKey.Kvm.ListNameScript),
+			ListInterfaceScript: vp.GetString(VKey.Kvm.ListInterfaceScript),
 		},
-		RegCfg: cpm.RegConfig{
-			Name:          regName,
-			UuidFile:      vp.GetString(VKey.Cpm.Reg.UuidFile),
-			NodeName:      vp.GetString(VKey.Cpm.Reg.NodeName),
-			PlatformId:    vp.GetString(VKey.Cpm.Reg.PlatformId),
-			DeployEnv:     vp.GetString(VKey.Cpm.Reg.DeployEnv),
-			Labels:        vp.GetStringSlice(VKey.Cpm.Reg.Labels),
-			IncludingNICs: vp.GetStringSlice(VKey.Cpm.Reg.IncludingNICs),
+		cpm.SyncerConfig{
+			RegCfg: cpm.RegConfig{
+				Name:          regName,
+				UuidFile:      vp.GetString(VKey.Cpm.Reg.UuidFile),
+				NodeName:      vp.GetString(VKey.Cpm.Reg.NodeName),
+				PlatformId:    vp.GetString(VKey.Cpm.Reg.PlatformId),
+				DeployEnv:     vp.GetString(VKey.Cpm.Reg.DeployEnv),
+				Labels:        vp.GetStringSlice(VKey.Cpm.Reg.Labels),
+				IncludingNICs: vp.GetStringSlice(VKey.Cpm.Reg.IncludingNICs),
 
-			PodName:   vp.GetString(VKey.Cpm.Reg.PodName),
-			Namespace: vp.GetString(VKey.Cpm.Reg.Namespace),
-		},
-		RegRetryInterval: 5 * time.Second,
-		SyncInterval:     15 * time.Second,
-		TasksFile:        vp.GetString(VKey.Cpm.TasksFile),
-	})
+				PodName:   vp.GetString(VKey.Cpm.Reg.PodName),
+				Namespace: vp.GetString(VKey.Cpm.Reg.Namespace),
+			},
+			RegRetryInterval: 5 * time.Second,
+			SyncInterval:     15 * time.Second,
+		})
 	if err != nil {
 		return nil, err
 	}

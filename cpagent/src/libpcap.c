@@ -12,7 +12,7 @@
 #include "log.h"
 #include "req_pattern.h"
 
-int libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
+uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
 {
     libpcap_capturer_t *capturer = (libpcap_capturer_t *)self;
 

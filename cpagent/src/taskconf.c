@@ -253,6 +253,17 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         return PARSE_ERROR;
     }
 
+    cJSON *slice = cJSON_GetObjectItemCaseSensitive(output_obj, "slice");
+    if (!slice)
+        output->slice = 0;
+    else if (cJSON_IsNumber(slice))
+        output->slice = slice->valueint;
+    else
+    {
+        cjson_set_parse_error(err, "invalid slice");
+        return PARSE_ERROR;
+    }
+
     // Type specific config
     if (strcmp(output->type, OUTPUT_TYPE_VXLAN) == 0)
     {
@@ -267,7 +278,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *host = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "host");
         if (!cJSON_IsString(host))
         {
-            cjson_wrap_parse_error(err, "missing or invalid vxlan.host");
+            cjson_set_parse_error(err, "missing or invalid vxlan.host");
             return PARSE_ERROR;
         }
         output->config.vxlan.host = strdup(host->valuestring);
@@ -288,7 +299,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *capture_time = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "capture_time");
         if (!capture_time)
             output->config.vxlan.capture_time = false;
-        if (cJSON_IsBool(capture_time))
+        else if (cJSON_IsBool(capture_time))
         {
             if (cJSON_IsTrue(capture_time))
                 output->config.vxlan.capture_time = true;
@@ -340,7 +351,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *bind = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "bind_device");
         if (!bind)
             output->config.vxlan.bind_device = strdup("");
-        if (cJSON_IsString(bind))
+        else if (cJSON_IsString(bind))
             output->config.vxlan.bind_device = strdup(bind->valuestring);
         else
         {
@@ -352,7 +363,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *pmtudisc = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "pmtudisc");
         if (!pmtudisc)
             output->config.vxlan.pmtudisc = -1;
-        if (cJSON_IsString(pmtudisc))
+        else if (cJSON_IsString(pmtudisc))
         {
 
             if (strcmp(pmtudisc->valuestring, "do") == 0)
@@ -385,7 +396,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *host = cJSON_GetObjectItemCaseSensitive(gre_obj, "host");
         if (!cJSON_IsString(host))
         {
-            cjson_wrap_parse_error(err, "missing or invalid gre.host");
+            cjson_set_parse_error(err, "missing or invalid gre.host");
             return PARSE_ERROR;
         }
         output->config.gre.host = strdup(host->valuestring);
@@ -406,7 +417,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *bind = cJSON_GetObjectItemCaseSensitive(gre_obj, "bind_device");
         if (!bind)
             output->config.gre.bind_device = strdup("");
-        if (cJSON_IsString(bind))
+        else if (cJSON_IsString(bind))
             output->config.gre.bind_device = strdup(bind->valuestring);
         else
         {
@@ -418,7 +429,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *pmtudisc = cJSON_GetObjectItemCaseSensitive(gre_obj, "pmtudisc");
         if (!pmtudisc)
             output->config.gre.pmtudisc = -1;
-        if (cJSON_IsString(pmtudisc))
+        else if (cJSON_IsString(pmtudisc))
         {
 
             if (strcmp(pmtudisc->valuestring, "do") == 0)
@@ -452,7 +463,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *host = cJSON_GetObjectItemCaseSensitive(zmq_obj, "host");
         if (!cJSON_IsString(host))
         {
-            cjson_wrap_parse_error(err, "missing or invalid zmq.host");
+            cjson_set_parse_error(err, "missing or invalid zmq.host");
             return PARSE_ERROR;
         }
         output->config.zmq.host = strdup(host->valuestring);
@@ -476,7 +487,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *hwm = cJSON_GetObjectItemCaseSensitive(zmq_obj, "hwm");
         if (!hwm)
             output->config.zmq.hwm = 100;
-        if (cJSON_IsNumber(hwm))
+        else if (cJSON_IsNumber(hwm))
             output->config.zmq.hwm = hwm->valueint;
         else
         {
@@ -509,10 +520,38 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *name = cJSON_GetObjectItemCaseSensitive(file_obj, "name");
         if (!cJSON_IsString(name))
         {
-            cjson_wrap_parse_error(err, "missing or invalid file.name");
+            cjson_set_parse_error(err, "missing or invalid file.name");
             return PARSE_ERROR;
         }
         output->config.file.name = strdup(name->valuestring);
+    }
+    else if (strcmp(output->type, OUTPUT_TYPE_ROTATING_FILE) == 0)
+    {
+        cJSON *rotating_file_obj = cJSON_GetObjectItemCaseSensitive(output_obj, OUTPUT_TYPE_ROTATING_FILE);
+        if (!rotating_file_obj)
+        {
+            cjson_set_parse_error(err, "missing rotating_file config");
+            return PARSE_ERROR;
+        }
+
+        cJSON *file_root = cJSON_GetObjectItemCaseSensitive(rotating_file_obj, "file_root");
+        if (!cJSON_IsString(file_root))
+        {
+            cjson_set_parse_error(err, "missing or invalid rotating_file.file_root");
+            return PARSE_ERROR;
+        }
+        output->config.rotating_file.file_root = strdup(file_root->valuestring);
+
+        cJSON *max_file_interval = cJSON_GetObjectItemCaseSensitive(rotating_file_obj, "max_file_interval");
+        if (!max_file_interval)
+            output->config.rotating_file.max_file_interval = -1;
+        else if (cJSON_IsNumber(max_file_interval))
+            output->config.rotating_file.max_file_interval = max_file_interval->valueint;
+        else
+        {
+            cjson_set_parse_error(err, "invalid rotating_file.max_file_interval");
+            return PARSE_ERROR;
+        }
     }
     else
     {

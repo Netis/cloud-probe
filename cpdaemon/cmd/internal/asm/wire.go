@@ -15,6 +15,7 @@ func InitServer(
 	panic(wire.Build(
 		wire.FieldsOf(new(*Instance), "Vp"),
 		NewCpmClient,
+		NewCpmAgentMgr,
 		NewCpmSyncer,
 		GetMux,
 		NewServerEps,

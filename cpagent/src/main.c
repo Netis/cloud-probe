@@ -1,6 +1,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -190,8 +191,8 @@ int main(int argc, char **argv)
                 capture_task_destory(tasks[j]);
 
             free(tasks);
-            log_fatal("new task-%d error: %s", i, errbuf);
-            exit(EXIT_FAILURE);
+            log_error("new task-%d error: %s", i, errbuf);
+            continue;
         }
         log_info("create task-%d success", i);
         tasks[i] = task;
@@ -204,7 +205,7 @@ int main(int argc, char **argv)
 
     while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
     {
-        int num_pkts = 0;
+        uint64_t num_pkts = 0;
         for (int i = 0; i < num_tasks; ++i)
         {
             num_pkts += capture_task_poll_packets(tasks[i]);

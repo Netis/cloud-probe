@@ -50,6 +50,10 @@
                     },
                     "file": {
                         "name": "tmp/test.pcap"
+                    },
+                    "rotating_file": {
+                        "file_root": "tmp",
+                        "max_file_interval": 60
                     }
                 }
             ]

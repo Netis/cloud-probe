@@ -12,24 +12,62 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/container"
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/kvm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 )
 
+type VirshCmdExecutor interface {
+	ListNames() ([]string, error)
+	ListInterfaces(vmName string) ([]string, error)
+}
+
+type ContainerCmdExecutor interface {
+	GetHostPid(containerId string) (int, error)
+}
+
+type AgentFactory interface {
+	NewAgent(name string, cfg agent.AgentRunTimeConfig) (*agent.Agent, error)
+}
+
+type AgentFactoryFunc func(name string, cfg agent.AgentRunTimeConfig) (*agent.Agent, error)
+
+func (f AgentFactoryFunc) NewAgent(name string, cfg agent.AgentRunTimeConfig) (*agent.Agent, error) {
+	return f(name, cfg)
+}
+
+type AgentConfig struct {
+	Executable string
+	Env        map[string]string
+	WorkDir    string
+
+	CgroupVersion   string
+	CgroupRoot      string
+	CgroupHierarchy string
+
+	TasksFile string
+}
+
 type AgentManager struct {
-	agentCfg  agent.AgentConfig
-	tasksFile string
-	lg        *slog.Logger
+	agentCfg     AgentConfig
+	agentFactory AgentFactory
+	virsh        VirshCmdExecutor
+	container    ContainerCmdExecutor
+	lg           *slog.Logger
 
 	agent *agent.Agent
 }
 
-func NewAgentManager(agentCfg agent.AgentConfig, tasksFile string) *AgentManager {
+func NewAgentManager(
+	agentCfg AgentConfig,
+	agentFactory AgentFactory,
+	virsh VirshCmdExecutor,
+	container ContainerCmdExecutor,
+) *AgentManager {
 	return &AgentManager{
-		agentCfg:  agentCfg,
-		tasksFile: tasksFile,
-		lg:        slog.Default().With(slogx.LoggerName("cpm.agentMgr")),
+		agentCfg:     agentCfg,
+		agentFactory: agentFactory,
+		virsh:        virsh,
+		container:    container,
+		lg:           slog.Default().With(slogx.LoggerName("cpm.agentMgr")),
 	}
 }
 
@@ -38,6 +76,13 @@ func (m *AgentManager) IsAlive(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 	return m.agent.IsAlive(ctx)
+}
+
+func (m *AgentManager) Stop() error {
+	if m.agent == nil {
+		return nil
+	}
+	return m.agent.Stop()
 }
 
 func (m *AgentManager) CreateIfDead(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
@@ -84,6 +129,8 @@ func (m *AgentManager) Create(ctx context.Context, res *SyncStrategyResponse, ac
 	}
 
 	tb := &tasksBuilder{
+		virsh:           m.virsh,
+		container:       m.container,
 		activeInstances: activeInstances,
 		buffSize:        buffSize,
 	}
@@ -101,19 +148,34 @@ func (m *AgentManager) Create(ctx context.Context, res *SyncStrategyResponse, ac
 		return nil
 	}
 
-	m.agent = &agent.Agent{
-		Name:      "cpm",
-		Config:    m.agentCfg,
-		TasksFile: m.tasksFile,
+	cfg := agent.AgentRunTimeConfig{
+		Executable: m.agentCfg.Executable,
+		Env:        m.agentCfg.Env,
+		WorkDir:    m.agentCfg.WorkDir,
+
+		CgroupVersion:   m.agentCfg.CgroupVersion,
+		CgroupRoot:      m.agentCfg.CgroupRoot,
+		CgroupHierarchy: m.agentCfg.CgroupHierarchy,
+
+		TasksFile: m.agentCfg.TasksFile,
+		Tasks:     tb.tasks,
 
 		CpuLimit: res.CpuLimit,
 		MemLimit: res.MemLimit,
-		Tasks:    tb.tasks,
 	}
+
+	var err error
+	m.agent, err = m.agentFactory.NewAgent("cpm", cfg)
+	if err != nil {
+		return errors.Wrap(err, "create agent failed")
+	}
+
 	return m.agent.Start(ctx)
 }
 
 type tasksBuilder struct {
+	virsh           VirshCmdExecutor
+	container       ContainerCmdExecutor
 	activeInstances []string
 	buffSize        uint64
 
@@ -122,6 +184,7 @@ type tasksBuilder struct {
 }
 
 func (b *tasksBuilder) addStrategy(strategy StrategyEntry) {
+	// check strategy is valid
 	_, err := b.newTaskConfig(strategy, 0)
 	if err != nil {
 		b.warnings = append(b.warnings, err)
@@ -145,6 +208,7 @@ func (b *tasksBuilder) addStrategy(strategy StrategyEntry) {
 func (b *tasksBuilder) addContainerIds(strategy StrategyEntry) {
 	var idx int
 	for _, containerId := range strategy.ContainerIds {
+		// 来源旧版本C++实现，支持多个连续的下划线
 		parts := strings.FieldsFunc(containerId, func(r rune) bool {
 			return r == '_'
 		})
@@ -159,7 +223,7 @@ func (b *tasksBuilder) addContainerIds(strategy StrategyEntry) {
 			nics = []string{"eth0"}
 		}
 
-		hostPid, err := container.GetHostProcessIdByContainerId(containerId)
+		hostPid, err := b.container.GetHostPid(containerId)
 		if err != nil {
 			b.warnings = append(b.warnings, errors.Wrapf(err, "get container host process id failed: %s", containerId))
 			idx += len(nics)
@@ -208,12 +272,17 @@ func (b *tasksBuilder) addInstanceName(strategy StrategyEntry, instanceName stri
 		return
 	}
 
-	task.Interface, err = kvm.GetFirstInterfaceByInstanceName(instanceName)
+	ifs, err := b.virsh.ListInterfaces(instanceName)
 	if err != nil {
 		b.warnings = append(b.warnings, err)
 		return
 	}
+	if len(ifs) == 0 {
+		b.warnings = append(b.warnings, errors.Errorf("instance %s has no interfaces", instanceName))
+		return
+	}
 
+	task.Interface = ifs[0]
 	b.tasks = append(b.tasks, *task)
 }
 
@@ -291,6 +360,8 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, itemIdx int) (*agen
 		if strategy.ApiVersion == nil || *strategy.ApiVersion == "v1" {
 			if strategy.HasServiceTag && strategy.ServiceTag != nil {
 				output.Vxlan.Vni1 = lo.ToPtr(uint32(*strategy.ServiceTag))
+			} else {
+				output.Vxlan.Vni1 = lo.ToPtr(uint32(0xffffff))
 			}
 		} else {
 			var tag Vni2Tag
@@ -348,7 +419,7 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, itemIdx int) (*agen
 			FileRoot: *strategy.DumpDir,
 		}
 		if strategy.DumpInterval != nil {
-			output.RotatingFile.MaxFileInterval = *strategy.DumpInterval
+			output.RotatingFile.MaxFileInterval = lo.ToPtr(int32(*strategy.DumpInterval))
 		}
 	default:
 		return nil, errors.Errorf("packet channel type not supported: %s", strategy.PacketChannelType)
