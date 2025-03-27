@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -185,7 +188,7 @@ type tasksBuilder struct {
 
 func (b *tasksBuilder) addStrategy(strategy StrategyEntry) {
 	// check strategy is valid
-	_, err := b.newTaskConfig(strategy, 0)
+	_, err := b.newTaskConfig(strategy, taskItem{nicName: "eth0", obsIdx: 0})
 	if err != nil {
 		b.warnings = append(b.warnings, err)
 		return
@@ -237,38 +240,40 @@ func (b *tasksBuilder) addContainerIds(strategy StrategyEntry) {
 	}
 }
 
-func (b *tasksBuilder) addContainerId(strategy StrategyEntry, hostPid int, nic string, itemIdx int) {
-	task, err := b.newTaskConfig(strategy, itemIdx)
+func (b *tasksBuilder) addContainerId(strategy StrategyEntry, hostPid int, nic string, obsIdx int) {
+	item := taskItem{
+		nicName:     nic,
+		netns:       fmt.Sprintf("/proc/%d/ns/net", hostPid),
+		obsIdx:      obsIdx,
+		dumpSubDirs: []string{strconv.Itoa(hostPid), nic},
+	}
+
+	task, err := b.newTaskConfig(strategy, item)
 	if err != nil {
 		b.warnings = append(b.warnings, err)
 		return
 	}
-
-	task.Interface = nic
-	task.Netns = lo.ToPtr(fmt.Sprintf("/proc/%d/ns/net", hostPid))
 	b.tasks = append(b.tasks, *task)
 }
 
-func (b *tasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceName string, itemIdx int) {
-	task, err := b.newTaskConfig(strategy, itemIdx)
+func (b *tasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceName string, obsIdx int) {
+	item := taskItem{
+		nicName:     interfaceName,
+		obsIdx:      obsIdx,
+		dumpSubDirs: []string{interfaceName},
+	}
+
+	task, err := b.newTaskConfig(strategy, item)
 	if err != nil {
 		b.warnings = append(b.warnings, err)
 		return
 	}
-
-	task.Interface = interfaceName
 	b.tasks = append(b.tasks, *task)
 }
 
-func (b *tasksBuilder) addInstanceName(strategy StrategyEntry, instanceName string, itemIdx int) {
+func (b *tasksBuilder) addInstanceName(strategy StrategyEntry, instanceName string, obsIdx int) {
 	if !slices.Contains(b.activeInstances, instanceName) {
 		b.warnings = append(b.warnings, errors.Errorf("instance name not found: %s", instanceName))
-		return
-	}
-
-	task, err := b.newTaskConfig(strategy, itemIdx)
-	if err != nil {
-		b.warnings = append(b.warnings, err)
 		return
 	}
 
@@ -282,11 +287,21 @@ func (b *tasksBuilder) addInstanceName(strategy StrategyEntry, instanceName stri
 		return
 	}
 
-	task.Interface = ifs[0]
+	item := taskItem{
+		nicName:     ifs[0],
+		obsIdx:      obsIdx,
+		dumpSubDirs: []string{ifs[0]},
+	}
+	task, err := b.newTaskConfig(strategy, item)
+	if err != nil {
+		b.warnings = append(b.warnings, err)
+		return
+	}
+
 	b.tasks = append(b.tasks, *task)
 }
 
-func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, itemIdx int) (*agent.TaskConfig, error) {
+func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*agent.TaskConfig, error) {
 	task := agent.TaskConfig{
 		Capturer: agent.CapturerConfig{
 			Type: agent.CapturerType_Libpcap,
@@ -367,13 +382,13 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, itemIdx int) (*agen
 			var tag Vni2Tag
 			tag.ResourcePointDirection = 0
 			if strategy.HasObservationTag {
-				if len(strategy.ObservationDomainIds) > itemIdx {
-					tag.ObservationDomainId = strategy.ObservationDomainIds[itemIdx]
+				if len(strategy.ObservationDomainIds) > item.obsIdx {
+					tag.ObservationDomainId = strategy.ObservationDomainIds[item.obsIdx]
 				} else {
 					tag.ObservationDomainId = 1
 				}
-				if len(strategy.ObservationPointIds) > itemIdx {
-					tag.ObservationPointId = uint32(strategy.ObservationPointIds[itemIdx])
+				if len(strategy.ObservationPointIds) > item.obsIdx {
+					tag.ObservationPointId = uint32(strategy.ObservationPointIds[item.obsIdx])
 				} else {
 					tag.ObservationPointId = 1
 				}
@@ -415,8 +430,14 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, itemIdx int) (*agen
 		if strategy.DumpDir == nil {
 			return nil, errors.New("missing dumpDir")
 		}
+
+		dirParts := append([]string{*strategy.DumpDir}, item.dumpSubDirs...)
+		fileRoot := filepath.Join(dirParts...)
+		if err := os.MkdirAll(fileRoot, 0o755); err != nil {
+			return nil, errors.Wrapf(err, "create dump dir failed: %s", fileRoot)
+		}
 		output.RotatingFile = &agent.RotatingFileOutputConfig{
-			FileRoot: *strategy.DumpDir,
+			FileRoot: fileRoot,
 		}
 		if strategy.DumpInterval != nil {
 			output.RotatingFile.MaxFileInterval = lo.ToPtr(int32(*strategy.DumpInterval))
@@ -426,7 +447,19 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, itemIdx int) (*agen
 	}
 
 	task.Outputs = append(task.Outputs, output)
+	task.Interface = item.nicName
+	if item.netns != "" {
+		task.Netns = lo.ToPtr(item.netns)
+	}
 	return &task, nil
+}
+
+type taskItem struct {
+	nicName string
+	netns   string
+
+	obsIdx      int
+	dumpSubDirs []string
 }
 
 type Vni2Tag struct {
