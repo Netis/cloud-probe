@@ -41,39 +41,8 @@ static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, c
     return 0;
 }
 
-int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
-                               int direct)
+static int create_dumper(rotating_file_output_t *output)
 {
-    if (direct == PKT_DIR_UNKNOWN)
-        return -1;
-
-    rotating_file_output_t *output = (rotating_file_output_t *)self;
-
-    bool createFile;
-    if (output->dumper == NULL)
-    {
-        time(&output->file_time);
-        createFile = true;
-    }
-    else
-    {
-        time_t now = time(NULL);
-        if (difftime(now, output->file_time) > output->max_file_interval)
-        {
-            pcap_dump_close(output->dumper);
-            output->file_time = now;
-            output->dumper = NULL;
-            output->fp = NULL;
-            createFile = true;
-        }
-    }
-
-    if (!createFile)
-    {
-        pcap_dump((u_char *)output->dumper, header, pkt_data);
-        return 0;
-    }
-
     struct tm tm_buf;
     struct tm *ptm = localtime_r(&output->file_time, &tm_buf);
     char filepath[PATH_MAX];
@@ -99,12 +68,65 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
 
     output->dumper = dumper;
     output->fp = fp;
+    return 0;
+}
+
+int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
+                               int direct)
+{
+    if (direct == PKT_DIR_UNKNOWN)
+        return -1;
+
+    rotating_file_output_t *output = (rotating_file_output_t *)self;
+
+    if (output->dumper_error)
+    {
+        // avoid frequent creation
+        time_t now = time(NULL);
+        if (difftime(now, output->file_time) < output->max_file_interval)
+            return -1;
+    }
+    else if (output->dumper == NULL)
+    {
+        time(&output->file_time);
+        if (create_dumper(output) != 0)
+        {
+            output->dumper_error = true;
+            return -1;
+        }
+        output->dumper_error = false;
+    }
+    else
+    {
+        time_t now = time(NULL);
+        if (difftime(now, output->file_time) >= output->max_file_interval)
+        {
+            pcap_dump_close(output->dumper);
+            output->file_time = now;
+            output->dumper = NULL;
+            output->fp = NULL;
+            if (create_dumper(output) != 0)
+            {
+                output->dumper_error = true;
+                return -1;
+            }
+            output->dumper_error = false;
+        }
+    }
+
     pcap_dump((u_char *)output->dumper, header, pkt_data);
     return 0;
 }
 
 rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, char *errbuf)
 {
+    struct stat st;
+    if (stat(opts.file_root, &st) != 0)
+    {
+        error_format(errbuf, "stat file_root %s error: %s", opts.file_root, strerror(errno));
+        return NULL;
+    }
+
     pcap_t *pcap;
     pcap = pcap_open_dead(DLT_EN10MB, opts.snaplen);
     if (!pcap)

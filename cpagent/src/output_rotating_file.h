@@ -26,6 +26,7 @@ typedef struct RotatingFileOutput
 
     pcap_t *pcap;
     time_t file_time;
+    bool dumper_error;
     FILE *fp;
     pcap_dumper_t *dumper;
 } rotating_file_output_t;
