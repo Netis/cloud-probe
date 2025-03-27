@@ -11,7 +11,6 @@
 
 static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, char *errbuf)
 {
-
     char date[15];
     sprintf(date, "%04d%02d%02d%02d%02d%02d", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour,
             ptm->tm_min, ptm->tm_sec);
@@ -41,12 +40,11 @@ static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, c
     return 0;
 }
 
-static int create_dumper(rotating_file_output_t *output)
+static int create_dumper(rotating_file_output_t *output, char *errbuf)
 {
     struct tm tm_buf;
     struct tm *ptm = localtime_r(&output->file_time, &tm_buf);
     char filepath[PATH_MAX];
-    char errbuf[ERROR_BUFFER_SIZE];
     if (generate_path(output->file_root, ptm, filepath, errbuf) != 0)
     {
         return -1;
@@ -74,24 +72,35 @@ static int create_dumper(rotating_file_output_t *output)
 int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
                                int direct)
 {
-    if (direct == PKT_DIR_UNKNOWN)
-        return -1;
-
     rotating_file_output_t *output = (rotating_file_output_t *)self;
+
+    if (direct == PKT_DIR_UNKNOWN)
+    {
+        bytes_stats_add(&output->stats.direction_drop_bytes, header->caplen);
+        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        return -1;
+    }
 
     if (output->dumper_error)
     {
         // avoid frequent creation
         time_t now = time(NULL);
         if (difftime(now, output->file_time) < output->max_file_interval)
+        {
+            bytes_stats_add(&output->stats.error_drop_bytes, header->caplen);
+            packets_stats_add(&output->stats.error_drop_packets, 1);
             return -1;
+        }
     }
     else if (output->dumper == NULL)
     {
         time(&output->file_time);
-        if (create_dumper(output) != 0)
+        char errbuf[ERROR_BUFFER_SIZE];
+        if (create_dumper(output, errbuf) != 0)
         {
             output->dumper_error = true;
+            bytes_stats_add(&output->stats.error_drop_bytes, header->caplen);
+            packets_stats_add(&output->stats.error_drop_packets, 1);
             return -1;
         }
         output->dumper_error = false;
@@ -105,9 +114,13 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
             output->file_time = now;
             output->dumper = NULL;
             output->fp = NULL;
-            if (create_dumper(output) != 0)
+
+            char errbuf[ERROR_BUFFER_SIZE];
+            if (create_dumper(output, errbuf) != 0)
             {
                 output->dumper_error = true;
+                bytes_stats_add(&output->stats.error_drop_bytes, header->caplen);
+                packets_stats_add(&output->stats.error_drop_packets, 1);
                 return -1;
             }
             output->dumper_error = false;

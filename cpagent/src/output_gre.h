@@ -23,6 +23,7 @@ typedef struct GreOptions
 typedef struct GreOutput
 {
     output_base_t base;
+    output_stats_t stats;
 
     uint64_t rate_limit_mbps;
     token_bucket_t throttle;

@@ -14,10 +14,14 @@
 
 int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
-    if (direct == PKT_DIR_UNKNOWN)
-        return -1;
-
     file_output_t *output = (file_output_t *)self;
+    if (direct == PKT_DIR_UNKNOWN)
+    {
+        bytes_stats_add(&output->stats.direction_drop_bytes, header->caplen);
+        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        return -1;
+    }
+
     pcap_dump((u_char *)output->dumper, header, pkt_data);
     return 0;
 }

@@ -1,6 +1,8 @@
 #ifndef CPAGENT_LIBPCAP_H
 #define CPAGENT_LIBPCAP_H
 
+#include <time.h>
+
 #include <pcap/pcap.h>
 
 #include "capturer.h"
@@ -24,9 +26,16 @@ typedef struct LibpcapOptions
 typedef struct LibpcapCapturer
 {
     capturer_base_t base;
+    capture_stats_t stats;
     req_pattern_t *req_pattern;
 
     pcap_t *p;
+
+    bool drop_stat_started;
+    time_t drop_stat_prev_time;
+    uint64_t drop_prev_packets;
+    uint64_t ifdrop_prev_packets;
+
 } libpcap_capturer_t;
 
 capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf);

@@ -275,6 +275,9 @@ uint64_t dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *use
         header.caplen = RTE_MIN(header.len, capturer->snaplen);
         uint8_t *pkt_data = rte_pktmbuf_read(m, 0, header.caplen, temp_data);
 
+        bytes_stats_add(&capturer->stats.cap_bytes, header.caplen);
+        packets_stats_add(&capturer->stats.cap_packets, 1);
+
         int direction = PKT_DIR_UNKNOWN;
         if (capturer->req_pattern == NULL)
             direction = PKT_DIR_NONCHECK;

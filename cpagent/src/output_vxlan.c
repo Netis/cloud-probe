@@ -13,17 +13,24 @@
 
 int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
-    if (direct == PKT_DIR_UNKNOWN)
-        return -1;
-
     vxlan_output_t *output = (vxlan_output_t *)self;
-
     size_t length = (size_t)(header->caplen <= 65535 ? header->caplen : 65535);
+
+    if (direct == PKT_DIR_UNKNOWN)
+    {
+        bytes_stats_add(&output->stats.direction_drop_bytes, length);
+        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        return -1;
+    }
 
     if (output->rate_limit_mbps > 0)
     {
         if (token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length) != 0)
+        {
+            bytes_stats_add(&output->stats.ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
+            packets_stats_add(&output->stats.ratelimit_drop_packets, 1);
             return -1;
+        }
     }
 
     struct vxlanhdr *vxlan_hdr = (struct vxlanhdr *)output->buf;

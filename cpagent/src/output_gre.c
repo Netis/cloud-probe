@@ -14,17 +14,24 @@
 
 int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
-    if (direct == PKT_DIR_UNKNOWN)
-        return -1;
-
     gre_output_t *output = (gre_output_t *)self;
-
     size_t length = (size_t)(header->caplen <= 65535 ? header->caplen : 65535);
+
+    if (direct == PKT_DIR_UNKNOWN)
+    {
+        bytes_stats_add(&output->stats.direction_drop_bytes, length);
+        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        return -1;
+    }
 
     if (output->rate_limit_mbps > 0)
     {
-        if (token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length) != 0)
+        if (token_bucket_consume(&output->throttle, GRE_HEADER_LEN + length) != 0)
+        {
+            bytes_stats_add(&output->stats.ratelimit_drop_bytes, length);
+            packets_stats_add(&output->stats.ratelimit_drop_packets, 1);
             return -1;
+        }
     }
 
     struct grehdr *gre_hdr = (struct grehdr *)output->buf;
@@ -37,8 +44,13 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     // TODO: retry if errno == ENOBUFS
     if (send_bytes == -1)
     {
+        bytes_stats_add(&output->stats.error_drop_bytes, length);
+        packets_stats_add(&output->stats.error_drop_packets, 1);
         return -1;
     }
+
+    bytes_stats_add(&output->stats.fwd_bytes, length);
+    packets_stats_add(&output->stats.fwd_packets, 1);
     return 0;
 }
 
@@ -50,7 +62,7 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
 
     if (inet_pton(AF_INET, opts.host, &remote_addr.sin_addr) != 1)
     {
-        error_format("invalid vxlan host: %s", opts.host);
+        error_format("invalid gre host: %s", opts.host);
         return NULL;
     }
     remote_addr.sin_family = AF_INET;
@@ -83,7 +95,7 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
     gre_output_t *output = (gre_output_t *)calloc(1, sizeof(gre_output_t));
     if (!output)
     {
-        error_format(errbuf, "failed to allocate memory for vxlan_output_t");
+        error_format(errbuf, "failed to allocate memory for gre_output_t");
         return NULL;
     }
 

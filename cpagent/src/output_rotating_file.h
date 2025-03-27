@@ -20,6 +20,7 @@ typedef struct RotatingFileOptions
 typedef struct RotatingFileOutput
 {
     output_base_t base;
+    output_stats_t stats;
 
     char *file_root;
     int max_file_interval;

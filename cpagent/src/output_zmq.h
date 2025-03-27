@@ -52,6 +52,7 @@ typedef struct ZmqOptions
 typedef struct ZmqOutput
 {
     output_base_t base;
+    output_stats_t stats;
 
     uint64_t rate_limit_mbps;
     token_bucket_t throttle;
@@ -60,8 +61,6 @@ typedef struct ZmqOutput
     void *pusher;  // zmq_socket(context, ZMQ_PUSH);
     uint16_t service_tag;
     zmq_pkts_buf_t pkts_buf;
-
-    output_stats_t stats;
 } zmq_output_t;
 
 output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);

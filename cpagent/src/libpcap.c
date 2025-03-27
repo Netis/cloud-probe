@@ -18,6 +18,8 @@ uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *
 
     struct pcap_pkthdr *hdr;
     const u_char *data;
+    uint64_t retval;
+
     int ret = pcap_next_ex(capturer->p, &hdr, &data);
     switch (ret)
     {
@@ -28,15 +30,53 @@ uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *
         else
             direction = req_pattern_judge_pkt_direction(capturer->req_pattern, hdr, data);
 
+        bytes_stats_add(&capturer->stats.cap_bytes, hdr->caplen);
+        packets_stats_add(&capturer->stats.cap_packets, 1);
         handler(hdr, data, direction, user);
-        return 1;
+        retval = 1;
     case 0:
         // timeout
-        return 0;
+        retval = 0;
     default:
         // error
-        return 0;
+        retval = 0;
     }
+
+    // drop stat
+    if (!capturer->drop_stat_started)
+    {
+        time_t now = time(NULL);
+        struct pcap_stat stat;
+        if (pcap_stats(capturer->p, &stat) == 0)
+        {
+            capturer->drop_stat_started = true;
+            capturer->drop_prev_packets = stat.ps_drop;
+            capturer->ifdrop_prev_packets = stat.ps_ifdrop;
+            capturer->drop_stat_prev_time = now;
+        }
+
+        return retval;
+    }
+
+    time_t now = time(NULL);
+    // every 5 seconds
+    if (difftime(now, capturer->drop_stat_prev_time) < 5)
+        return retval;
+
+    struct pcap_stat stat;
+    if (pcap_stats(capturer->p, &stat) == 0)
+    {
+        uint32_t drop_diff = stat.ps_drop - capturer->drop_prev_packets;
+        packets_stats_add(&capturer->stats.drop_packets, drop_diff);
+
+        uint32_t ifdrop_diff = stat.ps_ifdrop - capturer->ifdrop_prev_packets;
+        packets_stats_add(&capturer->stats.ifdrop_packets, ifdrop_diff);
+
+        capturer->drop_prev_packets = stat.ps_drop;
+        capturer->ifdrop_prev_packets = stat.ps_ifdrop;
+        capturer->drop_stat_prev_time = now;
+    }
+    return retval;
 }
 
 libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)

@@ -6,12 +6,23 @@
 
 #include <pcap/pcap.h>
 
+#include "common.h"
 #include "taskconf.h"
 
 typedef struct OutputStats
 {
-    uint64_t total_fwd_count;
-    uint64_t total_fwd_bytes;
+    bytes_stats_t fwd_bytes;
+    packets_stats_t fwd_packets;
+
+    bytes_stats_t direction_drop_bytes;
+    packets_stats_t direction_drop_packets;
+
+    bytes_stats_t error_drop_bytes;
+    packets_stats_t error_drop_packets;
+
+    bytes_stats_t ratelimit_drop_bytes;
+    packets_stats_t ratelimit_drop_packets;
+
 } output_stats_t;
 
 typedef struct OutputBase

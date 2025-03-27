@@ -28,6 +28,7 @@ typedef struct VxlanOptions
 typedef struct VxlanOutput
 {
     output_base_t base;
+    output_stats_t stats;
 
     uint64_t rate_limit_mbps;
     token_bucket_t throttle;

@@ -15,6 +15,9 @@
 #define VXLAN_HEADER_LEN 8
 #define GRE_HEADER_LEN 8
 
+#define EIB_IN_BYTES (1024ULL * 1024 * 1024 * 1024 * 1024 * 1024) // 1 EiB = 2^60 bytes
+#define PETA_IN_PACKETS 10000000000000000ULL                      // 1 Peta = 10^16 packets
+
 typedef struct
 {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -73,9 +76,24 @@ struct grehdr
     uint32_t keybit;
 };
 
+typedef struct
+{
+    uint64_t eib;
+    uint64_t bytes;
+} bytes_stats_t;
+
+typedef struct
+{
+    uint64_t peta;
+    uint64_t packets;
+} packets_stats_t;
+
 int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf);
 void format_mac_addr(const uint8_t *mac_addr, char *buf);
 
 int set_cpu_affinity(int cpu);
+
+void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes);
+void packets_stats_add(packets_stats_t *stat, uint64_t packets);
 
 #endif /* CPAGENT_COMMON_H */

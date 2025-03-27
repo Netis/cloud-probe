@@ -40,12 +40,14 @@ int zmq_flush_packet(zmq_output_t *output)
     int rc = zmq_send(output->pusher, &(pkts_buf->buf[0]), pkts_buf->batch_bufpos, ZMQ_DONTWAIT);
     if (rc == 0)
     {
-        output->stats.total_fwd_count += send_num;
-        output->stats.total_fwd_bytes += pkts_buf->batch_bufpos;
+        bytes_stats_add(&output->stats.fwd_bytes, pkts_buf->batch_bufpos);
+        packets_stats_add(&output->stats.fwd_packets, send_num);
     }
     else
     {
-        // TODO: error
+        bytes_stats_add(&output->stats.error_drop_bytes, pkts_buf->batch_bufpos);
+        packets_stats_add(&output->stats.error_drop_packets, send_num);
+        // TODO: log error
     }
 
     pkts_buf->first_pktsec = 0;
@@ -56,17 +58,24 @@ int zmq_flush_packet(zmq_output_t *output)
 
 int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
-    if (direct == PKT_DIR_UNKNOWN)
-        return -1;
-
     zmq_output_t *output = (zmq_output_t *)self;
-
     uint16_t length = (uint16_t)(header->caplen <= 65531 ? header->caplen : 65531) + sizeof(mpls_header);
+
+    if (direct == PKT_DIR_UNKNOWN)
+    {
+        bytes_stats_add(&output->stats.direction_drop_bytes, length);
+        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        return -1;
+    }
 
     if (output->rate_limit_mbps > 0)
     {
         if (token_bucket_consume(&output->throttle, length) != 0)
+        {
+            bytes_stats_add(&output->stats.ratelimit_drop_bytes, length);
+            packets_stats_add(&output->stats.ratelimit_drop_packets, 1);
             return -1;
+        }
     }
 
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;

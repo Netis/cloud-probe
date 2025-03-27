@@ -11,6 +11,7 @@
 typedef struct FileOutput
 {
     output_base_t base;
+    output_stats_t stats;
 
     pcap_t *pcap;
     FILE *fp;

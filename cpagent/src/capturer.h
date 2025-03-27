@@ -6,7 +6,17 @@
 
 #include <pcap/pcap.h>
 
+#include "common.h"
 #include "taskconf.h"
+
+typedef struct CaptureStats
+{
+    bytes_stats_t cap_bytes;
+    packets_stats_t cap_packets;
+
+    packets_stats_t drop_packets;
+    packets_stats_t ifdrop_packets;
+} capture_stats_t;
 
 typedef void (*PacketHandler)(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct, void *user);
 

@@ -29,6 +29,7 @@ typedef struct DpdkPdumpOptions
 typedef struct DpdkCapturer
 {
     capturer_base_t base;
+    capture_stats_t stats;
     req_pattern_t *req_pattern;
 
     uint16_t port;
