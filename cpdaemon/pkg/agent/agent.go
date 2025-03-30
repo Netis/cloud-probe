@@ -25,8 +25,9 @@ type AgentRunTimeConfig struct {
 	CgroupRoot      string
 	CgroupHierarchy string
 
-	TasksFile string
-	Tasks     []TaskConfig
+	UnixSocket string
+	TasksFile  string
+	Tasks      []TaskConfig
 
 	CpuLimit *float64
 	MemLimit *int64
@@ -125,6 +126,7 @@ func (a *Agent) startProcess() error {
 
 	args := []string{
 		"--tasks", a.cfg.TasksFile,
+		"--unix-socket", a.cfg.UnixSocket,
 	}
 	cmd := exec.Command(a.cfg.Executable, args...)
 	cmd.Env = os.Environ()
@@ -132,6 +134,8 @@ func (a *Agent) startProcess() error {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 	cmd.Dir = a.cfg.WorkDir
+	cmd.Stderr = os.Stdout
+	cmd.Stdout = os.Stdout
 
 	if err := cmd.Start(); err != nil {
 		return errors.Wrapf(err, "start agent %s failed", a.name)

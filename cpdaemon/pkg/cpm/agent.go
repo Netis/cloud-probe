@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -46,7 +47,8 @@ type AgentConfig struct {
 	CgroupRoot      string
 	CgroupHierarchy string
 
-	TasksFile string
+	UnixSocket string
+	TasksFile  string
 }
 
 type AgentManager struct {
@@ -56,7 +58,9 @@ type AgentManager struct {
 	container    ContainerCmdExecutor
 	lg           *slog.Logger
 
-	agent *agent.Agent
+	mu     sync.Mutex
+	client *agent.Client
+	agent  *agent.Agent
 }
 
 func NewAgentManager(
@@ -75,20 +79,42 @@ func NewAgentManager(
 }
 
 func (m *AgentManager) IsAlive(ctx context.Context) (bool, error) {
-	if m.agent == nil {
+	m.mu.Lock()
+	agent := m.agent
+	m.mu.Unlock()
+
+	if agent == nil {
 		return false, nil
 	}
-	return m.agent.IsAlive(ctx)
+	return agent.IsAlive(ctx)
 }
 
 func (m *AgentManager) Stop() error {
-	if m.agent == nil {
+	m.mu.Lock()
+	agent := m.agent
+	m.mu.Unlock()
+
+	if agent == nil {
 		return nil
 	}
-	return m.agent.Stop()
+	return agent.Stop()
+}
+
+func (m *AgentManager) CollectStats(ctx context.Context) (map[string]any, error) {
+	m.mu.Lock()
+	client := m.client
+	m.mu.Unlock()
+
+	if client == nil {
+		return nil, nil
+	}
+	return client.RunCommand(ctx, "collect_stats", nil)
 }
 
 func (m *AgentManager) CreateIfDead(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.agent != nil {
 		isAlive, err := m.agent.IsAlive(ctx)
 		if err != nil {
@@ -97,23 +123,43 @@ func (m *AgentManager) CreateIfDead(ctx context.Context, res *SyncStrategyRespon
 		if isAlive {
 			return errors.New("agent is still running")
 		}
+
 		m.agent = nil
+		if m.client != nil {
+			m.client.Close()
+			m.client = nil
+		}
 	}
 
-	return m.Create(ctx, res, activeInstances)
+	return m.createUnsafe(ctx, res, activeInstances)
 }
 
 func (m *AgentManager) Update(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.agent != nil {
 		if err := m.agent.Stop(); err != nil {
 			return errors.Wrap(err, "stop agent failed")
 		}
+
 		m.agent = nil
+		if m.client != nil {
+			m.client.Close()
+			m.client = nil
+		}
 	}
-	return m.Create(ctx, res, activeInstances)
+	return m.createUnsafe(ctx, res, activeInstances)
 }
 
 func (m *AgentManager) Create(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.createUnsafe(ctx, res, activeInstances)
+}
+
+func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
 	if m.agent != nil {
 		return errors.New("agent is already exists")
 	}
@@ -160,14 +206,20 @@ func (m *AgentManager) Create(ctx context.Context, res *SyncStrategyResponse, ac
 		CgroupRoot:      m.agentCfg.CgroupRoot,
 		CgroupHierarchy: m.agentCfg.CgroupHierarchy,
 
-		TasksFile: m.agentCfg.TasksFile,
-		Tasks:     tb.tasks,
+		UnixSocket: m.agentCfg.UnixSocket,
+		TasksFile:  m.agentCfg.TasksFile,
+		Tasks:      tb.tasks,
 
 		CpuLimit: res.CpuLimit,
 		MemLimit: res.MemLimit,
 	}
 
 	var err error
+	m.client, err = agent.NewClient(cfg.UnixSocket)
+	if err != nil {
+		return errors.Wrap(err, "create agent client failed")
+	}
+
 	m.agent, err = m.agentFactory.NewAgent("cpm", cfg)
 	if err != nil {
 		return errors.Wrap(err, "create agent failed")

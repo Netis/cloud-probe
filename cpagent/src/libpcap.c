@@ -81,8 +81,12 @@ uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *
 
 libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
 {
-    int self_netns_fd;
+    bool has_netns = false;
     if (opts.netns && strcmp(opts.netns, "") != 0)
+        has_netns = true;
+
+    int self_netns_fd;
+    if (has_netns)
     {
         self_netns_fd = get_self_netns_fd(errbuf);
         if (self_netns_fd == -1)
@@ -107,7 +111,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
     if (!p)
     {
         error_format(errbuf, "call pcap_create(%s) error: %s", opts.interface, pcap_errbuf);
-        if (opts.netns && strcmp(opts.netns, "") != 0)
+        if (has_netns)
         {
             char ns_errbuf[PCAP_ERRBUF_SIZE];
             if (enter_netns_by_fd(self_netns_fd, ns_errbuf) != 0)
@@ -151,7 +155,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
         }
     }
 
-    if (opts.netns && strcmp(opts.netns, "") != 0)
+    if (has_netns)
     {
         if (enter_netns_by_fd(self_netns_fd, errbuf) != 0)
         {
@@ -174,7 +178,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
 
 error:
     pcap_close(p);
-    if (opts.netns && strcmp(opts.netns, "") != 0)
+    if (has_netns)
     {
         char ns_errbuf[PCAP_ERRBUF_SIZE];
         if (enter_netns_by_fd(self_netns_fd, ns_errbuf) != 0)

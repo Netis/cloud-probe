@@ -11,6 +11,7 @@
 #include "log.h"
 #include "task.h"
 #include "taskconf.h"
+#include "unix-manager.h"
 
 #ifdef ENABLE_DPDK
 #include "dpdk_pdump.h"
@@ -21,7 +22,7 @@ static const char *progname;
 static const char *tasks_file = NULL;
 static bool enable_dpdk_dumpcap = false;
 static int cpu_id = -1;
-static const char *unix_socket = "control.socket";
+static const char *unix_socket = "/var/run/cpagent/cpagent.sock";
 
 static bool quit_signal;
 static const char *version(void)
@@ -202,6 +203,17 @@ int main(int argc, char **argv)
 
     signal(SIGINT, signal_handler);
     signal(SIGPIPE, SIG_IGN);
+
+    if (unix_manager_init(unix_socket) != 0)
+    {
+        log_fatal("init unix socket failed");
+        exit(EXIT_FAILURE);
+    }
+    if (unix_manager_thread_spawn() != 0)
+    {
+        log_fatal("create unix socket thread failed");
+        exit(EXIT_FAILURE);
+    }
 
     while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
     {

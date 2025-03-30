@@ -14,42 +14,46 @@ type ContainerCmdExecutor struct {
 
 func (e *ContainerCmdExecutor) GetHostPid(containerId string) (int, error) {
 	if e.GetHostPidScript != "" {
-		cmd := exec.Command("sh", e.GetHostPidScript, containerId)
+		return e.getHostPidByScript(containerId, e.GetHostPidScript)
+	}
 
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-
-		err := cmd.Run()
-		if err != nil {
-			return 0, errors.Wrapf(
-				err,
-				"run script %s failed, stdout: %s, stderr: %s",
-				e.GetHostPidScript,
-				string(stdout.Bytes()),
-				string(stderr.Bytes()),
-			)
-		}
-
-		pid, err := parsePID(stdout.Bytes())
-		if err != nil {
-			return 0, errors.Wrapf(err, "parse script %s stdout failed", e.GetHostPidScript)
-		}
+	if pid, err := e.getHostPidByDocker(containerId); err == nil {
 		return pid, nil
 	}
 
-	if pid, err := e.getDockerPID(containerId); err == nil {
-		return pid, nil
-	}
-
-	if pid, err := e.getCrictlPID(containerId); err == nil {
+	if pid, err := e.getHostPidByCrictl(containerId); err == nil {
 		return pid, nil
 	}
 
 	return 0, errors.Errorf("failed to get host pid for container %s", containerId)
 }
 
-func (e *ContainerCmdExecutor) getDockerPID(containerID string) (int, error) {
+func (e *ContainerCmdExecutor) getHostPidByScript(containerId string, script string) (int, error) {
+	cmd := exec.Command("sh", script, containerId)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return 0, errors.Wrapf(
+			err,
+			"run script %s failed, stdout: %s, stderr: %s",
+			script,
+			string(stdout.Bytes()),
+			string(stderr.Bytes()),
+		)
+	}
+
+	pid, err := parsePID(stdout.Bytes())
+	if err != nil {
+		return 0, errors.Wrapf(err, "parse script %s stdout failed", script)
+	}
+	return pid, nil
+}
+
+func (e *ContainerCmdExecutor) getHostPidByDocker(containerID string) (int, error) {
 	cmd := exec.Command("docker", "inspect", "--format", "{{.State.Pid}}", containerID)
 
 	var stdout, stderr bytes.Buffer
@@ -68,7 +72,7 @@ func (e *ContainerCmdExecutor) getDockerPID(containerID string) (int, error) {
 	return parsePID(stdout.Bytes())
 }
 
-func (e *ContainerCmdExecutor) getCrictlPID(containerID string) (int, error) {
+func (e *ContainerCmdExecutor) getHostPidByCrictl(containerID string) (int, error) {
 	cmd := exec.Command("crictl", "inspect", "-o", "go-template", "--template", "{{.info.pid}}", containerID)
 
 	var stdout, stderr bytes.Buffer

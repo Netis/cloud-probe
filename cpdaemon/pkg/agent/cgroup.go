@@ -49,20 +49,22 @@ func SetV1CpuQuota(cgroupPath string, cpuLimit float64) error {
 	period := 100000
 	quota := int(cpuLimit / 100 * float64(period))
 
+	cpuQuotaFile := "cpu.cfs_quota_us"
 	if err := os.WriteFile(
-		filepath.Join(cgroupPath, "cpu.cfs_quota_us"),
+		filepath.Join(cgroupPath, cpuQuotaFile),
 		[]byte(strconv.Itoa(quota)),
 		0o644,
 	); err != nil {
-		return errors.Wrapf(err, "write cpu.cfs_quota_us for %s failed", cgroupPath)
+		return errors.Wrapf(err, "write %s for %s failed", cpuQuotaFile, cgroupPath)
 	}
 
+	cpuPeriodFile := "cpu.cfs_period_us"
 	if err := os.WriteFile(
-		filepath.Join(cgroupPath, "cpu.cfs_period_us"),
+		filepath.Join(cgroupPath, cpuPeriodFile),
 		[]byte(strconv.Itoa(period)),
 		0o644,
 	); err != nil {
-		return errors.Wrapf(err, "write cpu.cfs_period_us for %s failed", cgroupPath)
+		return errors.Wrapf(err, "write %s for %s failed", cpuPeriodFile, cgroupPath)
 	}
 	return nil
 }
@@ -84,12 +86,13 @@ func SetV2CpuQuota(cgroupPath string, cpuLimit float64) error {
 	period := 100000
 	quota := int(cpuLimit / 100 * float64(period))
 
+	cpuMaxFile := "cpu.max"
 	if err := os.WriteFile(
-		filepath.Join(cgroupPath, "cpu.max"),
+		filepath.Join(cgroupPath, cpuMaxFile),
 		[]byte(fmt.Sprintf("%d %d", quota, period)),
 		0o644,
 	); err != nil {
-		return errors.Wrapf(err, "write cpu.max for %s failed", cgroupPath)
+		return errors.Wrapf(err, "write %s for %s failed", cpuMaxFile, cgroupPath)
 	}
 	return nil
 }

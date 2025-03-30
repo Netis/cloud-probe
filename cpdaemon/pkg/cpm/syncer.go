@@ -47,9 +47,10 @@ func (c *RegConfig) Validate() error {
 }
 
 type SyncerConfig struct {
-	RegCfg           RegConfig
-	RegRetryInterval time.Duration
-	SyncInterval     time.Duration
+	RegCfg               RegConfig
+	RegRetryInterval     time.Duration
+	SyncStrategyInterval time.Duration
+	SyncMetricInterval   time.Duration
 }
 
 type Syncer struct {
@@ -159,7 +160,25 @@ func (s *Syncer) initNetworkInterfaces() error {
 	return nil
 }
 
-func (s *Syncer) Run(ctx context.Context) error {
+func (s *Syncer) RunSyncMetric(ctx context.Context) error {
+	tm := time.NewTimer(0)
+	defer tm.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-tm.C:
+			_, err := s.agentMgr.CollectStats(ctx)
+			if err != nil {
+				s.lg.Error("collect agent stats failed", slogx.Error(err))
+			}
+			tm.Reset(s.cfg.SyncMetricInterval)
+		}
+	}
+}
+
+func (s *Syncer) RunSyncStrategy(ctx context.Context) error {
 	for {
 		err := s.registerLoop(ctx)
 		switch {
@@ -268,7 +287,7 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 			if err := s.applyStrategy(ctx, res); err != nil {
 				s.lg.Error("apply strategy failed", slogx.Error(err))
 			}
-			tm.Reset(s.cfg.SyncInterval)
+			tm.Reset(s.cfg.SyncStrategyInterval)
 		}
 	}
 }

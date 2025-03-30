@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"path/filepath"
 	"reflect"
 	"time"
 
@@ -120,6 +121,7 @@ func NewCpmAgentMgr(vp *viper.Viper) *cpm.AgentManager {
 	return cpm.NewAgentManager(
 		cpm.AgentConfig{
 			Executable:      vp.GetString(VKey.Agent.Executable),
+			UnixSocket:      filepath.Clean(vp.GetString(VKey.Cpm.Agent.UnixSocket)),
 			TasksFile:       vp.GetString(VKey.Cpm.Agent.TasksFile),
 			CgroupVersion:   vp.GetString(VKey.Cgroup.Version),
 			CgroupRoot:      vp.GetString(VKey.Cgroup.Root),
@@ -145,6 +147,7 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient, age
 		}
 		regName = hostname
 	}
+
 	syncer, err := cpm.NewSyncer(
 		cpmClient,
 		agentMgr,
@@ -165,13 +168,15 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient, age
 				PodName:   vp.GetString(VKey.Cpm.Reg.PodName),
 				Namespace: vp.GetString(VKey.Cpm.Reg.Namespace),
 			},
-			RegRetryInterval: 5 * time.Second,
-			SyncInterval:     15 * time.Second,
+			RegRetryInterval:     5 * time.Second,
+			SyncStrategyInterval: 15 * time.Second,
+			SyncMetricInterval:   15 * time.Second,
 		})
 	if err != nil {
 		return nil, err
 	}
-	ins.Daemons = append(ins.Daemons, syncer.Run)
+	ins.Daemons = append(ins.Daemons, syncer.RunSyncStrategy)
+	ins.Daemons = append(ins.Daemons, syncer.RunSyncMetric)
 	return syncer, nil
 }
 

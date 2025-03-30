@@ -55,8 +55,8 @@ var VKey = struct {
 			NodeName  string
 		}
 		Agent struct {
-			TasksFile string
-			SockFile  string
+			UnixSocket string
+			TasksFile  string
 		}
 	}
 }{}
@@ -67,8 +67,8 @@ func SetDefaults(vp *viper.Viper) {
 	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
 
+	vp.SetDefault(VKey.Cpm.Agent.UnixSocket, "/var/run/cpagent/cpm-agent.sock")
 	vp.SetDefault(VKey.Cpm.Agent.TasksFile, "cpm-tasks.json")
-	vp.SetDefault(VKey.Cpm.Agent.SockFile, "cpm-agent.sock")
 	vp.SetDefault(VKey.Agent.Executable, "cpagent")
 
 	vp.SetDefault(VKey.Cpm.Client.Timeout, 15*time.Second)

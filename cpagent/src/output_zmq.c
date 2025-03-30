@@ -99,7 +99,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (is_pkt_num_exceeded || is_time_diff_exceeded || is_buffer_full)
     {
-        log_debug("send zmq message, last packet time: %d, first packet_time", header->ts.tv_sec,
+        log_debug("send zmq message, last packet time: %d, first packet_time: %d", header->ts.tv_sec,
                   pkts_buf->first_pktsec);
         zmq_flush_packet(output);
         pkts_buf->first_pktsec = header->ts.tv_sec;
