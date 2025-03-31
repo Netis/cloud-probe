@@ -30,8 +30,8 @@ uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *
         else
             direction = req_pattern_judge_pkt_direction(capturer->req_pattern, hdr, data);
 
-        bytes_stats_add(&capturer->stats.cap_bytes, hdr->caplen);
-        packets_stats_add(&capturer->stats.cap_packets, 1);
+        bytes_stats_add(&capturer->base.stats.cap_bytes, hdr->caplen);
+        packets_stats_add(&capturer->base.stats.cap_packets, 1);
         handler(hdr, data, direction, user);
         retval = 1;
     case 0:
@@ -67,10 +67,10 @@ uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *
     if (pcap_stats(capturer->p, &stat) == 0)
     {
         uint32_t drop_diff = stat.ps_drop - capturer->drop_prev_packets;
-        packets_stats_add(&capturer->stats.drop_packets, drop_diff);
+        packets_stats_add(&capturer->base.stats.drop_packets, drop_diff);
 
         uint32_t ifdrop_diff = stat.ps_ifdrop - capturer->ifdrop_prev_packets;
-        packets_stats_add(&capturer->stats.ifdrop_packets, ifdrop_diff);
+        packets_stats_add(&capturer->base.stats.ifdrop_packets, ifdrop_diff);
 
         capturer->drop_prev_packets = stat.ps_drop;
         capturer->ifdrop_prev_packets = stat.ps_ifdrop;

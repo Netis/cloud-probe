@@ -14,12 +14,19 @@
 int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
     vxlan_output_t *output = (vxlan_output_t *)self;
-    size_t length = (size_t)(header->caplen <= 65535 ? header->caplen : 65535);
+
+    int32_t caplen = header->caplen;
+    if (output->slice > 0 && output->slice < caplen)
+    {
+        caplen = output->slice;
+    }
+
+    size_t length = (size_t)(caplen <= 65535 ? caplen : 65535);
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->stats.direction_drop_bytes, length);
-        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats.direction_drop_bytes, length);
+        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
         return -1;
     }
 
@@ -27,8 +34,8 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     {
         if (token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length) != 0)
         {
-            bytes_stats_add(&output->stats.ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
-            packets_stats_add(&output->stats.ratelimit_drop_packets, 1);
+            bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
+            packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
             return -1;
         }
     }
@@ -132,6 +139,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
         token_bucket_init(&output->throttle, opts.rate_limit_mbps * 1000000);
     }
     output->rate_limit_mbps = opts.rate_limit_mbps;
+    output->slice = opts.slice,
 
     output->vni_version = opts.vni_version;
     output->vni = opts.vni;
@@ -152,6 +160,7 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
         .bind_device = output_cfg->config.vxlan.bind_device,
         .pmtudisc = output_cfg->config.vxlan.pmtudisc,
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
+        .slice = output_cfg->slice,
     };
     return (output_base_t *)vxlan_output_new(opts, errbuf);
 }

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -76,6 +77,32 @@ func NewAgentManager(
 		container:    container,
 		lg:           slog.Default().With(slogx.LoggerName("cpm.agentMgr")),
 	}
+}
+
+func (m *AgentManager) SetLogger(lg *slog.Logger) {
+	m.lg = lg
+}
+
+func (m *AgentManager) StartTime() time.Time {
+	m.mu.Lock()
+	agent := m.agent
+	m.mu.Unlock()
+
+	if agent == nil {
+		return time.Time{}
+	}
+	return agent.StartTime()
+}
+
+func (m *AgentManager) Pid() (int, bool) {
+	m.mu.Lock()
+	agent := m.agent
+	m.mu.Unlock()
+
+	if agent == nil {
+		return 0, false
+	}
+	return agent.Pid()
 }
 
 func (m *AgentManager) IsAlive(ctx context.Context) (bool, error) {
@@ -224,6 +251,7 @@ func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyRespon
 	if err != nil {
 		return errors.Wrap(err, "create agent failed")
 	}
+	m.agent.SetLogger(m.lg.With(slogx.LoggerName("agent"), slog.String("name", "cpm")))
 
 	return m.agent.Start(ctx)
 }

@@ -17,8 +17,8 @@ int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     file_output_t *output = (file_output_t *)self;
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->stats.direction_drop_bytes, header->caplen);
-        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats.direction_drop_bytes, header->caplen);
+        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
         return -1;
     }
 
@@ -26,18 +26,18 @@ int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     return 0;
 }
 
-file_output_t *file_output_new(const char *name, int snaplen, char *errbuf)
+file_output_t *file_output_new(file_options_t opts, char *errbuf)
 {
-    FILE *fp = fopen(name, "w+");
+    FILE *fp = fopen(opts.name, "w+");
     if (!fp)
     {
-        error_format(errbuf, "open file %s error: %s", name, strerror(errno));
+        error_format(errbuf, "open file %s error: %s", opts.name, strerror(errno));
         return NULL;
     }
     rewind(fp);
 
     pcap_t *pcap;
-    pcap = pcap_open_dead(DLT_EN10MB, snaplen);
+    pcap = pcap_open_dead(DLT_EN10MB, opts.snaplen);
     if (!pcap)
     {
         error_format(errbuf, "pcap_open_dead failed");
@@ -74,8 +74,12 @@ file_output_t *file_output_new(const char *name, int snaplen, char *errbuf)
 
 output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
 {
-
-    return (output_base_t *)file_output_new(output_cfg->config.file.name, task_cfg->snaplen, errbuf);
+    file_options_t opts = {
+        .name = output_cfg->config.file.name,
+        .snaplen = task_cfg->snaplen,
+        .slice = output_cfg->slice,
+    };
+    return (output_base_t *)file_output_new(opts, errbuf);
 }
 
 void file_output_destory(output_base_t *self)

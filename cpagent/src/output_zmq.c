@@ -1,6 +1,7 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -38,15 +39,15 @@ int zmq_flush_packet(zmq_output_t *output)
     memcpy((&(pkts_buf->buf[0])), &pkts_buf->batch_hdr, sizeof(pkts_buf->batch_hdr));
 
     int rc = zmq_send(output->pusher, &(pkts_buf->buf[0]), pkts_buf->batch_bufpos, ZMQ_DONTWAIT);
-    if (rc == 0)
+    if (rc != -1)
     {
-        bytes_stats_add(&output->stats.fwd_bytes, pkts_buf->batch_bufpos);
-        packets_stats_add(&output->stats.fwd_packets, send_num);
+        bytes_stats_add(&output->base.stats.fwd_bytes, pkts_buf->batch_bufpos);
+        packets_stats_add(&output->base.stats.fwd_packets, send_num);
     }
     else
     {
-        bytes_stats_add(&output->stats.error_drop_bytes, pkts_buf->batch_bufpos);
-        packets_stats_add(&output->stats.error_drop_packets, send_num);
+        bytes_stats_add(&output->base.stats.error_drop_bytes, pkts_buf->batch_bufpos);
+        packets_stats_add(&output->base.stats.error_drop_packets, send_num);
         // TODO: log error
     }
 
@@ -59,12 +60,19 @@ int zmq_flush_packet(zmq_output_t *output)
 int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
     zmq_output_t *output = (zmq_output_t *)self;
-    uint16_t length = (uint16_t)(header->caplen <= 65531 ? header->caplen : 65531) + sizeof(mpls_header);
+
+    int32_t caplen = header->caplen;
+    if (output->slice > 0 && output->slice < caplen)
+    {
+        caplen = output->slice;
+    }
+
+    size_t length = (size_t)(caplen <= 65531 ? caplen : 65531) + sizeof(mpls_header);
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->stats.direction_drop_bytes, length);
-        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats.direction_drop_bytes, length);
+        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
         return -1;
     }
 
@@ -72,8 +80,8 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     {
         if (token_bucket_consume(&output->throttle, length) != 0)
         {
-            bytes_stats_add(&output->stats.ratelimit_drop_bytes, length);
-            packets_stats_add(&output->stats.ratelimit_drop_packets, 1);
+            bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, length);
+            packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
             return -1;
         }
     }
@@ -223,6 +231,7 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
         token_bucket_init(&output->throttle, opts.rate_limit_mbps * 1000000);
     }
     output->rate_limit_mbps = opts.rate_limit_mbps;
+    output->slice = opts.slice;
 
     output->service_tag = opts.service_tag;
     output->pkts_buf.first_pktsec = 0;
@@ -244,6 +253,7 @@ output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
         .hwm = output_cfg->config.zmq.hwm,
         .service_tag = output_cfg->config.zmq.service_tag,
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
+        .slice = output_cfg->slice,
     };
     return (output_base_t *)zmq_output_new(opts, errbuf);
 }

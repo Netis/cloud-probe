@@ -24,6 +24,7 @@ typedef struct CapturerBase
 {
     uint64_t (*capture)(struct CapturerBase *capturer, PacketHandler handler, void *user);
     void (*destory)(struct CapturerBase *capturer);
+    capture_stats_t stats;
 } capturer_base_t;
 
 typedef capturer_base_t *(*CapturerFactory)(TaskConfig *task_cfg, char *errbuf);

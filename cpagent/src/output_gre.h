@@ -17,16 +17,17 @@ typedef struct GreOptions
     char *bind_device;
     int pmtudisc;
     uint64_t rate_limit_mbps;
+    int slice;
 
 } gre_options_t;
 
 typedef struct GreOutput
 {
     output_base_t base;
-    output_stats_t stats;
 
     uint64_t rate_limit_mbps;
     token_bucket_t throttle;
+    int slice;
 
     uint32_t service_tag;
     struct sockaddr_in remote_addr;

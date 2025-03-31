@@ -26,9 +26,8 @@ typedef struct LibpcapOptions
 typedef struct LibpcapCapturer
 {
     capturer_base_t base;
-    capture_stats_t stats;
-    req_pattern_t *req_pattern;
 
+    req_pattern_t *req_pattern;
     pcap_t *p;
 
     bool drop_stat_started;

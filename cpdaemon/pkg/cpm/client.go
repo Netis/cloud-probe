@@ -150,7 +150,7 @@ func (c *HttpClient) SyncStrategy(ctx context.Context, daemonId int64, version i
 	}
 }
 
-func (c *HttpClient) SyncMetrics(ctx context.Context, daemonId int, req SyncMetricsRequest) error {
+func (c *HttpClient) SyncMetrics(ctx context.Context, daemonId int64, req SyncMetricsRequest) error {
 	data, err := json.Marshal(req)
 	if err != nil {
 		return errors.WithStack(err)

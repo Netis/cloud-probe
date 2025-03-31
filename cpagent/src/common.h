@@ -78,14 +78,14 @@ struct grehdr
 
 typedef struct
 {
-    uint64_t eib;
     uint64_t bytes;
+    uint64_t eib;
 } bytes_stats_t;
 
 typedef struct
 {
-    uint64_t peta;
     uint64_t packets;
+    uint64_t peta;
 } packets_stats_t;
 
 int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf);

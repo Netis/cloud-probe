@@ -38,17 +38,39 @@ type Agent struct {
 	cfg  AgentRunTimeConfig
 	lg   *slog.Logger
 
-	mu       sync.Mutex
-	cmd      *exec.Cmd
-	waitDone chan error
+	mu        sync.Mutex
+	cmd       *exec.Cmd
+	waitDone  chan error
+	startTime time.Time
 }
 
 func NewAgent(name string, cfg AgentRunTimeConfig) (*Agent, error) {
 	return &Agent{
 		name: name,
 		cfg:  cfg,
-		lg:   slog.Default().With(slogx.LoggerName("agent")).With(slog.String("name", name)),
+		lg:   slog.Default().With(slogx.LoggerName("agent"), slog.String("name", name)),
 	}, nil
+}
+
+func (a *Agent) SetLogger(lg *slog.Logger) {
+	a.lg = lg
+}
+
+func (a *Agent) StartTime() time.Time {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.startTime
+}
+
+func (a *Agent) Pid() (int, bool) {
+	a.mu.Lock()
+	cmd := a.cmd
+	a.mu.Unlock()
+
+	if cmd == nil || cmd.Process == nil {
+		return 0, false
+	}
+	return cmd.Process.Pid, true
 }
 
 func (a *Agent) IsAlive(ctx context.Context) (bool, error) {
@@ -77,9 +99,15 @@ func (a *Agent) Start(ctx context.Context) error {
 	if err := a.startProcess(); err != nil {
 		return err
 	}
-	a.lg.Info("agent started")
+	a.lg.Info("agent started", slog.Int("pid", a.cmd.Process.Pid))
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				a.lg.Error("recovered", slog.Any("err", r))
+			}
+		}()
+
 		cleanCgroup, err := a.createCgroup()
 		if err != nil {
 			a.lg.Error("create cgroup failed, stopping agent", slogx.Error(err))
@@ -143,6 +171,7 @@ func (a *Agent) startProcess() error {
 
 	a.cmd = cmd
 	a.waitDone = make(chan error, 1)
+	a.startTime = time.Now()
 	return nil
 }
 
@@ -155,7 +184,7 @@ func (a *Agent) Stop() error {
 		return nil
 	}
 
-	a.lg.Info("stopping agent, send SIGINT")
+	a.lg.Info("stopping agent, send SIGINT", slog.Int("pid", cmd.Process.Pid))
 
 	if err := cmd.Process.Signal(syscall.SIGINT); err != nil {
 		if !errors.Is(err, os.ErrProcessDone) {

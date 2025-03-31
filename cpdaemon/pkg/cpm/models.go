@@ -187,9 +187,9 @@ type StrategyEntry struct {
 }
 
 type SyncMetricsRequest struct {
-	Logs    []LogEntry    `json:"logs"`
-	Metrics []MetricEntry `json:"metrics"`
-	Pid     int32         `json:"pid"`
+	Logs    []LogEntry   `json:"logs"`
+	Metrics MetricsEntry `json:"metrics"`
+	Pid     int32        `json:"pid"`
 }
 
 type NicEntry struct {
@@ -212,13 +212,13 @@ type LogEntry struct {
 	Details        string `json:"logDetails"`
 }
 
-type MetricEntry struct {
+type MetricsEntry struct {
 	SamplingTimestamp      int64   `json:"samplingTimestamp"`
 	SamplingMicroTimestamp int64   `json:"samplingMicroTimestamp"`
 	StartTime              int64   `json:"startTime"`
 	CpuLoad                float64 `json:"cpuLoad"`
 	CpuLoadRate            float64 `json:"cpuLoadRate"`
-	MemUse                 int64   `json:"memUse"`
+	MemUse                 uint64  `json:"memUse"`
 	MemUseRate             float64 `json:"memUseRate"`
 	CapBytes               uint64  `json:"capBytes"`
 	CapPackets             uint64  `json:"capPackets"`

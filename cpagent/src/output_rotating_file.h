@@ -15,13 +15,14 @@ typedef struct RotatingFileOptions
     char *file_root;
     int max_file_interval;
     int snaplen;
+    int slice;
 } rotating_file_options_t;
 
 typedef struct RotatingFileOutput
 {
     output_base_t base;
-    output_stats_t stats;
 
+    int slice;
     char *file_root;
     int max_file_interval;
 

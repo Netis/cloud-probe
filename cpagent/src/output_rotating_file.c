@@ -76,8 +76,8 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->stats.direction_drop_bytes, header->caplen);
-        packets_stats_add(&output->stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats.direction_drop_bytes, header->caplen);
+        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
         return -1;
     }
 
@@ -87,8 +87,8 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
         time_t now = time(NULL);
         if (difftime(now, output->file_time) < output->max_file_interval)
         {
-            bytes_stats_add(&output->stats.error_drop_bytes, header->caplen);
-            packets_stats_add(&output->stats.error_drop_packets, 1);
+            bytes_stats_add(&output->base.stats.error_drop_bytes, header->caplen);
+            packets_stats_add(&output->base.stats.error_drop_packets, 1);
             return -1;
         }
     }
@@ -99,8 +99,8 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
         if (create_dumper(output, errbuf) != 0)
         {
             output->dumper_error = true;
-            bytes_stats_add(&output->stats.error_drop_bytes, header->caplen);
-            packets_stats_add(&output->stats.error_drop_packets, 1);
+            bytes_stats_add(&output->base.stats.error_drop_bytes, header->caplen);
+            packets_stats_add(&output->base.stats.error_drop_packets, 1);
             return -1;
         }
         output->dumper_error = false;
@@ -119,8 +119,8 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
             if (create_dumper(output, errbuf) != 0)
             {
                 output->dumper_error = true;
-                bytes_stats_add(&output->stats.error_drop_bytes, header->caplen);
-                packets_stats_add(&output->stats.error_drop_packets, 1);
+                bytes_stats_add(&output->base.stats.error_drop_bytes, header->caplen);
+                packets_stats_add(&output->base.stats.error_drop_packets, 1);
                 return -1;
             }
             output->dumper_error = false;
@@ -157,6 +157,7 @@ rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, c
     output->base.send_packet = rotating_file_write_packet;
     output->base.destory = rotating_file_output_destory;
 
+    output->slice = opts.slice;
     output->file_root = strdup(opts.file_root);
     output->max_file_interval = opts.max_file_interval;
     output->pcap = pcap;
@@ -169,6 +170,7 @@ output_base_t *rotating_file_output_new_from_cfg(TaskConfig *task_cfg, OutputCon
         .file_root = output_cfg->config.rotating_file.file_root,
         .max_file_interval = output_cfg->config.rotating_file.max_file_interval,
         .snaplen = task_cfg->snaplen,
+        .slice = output_cfg->slice,
     };
     return (output_base_t *)rotating_file_output_new(opts, errbuf);
 }

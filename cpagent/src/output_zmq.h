@@ -47,15 +47,16 @@ typedef struct ZmqOptions
     int hwm;
     uint32_t service_tag;
     uint64_t rate_limit_mbps;
+    int slice;
 } zmq_options_t;
 
 typedef struct ZmqOutput
 {
     output_base_t base;
-    output_stats_t stats;
 
     uint64_t rate_limit_mbps;
     token_bucket_t throttle;
+    int slice;
 
     void *context; // zmq_ctx_new
     void *pusher;  // zmq_socket(context, ZMQ_PUSH);

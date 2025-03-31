@@ -10,9 +10,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/process"
 
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
 )
@@ -58,7 +63,6 @@ type Syncer struct {
 	agentMgr *AgentManager
 	virsh    VirshCmdExecutor
 	cfg      SyncerConfig
-	lg       *slog.Logger
 
 	daemonUUID        string
 	startTime         time.Time
@@ -67,24 +71,39 @@ type Syncer struct {
 	regResp             *RegisterResponse
 	syncResp            *SyncStrategyResponse
 	syncActiveInstances []string
+
+	logBuf *SyncLogBuffer
+	lg     *slog.Logger
 }
 
 func NewSyncer(
 	client *HttpClient,
-	agentMgr *AgentManager,
+	agentCfg AgentConfig,
 	virsh VirshCmdExecutor,
+	container ContainerCmdExecutor,
 	cfg SyncerConfig,
 ) (*Syncer, error) {
 	if err := cfg.RegCfg.Validate(); err != nil {
 		return nil, err
 	}
 
+	logBuf := &SyncLogBuffer{}
+	lg := slog.New(slogx.Multiple(
+		slog.Default().With(slogx.LoggerName("cpm.syncer")).Handler(),
+		&SyncLogHandler{w: logBuf, level: slog.LevelDebug},
+	))
+
+	agentMgr := NewAgentManager(agentCfg, AgentFactoryFunc(agent.NewAgent), virsh, container)
+	agentMgr.SetLogger(lg.With(slogx.LoggerName("cpm.agentMgr")))
+
 	s := &Syncer{
 		client:   client,
 		agentMgr: agentMgr,
 		virsh:    virsh,
 		cfg:      cfg,
-		lg:       slog.Default().With(slogx.LoggerName("cpm.syncer")),
+
+		logBuf: logBuf,
+		lg:     lg,
 
 		startTime: time.Now(),
 	}
@@ -160,25 +179,7 @@ func (s *Syncer) initNetworkInterfaces() error {
 	return nil
 }
 
-func (s *Syncer) RunSyncMetric(ctx context.Context) error {
-	tm := time.NewTimer(0)
-	defer tm.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-tm.C:
-			_, err := s.agentMgr.CollectStats(ctx)
-			if err != nil {
-				s.lg.Error("collect agent stats failed", slogx.Error(err))
-			}
-			tm.Reset(s.cfg.SyncMetricInterval)
-		}
-	}
-}
-
-func (s *Syncer) RunSyncStrategy(ctx context.Context) error {
+func (s *Syncer) Run(ctx context.Context) error {
 	for {
 		err := s.registerLoop(ctx)
 		switch {
@@ -264,8 +265,11 @@ func (s *Syncer) doRegister(ctx context.Context) error {
 }
 
 func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
-	tm := time.NewTimer(0)
-	defer tm.Stop()
+	strategyTimer := time.NewTimer(0)
+	defer strategyTimer.Stop()
+
+	metricTimer := time.NewTimer(s.cfg.SyncMetricInterval)
+	defer metricTimer.Stop()
 
 	for {
 		select {
@@ -274,7 +278,7 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 				s.lg.Error("stop agent failed", slogx.Error(err))
 			}
 			return ctx.Err()
-		case <-tm.C:
+		case <-strategyTimer.C:
 			var lastVersion int32
 			if s.syncResp != nil {
 				lastVersion = s.syncResp.Version
@@ -287,7 +291,12 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 			if err := s.applyStrategy(ctx, res); err != nil {
 				s.lg.Error("apply strategy failed", slogx.Error(err))
 			}
-			tm.Reset(s.cfg.SyncStrategyInterval)
+			strategyTimer.Reset(s.cfg.SyncStrategyInterval)
+		case <-metricTimer.C:
+			if err := s.syncMetric(ctx); err != nil {
+				s.lg.Error("sync metric failed", slogx.Error(err))
+			}
+			metricTimer.Reset(s.cfg.SyncMetricInterval)
 		}
 	}
 }
@@ -329,6 +338,7 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 	if err != nil {
 		s.lg.Error("get active instances failed", slogx.Error(err))
 	}
+
 	s.lg.Info(
 		"strategy changed",
 		slog.Int("version", int(res.Response.Version)),
@@ -386,4 +396,89 @@ func (s *Syncer) activeInstancesIfRequired(resp *SyncStrategyResponse) ([]string
 		return nil, nil
 	}
 	return s.virsh.ListNames()
+}
+
+func (s *Syncer) syncMetric(ctx context.Context) error {
+	if s.regResp == nil || s.syncResp == nil {
+		return nil
+	}
+
+	pid, alive := s.agentMgr.Pid()
+	if !alive {
+		return nil
+	}
+
+	metrics := MetricsEntry{
+		SamplingTimestamp:      time.Now().Unix(),
+		SamplingMicroTimestamp: time.Now().UnixMicro() % 1e6,
+		StartTime:              s.agentMgr.StartTime().Unix(),
+	}
+
+	err := func() error {
+		data, err := s.agentMgr.CollectStats(ctx)
+		if err != nil {
+			return err
+		}
+
+		stats := AgentStats{}
+		if err := mapstructure.Decode(data, &stats); err != nil {
+			return errors.Wrap(err, "decode agent stats")
+		}
+
+		for _, task := range stats.Tasks {
+			metrics.CapBytes += task.Capture.CapBytes.Bytes
+			metrics.CapPackets += task.Capture.CapPackets.Packets
+			metrics.CapDrop += task.Capture.DropPackets.Packets
+			for _, output := range task.Outputs {
+				metrics.FwdBytes += output.FwdBytes.Bytes
+				metrics.FwdPackets += output.FwdPackets.Packets
+			}
+		}
+		return nil
+	}()
+	if err != nil {
+		s.lg.Error("agent stats error", slogx.Error(err))
+	}
+
+	err = func() error {
+		p, err := process.NewProcess(int32(pid))
+		if err != nil {
+			return errors.Wrapf(err, "new process")
+		}
+
+		cpuPercent, err := p.CPUPercentWithContext(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "get cpu percent")
+		}
+		cpuCnt, err := cpu.Counts(true)
+		if err != nil {
+			return errors.Wrapf(err, "get cpu count")
+		}
+		metrics.CpuLoad = cpuPercent / 100
+		metrics.CpuLoadRate = metrics.CpuLoad / float64(cpuCnt)
+
+		processMemory, err := p.MemoryInfoWithContext(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "get process memory")
+		}
+
+		machineMemory, err := mem.VirtualMemoryWithContext(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "get machine memory")
+		}
+
+		metrics.MemUse = processMemory.RSS
+		metrics.MemUseRate = float64(metrics.MemUse) / float64(machineMemory.Total)
+
+		return nil
+	}()
+	if err != nil {
+		s.lg.Error("collect system metrics failed", slogx.Error(err))
+	}
+
+	return s.client.SyncMetrics(ctx, s.regResp.Id, SyncMetricsRequest{
+		Metrics: metrics,
+		Logs:    s.logBuf.Clear(),
+		Pid:     int32(pid),
+	})
 }

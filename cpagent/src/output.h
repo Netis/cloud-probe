@@ -22,7 +22,6 @@ typedef struct OutputStats
 
     bytes_stats_t ratelimit_drop_bytes;
     packets_stats_t ratelimit_drop_packets;
-
 } output_stats_t;
 
 typedef struct OutputBase
@@ -30,6 +29,7 @@ typedef struct OutputBase
     int (*send_packet)(struct OutputBase *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
                        int direct);
     void (*destory)(struct OutputBase *output);
+    output_stats_t stats;
 } output_base_t;
 
 typedef output_base_t *(*OutputFactory)(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);

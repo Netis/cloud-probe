@@ -1,0 +1,4 @@
+#ifndef CPAGENT_THREAD_H
+#define CPAGENT_THREAD_H
+
+#endif /* CPAGENT_THREAD_H */

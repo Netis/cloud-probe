@@ -22,16 +22,17 @@ typedef struct VxlanOptions
     char *bind_device;
     int pmtudisc;
     uint64_t rate_limit_mbps;
+    int slice;
 
 } vxlan_options_t;
 
 typedef struct VxlanOutput
 {
     output_base_t base;
-    output_stats_t stats;
 
     uint64_t rate_limit_mbps;
     token_bucket_t throttle;
+    int slice;
 
     uint8_t vni_version;
     uint32_t vni;

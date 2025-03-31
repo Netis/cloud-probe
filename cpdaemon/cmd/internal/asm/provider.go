@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/container"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cpm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
@@ -117,28 +116,7 @@ func NewCpmClient(vp *viper.Viper) (*cpm.HttpClient, error) {
 	})
 }
 
-func NewCpmAgentMgr(vp *viper.Viper) *cpm.AgentManager {
-	return cpm.NewAgentManager(
-		cpm.AgentConfig{
-			Executable:      vp.GetString(VKey.Agent.Executable),
-			UnixSocket:      filepath.Clean(vp.GetString(VKey.Cpm.Agent.UnixSocket)),
-			TasksFile:       vp.GetString(VKey.Cpm.Agent.TasksFile),
-			CgroupVersion:   vp.GetString(VKey.Cgroup.Version),
-			CgroupRoot:      vp.GetString(VKey.Cgroup.Root),
-			CgroupHierarchy: vp.GetString(VKey.Cgroup.Hierarchy),
-		},
-		cpm.AgentFactoryFunc(agent.NewAgent),
-		&kvm.VirshCmdExecutor{
-			ListNameScript:      vp.GetString(VKey.Kvm.ListNameScript),
-			ListInterfaceScript: vp.GetString(VKey.Kvm.ListInterfaceScript),
-		},
-		&container.ContainerCmdExecutor{
-			GetHostPidScript: vp.GetString(VKey.Container.GetHostPidScript),
-		},
-	)
-}
-
-func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient, agentMgr *cpm.AgentManager) (*cpm.Syncer, error) {
+func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*cpm.Syncer, error) {
 	regName := vp.GetString(VKey.Cpm.Reg.Name)
 	if regName == "" {
 		hostname, err := os.Hostname()
@@ -150,10 +128,20 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient, age
 
 	syncer, err := cpm.NewSyncer(
 		cpmClient,
-		agentMgr,
+		cpm.AgentConfig{
+			Executable:      vp.GetString(VKey.Agent.Executable),
+			UnixSocket:      filepath.Clean(vp.GetString(VKey.Cpm.Agent.UnixSocket)),
+			TasksFile:       vp.GetString(VKey.Cpm.Agent.TasksFile),
+			CgroupVersion:   vp.GetString(VKey.Cgroup.Version),
+			CgroupRoot:      vp.GetString(VKey.Cgroup.Root),
+			CgroupHierarchy: vp.GetString(VKey.Cgroup.Hierarchy),
+		},
 		&kvm.VirshCmdExecutor{
 			ListNameScript:      vp.GetString(VKey.Kvm.ListNameScript),
 			ListInterfaceScript: vp.GetString(VKey.Kvm.ListInterfaceScript),
+		},
+		&container.ContainerCmdExecutor{
+			GetHostPidScript: vp.GetString(VKey.Container.GetHostPidScript),
 		},
 		cpm.SyncerConfig{
 			RegCfg: cpm.RegConfig{
@@ -175,8 +163,7 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient, age
 	if err != nil {
 		return nil, err
 	}
-	ins.Daemons = append(ins.Daemons, syncer.RunSyncStrategy)
-	ins.Daemons = append(ins.Daemons, syncer.RunSyncMetric)
+	ins.Daemons = append(ins.Daemons, syncer.Run)
 	return syncer, nil
 }
 

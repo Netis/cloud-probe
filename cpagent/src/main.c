@@ -174,32 +174,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    int num_tasks = config->num_tasks;
-    capture_task_t **tasks = (capture_task_t **)calloc(num_tasks, sizeof(capture_task_t *));
-    if (!tasks)
-    {
-        log_fatal("memory allocation failed");
-        exit(EXIT_FAILURE);
-    }
-
-    log_info("find tasks %d\n", num_tasks);
-    for (int i = 0; i < num_tasks; ++i)
-    {
-        capture_task_t *task = capture_task_new(config->tasks[i], errbuf);
-        if (!task)
-        {
-            for (int j = 0; j < i; ++j)
-                capture_task_destory(tasks[j]);
-
-            free(tasks);
-            log_error("new task-%d error: %s", i, errbuf);
-            continue;
-        }
-        log_info("create task-%d success", i);
-        tasks[i] = task;
-    }
-
-    free_tasks_config(config);
+    task_manager_init(config);
 
     signal(SIGINT, signal_handler);
     signal(SIGPIPE, SIG_IGN);
@@ -207,33 +182,35 @@ int main(int argc, char **argv)
     if (unix_manager_init(unix_socket) != 0)
     {
         log_fatal("init unix socket failed");
+        task_manager_destory();
         exit(EXIT_FAILURE);
     }
     if (unix_manager_thread_spawn() != 0)
     {
         log_fatal("create unix socket thread failed");
+        task_manager_destory();
         exit(EXIT_FAILURE);
     }
 
+    unix_manager_register_command("collect_stats", task_manager_collect_stats_command, NULL);
+
+    time_t last_tm = time(NULL);
     while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
     {
-        uint64_t num_pkts = 0;
-        for (int i = 0; i < num_tasks; ++i)
-        {
-            num_pkts += capture_task_poll_packets(tasks[i]);
-        }
-
+        uint64_t num_pkts = task_manager_poll_packets();
         if (num_pkts == 0)
             usleep(10);
+
+        time_t now = time(NULL);
+        // every 5 seconds
+        if (difftime(now, last_tm) >= 5)
+        {
+            task_manager_update_stats();
+            last_tm = now;
+        }
     }
 
     log_info("quit");
-    for (int i = 0; i < num_tasks; ++i)
-    {
-        log_info("free task: %d", i);
-        capture_task_destory(tasks[i]);
-    }
-    free(tasks);
-
+    task_manager_destory();
     return 0;
 }

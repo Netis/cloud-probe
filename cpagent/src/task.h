@@ -16,4 +16,10 @@ capture_task_t *capture_task_new(TaskConfig *task_cfg, char *errbuf);
 void capture_task_destory(capture_task_t *task);
 int capture_task_poll_packets(capture_task_t *task);
 
+int task_manager_init(TasksAllConfig *config);
+void task_manager_destory();
+uint64_t task_manager_poll_packets();
+void task_manager_update_stats();
+int task_manager_collect_stats_command(cJSON *cmd_msg, cJSON *server_msg, void *data);
+
 #endif /* CPAGENT_TASK_H */
