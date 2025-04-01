@@ -183,7 +183,6 @@ static int unix_client_send(unix_client_t *client, cJSON *msg)
     }
     client->buf[length] = '\n';
     client->buf[length + 1] = '\0';
-    log_debug("send msg: %s", client->buf);
 
     if (send(client->fd, client->buf, length + 1, MSG_NOSIGNAL) == -1)
     {

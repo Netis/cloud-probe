@@ -88,13 +88,13 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
     int self_netns_fd;
     if (has_netns)
     {
-        self_netns_fd = get_self_netns_fd(errbuf);
+        self_netns_fd = open_self_netns(errbuf);
         if (self_netns_fd == -1)
             return NULL;
 
         if (enter_netns_by_path(opts.netns, errbuf) != 0)
         {
-            close(self_netns_fd);
+            close_netns_fd(self_netns_fd);
             return NULL;
         }
     }
@@ -103,7 +103,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
     if (!req_pattern)
     {
         error_wrap_format(errbuf, "create req_pattern_t error");
-        return NULL;
+        goto error2;
     }
 
     char pcap_errbuf[PCAP_ERRBUF_SIZE];
@@ -111,13 +111,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
     if (!p)
     {
         error_format(errbuf, "call pcap_create(%s) error: %s", opts.interface, pcap_errbuf);
-        if (has_netns)
-        {
-            char ns_errbuf[PCAP_ERRBUF_SIZE];
-            if (enter_netns_by_fd(self_netns_fd, ns_errbuf) != 0)
-                log_error("restore netns fail: %s", ns_errbuf);
-        }
-        return NULL;
+        goto error1;
     }
 
     pcap_set_snaplen(p, opts.snaplen);
@@ -142,12 +136,22 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
 
     if (opts.bpf_filter && strcmp(opts.bpf_filter, "") != 0)
     {
-        struct bpf_program bpf_prog;
-        if (pcap_compile(p, &bpf_prog, opts.bpf_filter, 0, 0) != 0)
+        char *bpf_filter = bpf_filter_replace_nic(opts.bpf_filter, errbuf);
+        if (bpf_filter == NULL)
         {
-            error_format(errbuf, "compile bpf filter '%s' error: %s", opts.bpf_filter, pcap_geterr(p));
+            error_wrap_format(errbuf, "invalid bpf: %s", opts.bpf_filter);
             goto error;
         }
+
+        struct bpf_program bpf_prog;
+        if (pcap_compile(p, &bpf_prog, bpf_filter, 0, 0) != 0)
+        {
+            error_format(errbuf, "compile bpf filter '%s' error: %s", bpf_filter, pcap_geterr(p));
+            free(bpf_filter);
+            goto error;
+        }
+        free(bpf_filter);
+
         if (pcap_setfilter(p, &bpf_prog) != 0)
         {
             error_format(errbuf, "call pcap_setfilter error: %s", pcap_geterr(p));
@@ -155,35 +159,42 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
         }
     }
 
-    if (has_netns)
+    if (has_netns && enter_netns_by_fd(self_netns_fd, errbuf) != 0)
     {
-        if (enter_netns_by_fd(self_netns_fd, errbuf) != 0)
-        {
-            pcap_close(p);
-            return NULL;
-        }
+        close_netns_fd(self_netns_fd);
+        goto error3;
     }
 
     libpcap_capturer_t *capturer = (libpcap_capturer_t *)calloc(1, sizeof(libpcap_capturer_t));
     if (!capturer)
     {
         error_format(errbuf, "failed to allocate memory for libpcap_capturer_t");
-        pcap_close(p);
-        return NULL;
+        goto error3;
     }
     capturer->base.capture = libpcap_do_capture;
     capturer->base.destory = libpcap_capturer_destory;
+    capturer->req_pattern = req_pattern;
     capturer->p = p;
+
     return capturer;
 
 error:
     pcap_close(p);
+error1:
+    req_pattern_destory(req_pattern);
+error2:
     if (has_netns)
     {
         char ns_errbuf[PCAP_ERRBUF_SIZE];
         if (enter_netns_by_fd(self_netns_fd, ns_errbuf) != 0)
             log_error("restore netns fail: %s", ns_errbuf);
+
+        close_netns_fd(self_netns_fd);
     }
+    return NULL;
+error3:
+    pcap_close(p);
+    req_pattern_destory(req_pattern);
     return NULL;
 }
 

@@ -14,26 +14,7 @@
 #define REQ_PATTERN_TYPE_AUTO 1
 #define REQ_PATTERN_TYPE_CUSTOM 2
 
-typedef struct ReqPattern
-{
-    int type;
-    union
-    {
-        struct
-        {
-            uint8_t mac_addr[ETH_ALEN];
-        } _auto;
-        struct
-        {
-            struct in_addr *ips;
-            int num_ips;
-
-            uint32_t *ports;
-            int num_ports;
-        } custom;
-
-    } config;
-} req_pattern_t;
+typedef struct ReqPattern req_pattern_t;
 
 req_pattern_t *req_pattern_new_from_cfg(ReqPatternConfig cfg, const char *interface, char *errbuf);
 void req_pattern_destory(req_pattern_t *req_pattern);

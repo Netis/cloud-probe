@@ -42,8 +42,4 @@ static uint64_t capture_packets(capturer_base_t *capturer, PacketHandler handler
 
 static void destory_capturer(capturer_base_t *capturer) { capturer->destory(capturer); }
 
-int get_self_netns_fd(char *errbuf);
-int enter_netns_by_path(char *ns_path, char *errbuf);
-int enter_netns_by_fd(int fd, char *errbuf);
-
 #endif /* CPAGENT_CAPTURER_H */

@@ -2,6 +2,7 @@
 #define CPAGENT_COMMON_H
 
 #include <endian.h>
+#include <netinet/in.h>
 #include <stdint.h>
 
 #define PKT_DIR_UNKNOWN -1
@@ -88,12 +89,37 @@ typedef struct
     uint64_t peta;
 } packets_stats_t;
 
+typedef enum
+{
+    IP_TYPE_IPv4,
+    IP_TYPE_IPv6
+} IPType;
+
+typedef struct
+{
+    IPType type;
+    union
+    {
+        struct in_addr v4;
+        struct in6_addr v6;
+    } data;
+} ip_addr_t;
+
 int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf);
 void format_mac_addr(const uint8_t *mac_addr, char *buf);
+
+int get_if_addr(const char *ifname, ip_addr_t *addr, char *errbuf);
+int format_ip_addr(ip_addr_t *addr, char *buf, size_t buflen);
+char *bpf_filter_replace_nic(const char *input, char *errbuf);
 
 int set_cpu_affinity(int cpu);
 
 void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes);
 void packets_stats_add(packets_stats_t *stat, uint64_t packets);
+
+int open_self_netns(char *errbuf);
+int enter_netns_by_path(char *ns_path, char *errbuf);
+int enter_netns_by_fd(int fd, char *errbuf);
+int close_netns_fd(int fd);
 
 #endif /* CPAGENT_COMMON_H */

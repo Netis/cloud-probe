@@ -1,8 +1,15 @@
+#ifdef __linux__
 #define _GNU_SOURCE // 启用GNU扩展
+#include <sched.h>
+#endif
+
+#include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <ifaddrs.h>
 #include <linux/if_ether.h>
 #include <net/if.h>
-#include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +20,7 @@
 
 #include "common.h"
 #include "error.h"
+#include "log.h"
 
 int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
 {
@@ -67,16 +75,135 @@ void format_mac_addr(const uint8_t *mac_addr, char *buf)
     *ptr = '\0';
 }
 
-int set_cpu_affinity(int cpu)
+int get_if_addr(const char *ifname, ip_addr_t *addr, char *errbuf)
 {
-    cpu_set_t cpu_mask;
-    CPU_ZERO(&cpu_mask);
-    CPU_SET(cpu, &cpu_mask);
-    if (sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask) != 0)
+    struct ifaddrs *ifaddr, *ifa;
+    if (getifaddrs(&ifaddr) == -1)
     {
+        error_format(errbuf, "getifaddrs error");
+        return -1;
+    }
+
+    int found = 0;
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+    {
+        if (ifa->ifa_addr == NULL || strcmp(ifa->ifa_name, ifname) != 0)
+            continue;
+
+        if (ifa->ifa_addr->sa_family == AF_INET)
+        {
+            struct sockaddr_in *sin = (struct sockaddr_in *)ifa->ifa_addr;
+            addr->type = IP_TYPE_IPv4;
+            addr->data.v4 = sin->sin_addr;
+            found = 1;
+            break;
+        }
+        else if (ifa->ifa_addr->sa_family == AF_INET6)
+        {
+            struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)ifa->ifa_addr;
+            addr->type = IP_TYPE_IPv6;
+            addr->data.v6 = sin6->sin6_addr;
+            found = 1;
+            break;
+        }
+    }
+
+    freeifaddrs(ifaddr);
+
+    if (!found)
+    {
+        error_format(errbuf, "No IPv4 address found for %s", ifname);
         return -1;
     }
     return 0;
+}
+
+int format_ip_addr(ip_addr_t *addr, char *buf, size_t buflen)
+{
+    if (!addr || !buf || buflen < 1)
+        return -1;
+
+    size_t required_len = (addr->type == IP_TYPE_IPv4) ? INET_ADDRSTRLEN : INET6_ADDRSTRLEN;
+    if (buflen < required_len)
+    {
+        buf[0] = '\0';
+        return -2;
+    }
+
+    const char *result = NULL;
+    switch (addr->type)
+    {
+    case IP_TYPE_IPv4:
+        result = inet_ntop(AF_INET, &addr->data.v4, buf, INET_ADDRSTRLEN);
+        break;
+    case IP_TYPE_IPv6:
+        result = inet_ntop(AF_INET6, &addr->data.v6, buf, INET6_ADDRSTRLEN);
+        break;
+    default:
+        buf[0] = '\0';
+        return -3;
+    }
+
+    if (result == NULL)
+    {
+        buf[0] = '\0';
+        return -3;
+    }
+    return 0;
+}
+
+char *bpf_filter_replace_nic(const char *input, char *errbuf)
+{
+    size_t buf_size = strlen(input) * 2;
+    char *output = malloc(buf_size);
+    char *out_ptr = output;
+    const char *in_ptr = input;
+
+    while (*in_ptr)
+    {
+        if (strncmp(in_ptr, "nic.", 4) != 0)
+        {
+            *out_ptr++ = *in_ptr++;
+            continue;
+        }
+
+        const char *end = in_ptr + 4;
+        while (*end && !isspace(*end))
+            end++;
+
+        int ifname_len = end - (in_ptr + 4);
+        char ifname[ifname_len + 1];
+        strncpy(ifname, in_ptr + 4, ifname_len);
+        ifname[ifname_len] = '\0';
+
+        char errbuf[ERROR_BUFFER_SIZE];
+        ip_addr_t addr;
+        if (get_if_addr(ifname, &addr, errbuf) != 0)
+        {
+            error_format(errbuf, "no ip found for interface %s", ifname);
+            free(output);
+            return NULL;
+        }
+        char ip_str[INET6_ADDRSTRLEN];
+        format_ip_addr(&addr, ip_str, sizeof(ip_str));
+        log_info("bpf_filter interface %s addresss is %s", ifname, ip_str);
+
+        size_t ip_len = strlen(ip_str);
+        size_t offset = out_ptr - output;
+        size_t remaining = buf_size - offset - 1;
+        if (ip_len > remaining)
+        {
+            buf_size += ip_len * 2;
+            output = realloc(output, buf_size);
+            out_ptr = output + offset;
+        }
+
+        strncpy(out_ptr, ip_str, ip_len);
+        out_ptr += ip_len;
+        in_ptr = end;
+    }
+    *out_ptr = '\0';
+    return output;
 }
 
 void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes)
@@ -107,4 +234,83 @@ void packets_stats_add(packets_stats_t *stat, uint64_t packets)
     }
 
     stat->peta += new_peta;
+}
+
+int set_cpu_affinity(int cpu)
+{
+#ifdef __linux__
+    cpu_set_t cpu_mask;
+    CPU_ZERO(&cpu_mask);
+    CPU_SET(cpu, &cpu_mask);
+    if (sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask) != 0)
+    {
+        return -1;
+    }
+    return 0;
+#else
+    return 0;
+#endif
+}
+
+int open_self_netns(char *errbuf)
+{
+#ifdef __linux__
+    const char *ns_path = "/proc/self/ns/net";
+    int fd = open(ns_path, O_RDONLY);
+    if (fd == -1)
+    {
+        error_format(errbuf, "open %s error", ns_path);
+        return -1;
+    }
+    return fd;
+#else
+    return 0;
+#endif
+}
+
+int enter_netns_by_path(char *ns_path, char *errbuf)
+{
+#ifdef __linux__
+    int fd = open(ns_path, O_RDONLY);
+    if (fd == -1)
+    {
+        error_format(errbuf, "open '%s' error", ns_path);
+        return -1;
+    }
+    if (setns(fd, CLONE_NEWNET) == -1)
+    {
+        error_format(errbuf, "call setns for '%s' error", ns_path);
+        close(fd);
+        return -1;
+    }
+    close(fd);
+    return 0;
+#else
+    return 0;
+#endif
+}
+
+int enter_netns_by_fd(int fd, char *errbuf)
+{
+#ifdef __linux__
+    if (setns(fd, CLONE_NEWNET) == -1)
+    {
+        error_format(errbuf, "call setns error");
+        close(fd);
+        return -1;
+    }
+    close(fd);
+    return 0;
+#else
+    return 0;
+#endif
+}
+
+int close_netns_fd(int fd)
+{
+#ifdef __linux__
+    return close(fd);
+#else
+    return 0;
+#endif
 }

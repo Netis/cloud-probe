@@ -596,7 +596,7 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
         }
         else if (cJSON_IsString(pattern))
         {
-            req_pattern->custom.pattern = strdup(type->valuestring);
+            req_pattern->custom.pattern = strdup(pattern->valuestring);
         }
         else
         {

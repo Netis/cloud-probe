@@ -292,10 +292,18 @@ uint64_t dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *use
 
 dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
 {
+    req_pattern_t *req_pattern = req_pattern_new_from_cfg(opts.req_pattern, opts.interface, errbuf);
+    if (!req_pattern)
+    {
+        error_wrap_format(errbuf, "create req_pattern_t error");
+        return NULL;
+    }
+
     uint16_t port;
     if (rte_eth_dev_get_port_by_name(opts.interface, &port) != 0)
     {
         error_format(errbuf, "interface %s not found", opts.interface);
+        req_pattern_destory(req_pattern);
         return NULL;
     }
 
@@ -304,16 +312,24 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
     {
         bpf_prm = compile_filter(opts.bpf_filter, opts.snaplen, errbuf);
         if (!bpf_prm)
+        {
+            req_pattern_destory(req_pattern);
             return NULL;
+        }
     }
+
     struct rte_ring *ring = create_ring(opts.ring_name, opts.ring_size, errbuf);
     if (!ring)
+    {
+        req_pattern_destory(req_pattern);
         return NULL;
+    }
 
     struct rte_mempool *mp = create_mempool(opts.pool_name, opts.num_mbufs, opts.snaplen, errbuf);
     if (!mp)
     {
 
+        req_pattern_destory(req_pattern);
         rte_free(bpf_prm);
         rte_ring_free(ring);
         return NULL;
@@ -321,6 +337,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
 
     if (enable_pdump(port, ring, mp, bpf_prm, opts.promiscuous_mode, opts.snaplen, false, errbuf) != 0)
     {
+        req_pattern_destory(req_pattern);
         rte_free(bpf_prm);
         rte_ring_free(ring);
         rte_mempool_free(mp);
@@ -330,6 +347,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)calloc(1, sizeof(dpdk_capturer_t));
     if (!capturer)
     {
+        req_pattern_destory(req_pattern);
         rte_free(bpf_prm);
         rte_ring_free(ring);
         rte_mempool_free(mp);
@@ -349,6 +367,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
     capturer->bpf_prm = bpf_prm;
     capturer->ring = ring;
     capturer->mp = mp;
+    capturer->req_pattern = req_pattern;
     return capturer;
 }
 
