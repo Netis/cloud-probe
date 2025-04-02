@@ -1,6 +1,10 @@
-package cpm
+package agentclient
 
-type AgentStats struct {
+type Stats struct {
+	Time struct {
+		Sec  int64 `mapstructure:"sec"`
+		Nsec int64 `mapstructure:"nsec"`
+	} `mapstructure:"time"`
 	Tasks []TaskStats `mapstructure:"tasks"`
 }
 

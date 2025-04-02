@@ -21,7 +21,7 @@ import (
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cpm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/kvm"
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
+	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 func (sg Singleton) Mux() *chi.Mux {
@@ -130,6 +130,7 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 		cpmClient,
 		cpm.AgentConfig{
 			Executable:      vp.GetString(VKey.Agent.Executable),
+			LogLevel:        vp.GetString(VKey.Cpm.Agent.LogLevel),
 			UnixSocket:      filepath.Clean(vp.GetString(VKey.Cpm.Agent.UnixSocket)),
 			TasksFile:       vp.GetString(VKey.Cpm.Agent.TasksFile),
 			CgroupVersion:   vp.GetString(VKey.Cgroup.Version),

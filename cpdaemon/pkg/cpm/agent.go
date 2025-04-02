@@ -17,7 +17,8 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
+	"github.com/Netis/cloud-probe/cpgolib/agentclient"
+	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 type VirshCmdExecutor interface {
@@ -48,8 +49,16 @@ type AgentConfig struct {
 	CgroupRoot      string
 	CgroupHierarchy string
 
+	LogLevel   string
 	UnixSocket string
 	TasksFile  string
+}
+
+func (c *AgentConfig) Validate() error {
+	if !slices.Contains([]string{"DEBUG", "INFO", "WARN", "ERROR"}, strings.ToUpper(c.LogLevel)) {
+		return errors.Errorf("invalid logLevel: %s", c.LogLevel)
+	}
+	return nil
 }
 
 type AgentManager struct {
@@ -60,7 +69,7 @@ type AgentManager struct {
 	lg           *slog.Logger
 
 	mu     sync.Mutex
-	client *agent.Client
+	client *agentclient.Client
 	agent  *agent.Agent
 }
 
@@ -127,15 +136,15 @@ func (m *AgentManager) Stop() error {
 	return agent.Stop()
 }
 
-func (m *AgentManager) CollectStats(ctx context.Context) (map[string]any, error) {
+func (m *AgentManager) CollectStats(ctx context.Context) (agentclient.Stats, error) {
 	m.mu.Lock()
 	client := m.client
 	m.mu.Unlock()
 
 	if client == nil {
-		return nil, nil
+		return agentclient.Stats{}, nil
 	}
-	return client.RunCommand(ctx, "collect_stats", nil)
+	return client.CollectStats(ctx)
 }
 
 func (m *AgentManager) CreateIfDead(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
@@ -233,6 +242,7 @@ func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyRespon
 		CgroupRoot:      m.agentCfg.CgroupRoot,
 		CgroupHierarchy: m.agentCfg.CgroupHierarchy,
 
+		LogLevel:   m.agentCfg.LogLevel,
 		UnixSocket: m.agentCfg.UnixSocket,
 		TasksFile:  m.agentCfg.TasksFile,
 		Tasks:      tb.tasks,
@@ -241,8 +251,14 @@ func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyRespon
 		MemLimit: res.MemLimit,
 	}
 
+	socketPath := filepath.Clean(cfg.UnixSocket)
+	dir := filepath.Dir(socketPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return errors.Wrapf(err, "create dir %s failed", dir)
+	}
+
 	var err error
-	m.client, err = agent.NewClient(cfg.UnixSocket)
+	m.client, err = agentclient.New(socketPath)
 	if err != nil {
 		return errors.Wrap(err, "create agent client failed")
 	}

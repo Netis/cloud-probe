@@ -34,21 +34,19 @@ if (NOT ZMQ_LIB)
     message(FATAL_ERROR "libzmq.a not found in ${LIBRARY_ROOT}/lib64")
 endif()
 
+# 获取所需的.c文件
+file(GLOB SRC_FILES "src/*.c")
+list(APPEND SRC_FILES "contrib/cJSON/cJSON.c")
+
 # 查找DPDK
 if(ENABLE_DPDK)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBDPDK REQUIRED libdpdk)
 
     add_compile_definitions(ENABLE_DPDK)
-endif()
 
-# 获取所需的.c文件
-file(GLOB SRC_FILES "src/*.c")
-list(APPEND SRC_FILES "contrib/cJSON/cJSON.c")
-
-# 排除DPDK相关文件
-if(NOT ENABLE_DPDK)
-    list(REMOVE_ITEM SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/dpdk_pdump.c")
+    file(GLOB DPDK_FILES "src/dpdk/*.c")
+    list(APPEND SRC_FILES ${DPDK_FILES})
 endif()
 
 # 添加可执行目标

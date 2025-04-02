@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -18,8 +17,9 @@ import (
 	"github.com/shirou/gopsutil/v4/process"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
+	"github.com/Netis/cloud-probe/cpgolib/agentclient"
+	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 type RegConfig struct {
@@ -76,6 +76,20 @@ type Syncer struct {
 	lg     *slog.Logger
 }
 
+func checkAgentRunning(unixSocket string) (bool, error) {
+	agentClient, err := agentclient.New(unixSocket)
+	if err != nil {
+		return false, errors.Wrap(err, "create agent client")
+	}
+	defer agentClient.Close()
+
+	err = agentClient.Dial(context.Background())
+	if err == nil {
+		return true, nil
+	}
+	return false, nil
+}
+
 func NewSyncer(
 	client *HttpClient,
 	agentCfg AgentConfig,
@@ -85,6 +99,18 @@ func NewSyncer(
 ) (*Syncer, error) {
 	if err := cfg.RegCfg.Validate(); err != nil {
 		return nil, err
+	}
+	if err := agentCfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	// 检查agent是否正在运行，只有在cpdaemon被kill时才会出现这种情况
+	running, err := checkAgentRunning(agentCfg.UnixSocket)
+	if err != nil {
+		return nil, errors.Wrap(err, "check agent running")
+	}
+	if running {
+		return nil, errors.New("agent is running, please stop it first")
 	}
 
 	logBuf := &SyncLogBuffer{}
@@ -415,14 +441,9 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 	}
 
 	err := func() error {
-		data, err := s.agentMgr.CollectStats(ctx)
+		stats, err := s.agentMgr.CollectStats(ctx)
 		if err != nil {
 			return err
-		}
-
-		stats := AgentStats{}
-		if err := mapstructure.Decode(data, &stats); err != nil {
-			return errors.Wrap(err, "decode agent stats")
 		}
 
 		for _, task := range stats.Tasks {

@@ -1,27 +1,19 @@
-package agent
+package agentclient
 
 import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
+	"go.uber.org/multierr"
 )
 
-func NewClient(socketPath string) (*Client, error) {
-	socketPath = filepath.Clean(socketPath)
-	dir := filepath.Dir(socketPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, errors.Wrapf(err, "create dir %s failed", dir)
-	}
+func New(socketPath string) (*Client, error) {
 	return &Client{
 		socketPath:   socketPath,
 		dailTimeout:  3 * time.Second,
@@ -40,22 +32,23 @@ type Client struct {
 	conn net.Conn
 }
 
-func (c *Client) Close() {
+func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.conn != nil {
-		c.closeConn(c.conn)
+		err := c.closeConn(c.conn)
 		c.conn = nil
+		return err
 	}
+	return nil
 }
 
-func (c *Client) closeConn(conn net.Conn) {
+func (c *Client) closeConn(conn net.Conn) error {
 	if err := conn.Close(); err != nil {
-		slog.Default().Error("close connection failed", slogx.Error(err))
-	} else {
-		slog.Default().Info("close connection success")
+		return errors.Wrapf(err, "close connection failed")
 	}
+	return nil
 }
 
 func (c *Client) Dial(ctx context.Context) error {
@@ -81,7 +74,9 @@ func (c *Client) dial() (net.Conn, error) {
 	}
 
 	if err := c.handshake(conn); err != nil {
-		c.closeConn(conn)
+		if cErr := c.closeConn(conn); cErr != nil {
+			return nil, multierr.Append(err, cErr)
+		}
 		return nil, err
 	}
 
@@ -117,6 +112,19 @@ func (c *Client) handshake(conn net.Conn) error {
 	return nil
 }
 
+func (c *Client) CollectStats(ctx context.Context) (Stats, error) {
+	resp, err := c.RunCommand(ctx, "collect_stats", nil)
+	if err != nil {
+		return Stats{}, err
+	}
+
+	var stats Stats
+	if err := mapstructure.Decode(resp, &stats); err != nil {
+		return Stats{}, errors.Wrapf(err, "invalid stats")
+	}
+	return stats, nil
+}
+
 func (c *Client) RunCommand(ctx context.Context, command string, arguments map[string]any) (map[string]any, error) {
 	var err error
 
@@ -145,20 +153,20 @@ func (c *Client) RunCommand(ctx context.Context, command string, arguments map[s
 	cmdData = append(cmdData, '\n')
 
 	if err := c.send(conn, cmdData); err != nil {
-		c.Close()
-		return nil, errors.Wrapf(err, "write command data failed")
+		cErr := c.Close()
+		return nil, multierr.Append(errors.Wrapf(err, "write command data failed"), cErr)
 	}
 
 	data, err := c.recv(conn)
 	if err != nil {
-		c.Close()
-		return nil, err
+		cErr := c.Close()
+		return nil, multierr.Append(err, cErr)
 	}
 
 	var resp map[string]any
 	if err := json.Unmarshal(data, &resp); err != nil {
-		c.Close()
-		return nil, errors.Wrapf(err, "invalid response")
+		cErr := c.Close()
+		return nil, multierr.Append(errors.Wrapf(err, "invalid response"), cErr)
 	}
 
 	if resp["status"] != "OK" {

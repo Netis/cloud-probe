@@ -7,7 +7,7 @@ import (
 
 	"github.com/gorilla/schema"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
+	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 var DefaultSchemaDecoder = schema.NewDecoder()

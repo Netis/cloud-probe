@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "common.h"
@@ -14,7 +15,7 @@
 #include "unix-manager.h"
 
 #ifdef ENABLE_DPDK
-#include "dpdk_pdump.h"
+#include "dpdk/pdump.h"
 #endif
 
 /* command line flags */
@@ -22,7 +23,8 @@ static const char *progname;
 static const char *tasks_file = NULL;
 static bool enable_dpdk_dumpcap = false;
 static int cpu_id = -1;
-static const char *unix_socket = "/var/run/cpagent/cpagent.sock";
+static const char *unix_socket = "";
+static const char *log_level = "INFO";
 
 static bool quit_signal;
 static const char *version(void)
@@ -62,7 +64,8 @@ static void usage(void)
     printf("  --enable-dpdk-dumpcap   enable dpdk-dumpcap\n");
 #endif
     printf("  --cpu <cpu1>            set cpu affinity\n");
-    printf("  --unix-socket <file>    use unix socket to control suricata work\n");
+    printf("  --unix-socket <file>    use unix socket to control cpagent work\n");
+    printf("  -l, --log-level <LEVEL> set logging level (DEBUG|INFO|WARN|ERROR), default: INFO\n");
     printf("  -v, --version           print version information and exit\n");
     printf("  -h, --help              display this help and exit\n");
 }
@@ -82,13 +85,14 @@ static void parse_opts(int argc, char **argv)
         {"enable-dpdk-dumpcap", no_argument, NULL, OPT_ENABLE_DPDK_DUMPCAP},
         {"cpu", required_argument, NULL, OPT_CPU_ID},
         {"unix-socket", required_argument, NULL, OPT_UNIX_SOCKET},
+        {"log-level", required_argument, NULL, 'l'},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'v'},
         {NULL, 0, NULL, 0},
     };
 
     int c;
-    while ((c = getopt_long(argc, argv, "T:hv", long_options, NULL)) != -1)
+    while ((c = getopt_long(argc, argv, "T:l:hv", long_options, NULL)) != -1)
     {
         switch (c)
         {
@@ -103,6 +107,9 @@ static void parse_opts(int argc, char **argv)
             break;
         case OPT_UNIX_SOCKET:
             unix_socket = optarg;
+            break;
+        case 'l':
+            log_level = optarg;
             break;
         case 'h':
             printf("%s\n\n", version());
@@ -137,14 +144,63 @@ static void parse_opts(int argc, char **argv)
     }
 }
 
+static int init_log_level()
+{
+    if (strcasecmp(log_level, "DEBUG") == 0)
+        log_set_level(LOG_DEBUG);
+    else if (strcasecmp(log_level, "INFO") == 0)
+        log_set_level(LOG_INFO);
+    else if (strcasecmp(log_level, "WARN") == 0)
+        log_set_level(LOG_WARN);
+    else if (strcasecmp(log_level, "ERROR") == 0)
+        log_set_level(LOG_ERROR);
+    else
+        return -1;
+
+    return 0;
+}
+
 static void signal_handler(int sig_num) { __atomic_store_n(&quit_signal, true, __ATOMIC_RELAXED); }
 
 int main(int argc, char **argv)
 {
     char errbuf[ERROR_BUFFER_SIZE];
     progname = argv[0];
-
     parse_opts(argc, argv);
+
+    if (init_log_level() != 0)
+    {
+        log_fatal("invalid log_level %s", log_level);
+        exit(EXIT_FAILURE);
+    }
+
+    if (cpu_id >= 0)
+    {
+        if (set_cpu_affinity(cpu_id) != 0)
+        {
+            log_fatal("set cpu affinity fail");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    bool unix_mgr_enabled = strcmp(unix_socket, "") != 0;
+    if (unix_mgr_enabled)
+    {
+        if (unix_manager_init(unix_socket) != 0)
+        {
+            log_fatal("init unix socket failed");
+            task_manager_destory();
+            exit(EXIT_FAILURE);
+        }
+        log_info("listen on unix socket %s", unix_socket);
+
+        if (unix_manager_thread_spawn() != 0)
+        {
+            log_fatal("create unix socket thread failed");
+            task_manager_destory();
+            exit(EXIT_FAILURE);
+        }
+    }
 
 #ifdef ENABLE_DPDK
     if (enable_dpdk_dumpcap)
@@ -157,15 +213,6 @@ int main(int argc, char **argv)
     }
 #endif
 
-    if (cpu_id >= 0)
-    {
-        if (set_cpu_affinity(cpu_id) != 0)
-        {
-            log_fatal("set cpu affinity fail");
-            exit(EXIT_FAILURE);
-        }
-    }
-
     cJSONParseError err;
     TasksAllConfig *config = parse_tasks_file(tasks_file, &err);
     if (!config)
@@ -175,24 +222,13 @@ int main(int argc, char **argv)
     }
 
     task_manager_init(config);
+    if (unix_mgr_enabled)
+    {
+        unix_manager_register_command("collect_stats", task_manager_collect_stats_command, NULL);
+    }
 
     signal(SIGINT, signal_handler);
     signal(SIGPIPE, SIG_IGN);
-
-    if (unix_manager_init(unix_socket) != 0)
-    {
-        log_fatal("init unix socket failed");
-        task_manager_destory();
-        exit(EXIT_FAILURE);
-    }
-    if (unix_manager_thread_spawn() != 0)
-    {
-        log_fatal("create unix socket thread failed");
-        task_manager_destory();
-        exit(EXIT_FAILURE);
-    }
-
-    unix_manager_register_command("collect_stats", task_manager_collect_stats_command, NULL);
 
     time_t last_tm = time(NULL);
     while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
@@ -201,12 +237,15 @@ int main(int argc, char **argv)
         if (num_pkts == 0)
             usleep(10);
 
-        time_t now = time(NULL);
-        // every 5 seconds
-        if (difftime(now, last_tm) >= 5)
+        if (unix_mgr_enabled)
         {
-            task_manager_update_stats();
-            last_tm = now;
+            time_t now = time(NULL);
+            // every 5 seconds
+            if (difftime(now, last_tm) >= 5)
+            {
+                task_manager_update_stats();
+                last_tm = now;
+            }
         }
     }
 

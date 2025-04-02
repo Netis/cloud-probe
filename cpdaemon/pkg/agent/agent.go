@@ -7,13 +7,14 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
+	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 type AgentRunTimeConfig struct {
@@ -25,6 +26,7 @@ type AgentRunTimeConfig struct {
 	CgroupRoot      string
 	CgroupHierarchy string
 
+	LogLevel   string
 	UnixSocket string
 	TasksFile  string
 	Tasks      []TaskConfig
@@ -99,7 +101,6 @@ func (a *Agent) Start(ctx context.Context) error {
 	if err := a.startProcess(); err != nil {
 		return err
 	}
-	a.lg.Info("agent started", slog.Int("pid", a.cmd.Process.Pid))
 
 	go func() {
 		defer func() {
@@ -155,6 +156,7 @@ func (a *Agent) startProcess() error {
 	args := []string{
 		"--tasks", a.cfg.TasksFile,
 		"--unix-socket", a.cfg.UnixSocket,
+		"--log-level", a.cfg.LogLevel,
 	}
 	cmd := exec.Command(a.cfg.Executable, args...)
 	cmd.Env = os.Environ()
@@ -168,6 +170,12 @@ func (a *Agent) startProcess() error {
 	if err := cmd.Start(); err != nil {
 		return errors.Wrapf(err, "start agent %s failed", a.name)
 	}
+
+	a.lg.Info(
+		"agent started",
+		slog.Int("pid", cmd.Process.Pid),
+		slog.String("command", strings.Join(cmd.Args, " ")),
+	)
 
 	a.cmd = cmd
 	a.waitDone = make(chan error, 1)

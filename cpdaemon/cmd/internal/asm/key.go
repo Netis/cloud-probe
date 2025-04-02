@@ -55,6 +55,7 @@ var VKey = struct {
 			NodeName  string
 		}
 		Agent struct {
+			LogLevel   string
 			UnixSocket string
 			TasksFile  string
 		}
@@ -64,12 +65,14 @@ var VKey = struct {
 func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Listen.Http.Port, 9022)
 
+	vp.SetDefault(VKey.Agent.Executable, "cpagent")
+
 	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
 
-	vp.SetDefault(VKey.Cpm.Agent.UnixSocket, "/var/run/cpagent/cpm-agent.sock")
+	vp.SetDefault(VKey.Cpm.Agent.LogLevel, "INFO")
+	vp.SetDefault(VKey.Cpm.Agent.UnixSocket, "/var/run/cloud-probe/cpm-agent.sock")
 	vp.SetDefault(VKey.Cpm.Agent.TasksFile, "cpm-tasks.json")
-	vp.SetDefault(VKey.Agent.Executable, "cpagent")
 
 	vp.SetDefault(VKey.Cpm.Client.Timeout, 15*time.Second)
 	vp.SetDefault(VKey.Cpm.Client.DialTimeout, 5*time.Second)

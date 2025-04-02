@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/Netis/cloud-probe/cpdaemon/cmd/internal/asm"
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/slogx"
+	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 var (

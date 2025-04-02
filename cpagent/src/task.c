@@ -16,7 +16,7 @@
 #include "taskconf.h"
 
 #ifdef ENABLE_DPDK
-#include "dpdk_pdump.h"
+#include "dpdk/pdump.h"
 #endif
 
 static capturer_entry_t capturer_entries[] = {
@@ -142,6 +142,7 @@ typedef struct TaskStats
 
 typedef struct TaskManagerStats
 {
+    struct timespec tm;
     task_stats_t tasks[STAT_MAX_TASKS];
     int num_tasks;
 } task_manager_stats_t;
@@ -265,6 +266,7 @@ void task_manager_update_stats()
         }
         stats.num_tasks++;
     }
+    clock_gettime(CLOCK_MONOTONIC, &stats.tm);
 
     pthread_mutex_lock(&this->stats_lock);
     this->stats = stats;
@@ -301,11 +303,27 @@ static int packets_stats_json_dump(packets_stats_t st, cJSON *obj)
 
 int task_manager_collect_stats_command(cJSON *cmd_msg, cJSON *server_msg, void *data)
 {
+    struct timeval tm;
     task_manager_t *this = &task_mgr;
 
     pthread_mutex_lock(&this->stats_lock);
     task_manager_stats_t stats = this->stats;
     pthread_mutex_unlock(&this->stats_lock);
+
+    cJSON *time = cJSON_CreateObject();
+    if (!time)
+        goto error;
+    cJSON_AddItemToObject(server_msg, "time", time);
+
+    cJSON *tv_sec = cJSON_CreateNumber(stats.tm.tv_sec);
+    if (!tv_sec)
+        goto error;
+    cJSON_AddItemToObject(time, "sec", tv_sec);
+
+    cJSON *tv_nsec = cJSON_CreateNumber(stats.tm.tv_nsec);
+    if (!tv_nsec)
+        goto error;
+    cJSON_AddItemToObject(time, "nsec", tv_nsec);
 
     cJSON *tasks = cJSON_CreateArray();
     if (!tasks)
