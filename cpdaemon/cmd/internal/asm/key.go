@@ -19,12 +19,10 @@ var VKey = struct {
 	Agent struct {
 		Executable string
 	}
-	Kvm struct {
-		ListNameScript      string
-		ListInterfaceScript string
-	}
-	Container struct {
-		GetHostPidScript string
+	Tool struct {
+		GetContainerHostPidScript string
+		GetKvmInstancesScript     string
+		GetKvmInstanceNicsScript  string
 	}
 	Cgroup struct {
 		Version   string

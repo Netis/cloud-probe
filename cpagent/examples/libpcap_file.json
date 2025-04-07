@@ -1,18 +1,14 @@
 {
     "tasks": [
         {
-            "interface": "eth0",
+            "interface": "enp0s3",
             "snaplen": 2048,
             "req_pattern": {
-                "type": "custom",
-                "custom": {
-                    "pattern": "host nic.eth0 and port 22"
-                }
+                "type": "auto"
             },
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
-                    "bpf": "host nic.eth0",
                     "buffer_size_mb": 256
                 }
             },

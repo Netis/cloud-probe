@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -11,6 +12,13 @@
 #include "log.h"
 #include "output_gre.h"
 #include "taskconf.h"
+
+struct grehdr
+{
+    uint16_t flags;
+    uint16_t protocol;
+    uint32_t keybit;
+};
 
 int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
@@ -90,6 +98,7 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
         }
     }
 
+#if defined(OS_LINUX)
     if (opts.pmtudisc > 0)
     {
         if (setsockopt(socket_fd, SOL_IP, IP_MTU_DISCOVER, &opts.pmtudisc, sizeof(opts.pmtudisc)) == -1)
@@ -98,6 +107,7 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
             return NULL;
         }
     }
+#endif
 
     gre_output_t *output = (gre_output_t *)calloc(1, sizeof(gre_output_t));
     if (!output)

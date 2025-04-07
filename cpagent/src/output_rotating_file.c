@@ -1,5 +1,4 @@
 #include <errno.h>
-#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -9,22 +8,30 @@
 #include "log.h"
 #include "output_rotating_file.h"
 
+#define PATH_SEPARATOR '/'
+#define PATH_MAX 4096
+
 static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, char *errbuf)
 {
     char date[15];
-    sprintf(date, "%04d%02d%02d%02d%02d%02d", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour,
-            ptm->tm_min, ptm->tm_sec);
+    snprintf(date, sizeof(date), "%04d%02d%02d%02d%02d%02d", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday,
+             ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
 
     char subPath[11];
-    sprintf(subPath, "%04d%02d%02d%02d", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour);
+    snprintf(subPath, sizeof(subPath), "%04d%02d%02d%02d", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday,
+             ptm->tm_hour);
 
     size_t root_len = strlen(root_dir);
-    const char *separator = "";
-    if (root_len > 0 && root_dir[root_len - 1] != '/')
-        separator = "/";
+    const char *separator =
+        (root_len > 0 && root_dir[root_len - 1] != PATH_SEPARATOR) ? (char[]){PATH_SEPARATOR, '\0'} : "";
 
     char currDir[PATH_MAX];
-    snprintf(currDir, sizeof(currDir), "%s%s%s/", root_dir, separator, subPath);
+    int written = snprintf(currDir, sizeof(currDir), "%s%s%s", root_dir, separator, subPath);
+    if (written < 0 || (size_t)written >= sizeof(currDir))
+    {
+        error_format(errbuf, "path string overflow");
+        return -1;
+    }
 
     struct stat st;
     if (stat(currDir, &st) != 0)
@@ -36,7 +43,13 @@ static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, c
         }
     }
 
-    snprintf(filepath, PATH_MAX, "%s/pktminerg_dump_%s.pcap", currDir, date);
+    written = snprintf(filepath, PATH_MAX, "%s%spktminerg_dump_%s.pcap", currDir, (char[]){PATH_SEPARATOR, '\0'}, date);
+    if (written < 0 || (size_t)written >= PATH_MAX)
+    {
+        error_format(errbuf, "path string overflow");
+        return -1;
+    }
+
     return 0;
 }
 

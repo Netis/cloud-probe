@@ -1,22 +1,23 @@
-#ifdef __linux__
-#define _GNU_SOURCE // 启用GNU扩展
-#include <sched.h>
-#endif
-
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <ifaddrs.h>
-#include <linux/if_ether.h>
+#include <net/ethernet.h>
 #include <net/if.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include "config.h"
+
+#if defined(OS_MACOS) || defined(OS_BSD)
+#include <net/if_dl.h>
+#elif defined(OS_LINUX)
+#include <linux/if_packet.h>
+#endif
 
 #include "common.h"
 #include "error.h"
@@ -35,36 +36,63 @@ int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
         return -1;
     }
 
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0)
+    struct ifaddrs *ifap, *ifa;
+    int found = 0;
+
+    if (getifaddrs(&ifap) == -1)
     {
-        error_format(errbuf, "create socket error: %s", strerror(errno));
+        error_format(errbuf, "getifaddrs error: %s", strerror(errno));
         return -1;
     }
 
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);
-    ifr.ifr_name[IFNAMSIZ - 1] = '\0';
-
-    if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
+    for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next)
     {
-        close(sockfd);
-        error_format(errbuf, "ioctl error: %s", strerror(errno));
+        if (strcmp(ifa->ifa_name, ifname) != 0)
+            continue;
+
+        if (!ifa->ifa_addr)
+            continue;
+
+#if defined(OS_MACOS) || defined(OS_BSD)
+        if (ifa->ifa_addr->sa_family == AF_LINK)
+        {
+            struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifa->ifa_addr;
+            if (sdl->sdl_alen == ETHER_ADDR_LEN)
+            {
+                memcpy(mac_addr, LLADDR(sdl), ETHER_ADDR_LEN);
+                found = 1;
+                break;
+            }
+        }
+#elif defined(OS_LINUX)
+        if (ifa->ifa_addr->sa_family == AF_PACKET)
+        {
+            struct sockaddr_ll *sll = (struct sockaddr_ll *)ifa->ifa_addr;
+            if (sll->sll_halen == ETHER_ADDR_LEN)
+            {
+                memcpy(mac_addr, sll->sll_addr, ETHER_ADDR_LEN);
+                found = 1;
+                break;
+            }
+        }
+#endif
+    }
+
+    freeifaddrs(ifap);
+
+    if (!found)
+    {
+        error_format(errbuf, "Failed to find MAC address for interface %s", ifname);
         return -1;
     }
 
-    close(sockfd);
-
-    unsigned char *hwaddr = (unsigned char *)ifr.ifr_hwaddr.sa_data;
-    memcpy(mac_addr, hwaddr, ETH_ALEN);
     return 0;
 }
 
 void format_mac_addr(const uint8_t *mac_addr, char *buf)
 {
     char *ptr = buf;
-    for (int i = 0; i < ETH_ALEN; ++i)
+    for (int i = 0; i < ETHER_ADDR_LEN; ++i)
     {
         if (i > 0)
         {
@@ -234,83 +262,4 @@ void packets_stats_add(packets_stats_t *stat, uint64_t packets)
     }
 
     stat->peta += new_peta;
-}
-
-int set_cpu_affinity(int cpu)
-{
-#ifdef __linux__
-    cpu_set_t cpu_mask;
-    CPU_ZERO(&cpu_mask);
-    CPU_SET(cpu, &cpu_mask);
-    if (sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask) != 0)
-    {
-        return -1;
-    }
-    return 0;
-#else
-    return 0;
-#endif
-}
-
-int open_self_netns(char *errbuf)
-{
-#ifdef __linux__
-    const char *ns_path = "/proc/self/ns/net";
-    int fd = open(ns_path, O_RDONLY);
-    if (fd == -1)
-    {
-        error_format(errbuf, "open %s error", ns_path);
-        return -1;
-    }
-    return fd;
-#else
-    return 0;
-#endif
-}
-
-int enter_netns_by_path(char *ns_path, char *errbuf)
-{
-#ifdef __linux__
-    int fd = open(ns_path, O_RDONLY);
-    if (fd == -1)
-    {
-        error_format(errbuf, "open '%s' error", ns_path);
-        return -1;
-    }
-    if (setns(fd, CLONE_NEWNET) == -1)
-    {
-        error_format(errbuf, "call setns for '%s' error", ns_path);
-        close(fd);
-        return -1;
-    }
-    close(fd);
-    return 0;
-#else
-    return 0;
-#endif
-}
-
-int enter_netns_by_fd(int fd, char *errbuf)
-{
-#ifdef __linux__
-    if (setns(fd, CLONE_NEWNET) == -1)
-    {
-        error_format(errbuf, "call setns error");
-        close(fd);
-        return -1;
-    }
-    close(fd);
-    return 0;
-#else
-    return 0;
-#endif
-}
-
-int close_netns_fd(int fd)
-{
-#ifdef __linux__
-    return close(fd);
-#else
-    return 0;
-#endif
 }

@@ -17,10 +17,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/container"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/cgroup"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cpm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/kvm"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/tool"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
@@ -129,20 +129,20 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 	syncer, err := cpm.NewSyncer(
 		cpmClient,
 		cpm.AgentConfig{
-			Executable:      vp.GetString(VKey.Agent.Executable),
-			LogLevel:        vp.GetString(VKey.Cpm.Agent.LogLevel),
-			UnixSocket:      filepath.Clean(vp.GetString(VKey.Cpm.Agent.UnixSocket)),
-			TasksFile:       vp.GetString(VKey.Cpm.Agent.TasksFile),
-			CgroupVersion:   vp.GetString(VKey.Cgroup.Version),
-			CgroupRoot:      vp.GetString(VKey.Cgroup.Root),
-			CgroupHierarchy: vp.GetString(VKey.Cgroup.Hierarchy),
+			Executable: vp.GetString(VKey.Agent.Executable),
+			LogLevel:   vp.GetString(VKey.Cpm.Agent.LogLevel),
+			UnixSocket: filepath.Clean(vp.GetString(VKey.Cpm.Agent.UnixSocket)),
+			TasksFile:  vp.GetString(VKey.Cpm.Agent.TasksFile),
+			CgroupCfg: cgroup.CgroupCfg{
+				Version:   vp.GetString(VKey.Cgroup.Version),
+				Root:      vp.GetString(VKey.Cgroup.Root),
+				Hierarchy: vp.GetString(VKey.Cgroup.Hierarchy),
+			},
 		},
-		&kvm.VirshCmdExecutor{
-			ListNameScript:      vp.GetString(VKey.Kvm.ListNameScript),
-			ListInterfaceScript: vp.GetString(VKey.Kvm.ListInterfaceScript),
-		},
-		&container.ContainerCmdExecutor{
-			GetHostPidScript: vp.GetString(VKey.Container.GetHostPidScript),
+		tool.Tool{
+			GetContainerHostPidScript: vp.GetString(VKey.Tool.GetContainerHostPidScript),
+			GetKvmInstancesScript:     vp.GetString(VKey.Tool.GetKvmInstancesScript),
+			GetKvmInstanceNicsScript:  vp.GetString(VKey.Tool.GetKvmInstanceNicsScript),
 		},
 		cpm.SyncerConfig{
 			RegCfg: cpm.RegConfig{

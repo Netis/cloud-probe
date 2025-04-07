@@ -1,15 +1,21 @@
 {
+    "agent": {
+        "executable": "./bin/cpagent"
+    },
     "listen": {
         "http": {
             "port": 9022
         }
     },
     "cpm": {
-        "baseUrl": "https://10.40.9.128:48018",
+        "baseUrl": "https://127.0.0.1:48018",
         "reg": {
-            "name": "cpdaemon-v0.9-test",
-            "platformId": "",
+            "name": "cpdaemon-0.9.0-test",
+            "platformId": "george-ali",
             "deployEnv": "INSTANCE"
+        },
+        "agent": {
+            "tasksFile": "cpm-tasks.json"
         }
     }
 }

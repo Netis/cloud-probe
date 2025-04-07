@@ -1,4 +1,4 @@
-package kvm
+package tool
 
 import (
 	"bytes"
@@ -9,18 +9,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-type VirshCmdExecutor struct {
-	ListNameScript      string
-	ListInterfaceScript string
-}
-
-func (e *VirshCmdExecutor) ListNames() ([]string, error) {
-	var cmd *exec.Cmd
-	if e.ListNameScript == "" {
-		cmd = exec.Command("sh", "-c", "virsh list | awk 'NR>2 {print $2}'")
-	} else {
-		cmd = exec.Command("sh", e.ListNameScript)
-	}
+func GetKvmInstancesByVirsh() ([]string, error) {
+	cmd := exec.Command("sh", "-c", "virsh list | awk 'NR>2 {print $2}'")
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -37,8 +27,33 @@ func (e *VirshCmdExecutor) ListNames() ([]string, error) {
 		return nil, errors.Errorf("command failed: %s", strings.TrimSpace(stderr.String()))
 	}
 
+	return parseKvmInstances(stdout.String())
+}
+
+func GetKvmInstanceNicsByVirsh(instanceName string) ([]string, error) {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("virsh domiflist %s | awk 'NR==3 {print $1}'", instanceName))
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return nil, errors.Wrapf(err, "command failed: %s", strings.TrimSpace(stderr.String()))
+		} else {
+			return nil, errors.Wrapf(err, "system error")
+		}
+	}
+	if stdout.Len() == 0 && stderr.Len() > 0 {
+		return nil, errors.Errorf("command failed: %s", strings.TrimSpace(stderr.String()))
+	}
+
+	return parseKvmInstanceNics(stdout.String())
+}
+
+func parseKvmInstances(output string) ([]string, error) {
 	var result []string
-	for line := range strings.Lines(stdout.String()) {
+	for line := range strings.Lines(output) {
 		line = strings.TrimSpace(line)
 		if line != "" {
 			result = append(result, line)
@@ -47,31 +62,9 @@ func (e *VirshCmdExecutor) ListNames() ([]string, error) {
 	return result, nil
 }
 
-func (e *VirshCmdExecutor) ListInterfaces(vmName string) ([]string, error) {
-	var cmd *exec.Cmd
-	if e.ListInterfaceScript == "" {
-		cmd = exec.Command("sh", "-c", fmt.Sprintf("virsh domiflist %s | awk 'NR==3 {print $1}'", vmName))
-	} else {
-		cmd = exec.Command("sh", e.ListInterfaceScript, vmName)
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return nil, errors.Wrapf(err, "command failed: %s", strings.TrimSpace(stderr.String()))
-		} else {
-			return nil, errors.Wrapf(err, "system error")
-		}
-	}
-	if stdout.Len() == 0 && stderr.Len() > 0 {
-		return nil, errors.Errorf("command failed: %s", strings.TrimSpace(stderr.String()))
-	}
-
+func parseKvmInstanceNics(output string) ([]string, error) {
 	var result []string
-	for line := range strings.Lines(stdout.String()) {
+	for line := range strings.Lines(output) {
 		line = strings.TrimSpace(line)
 		if line != "" && line != "-" {
 			result = append(result, line)

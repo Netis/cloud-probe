@@ -110,6 +110,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
         }
     }
 
+#if defined(OS_LINUX)
     if (opts.pmtudisc > 0)
     {
         if (setsockopt(socket_fd, SOL_IP, IP_MTU_DISCOVER, &opts.pmtudisc, sizeof(opts.pmtudisc)) == -1)
@@ -118,6 +119,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
             return NULL;
         }
     }
+#endif
 
     vxlan_output_t *output = (vxlan_output_t *)calloc(1, sizeof(vxlan_output_t));
     if (!output)

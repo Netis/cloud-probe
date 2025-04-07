@@ -1,5 +1,5 @@
-#ifndef cJSON_Common__h
-#define cJSON_Common__h
+#ifndef CPAGENT_CJSON_UTILS_H
+#define CPAGENT_CJSON_UTILS_H
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -23,4 +23,4 @@ typedef struct
 void cjson_set_parse_error(cJSONParseError *err, const char *format, ...);
 void cjson_wrap_parse_error(cJSONParseError *err, const char *format, ...);
 
-#endif /* cJSON_Common__h */
+#endif /* CPAGENT_CJSON_UTILS_H */

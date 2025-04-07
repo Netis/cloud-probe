@@ -1,7 +1,6 @@
 #ifndef CPAGENT_REQ_PATTERN_H
 #define CPAGENT_REQ_PATTERN_H
 
-#include <linux/if_ether.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <sys/types.h>

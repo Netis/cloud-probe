@@ -1,13 +1,9 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
-#include <linux/if_ether.h>
 #include <net/ethernet.h>
 #include <net/if.h>
 #include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -20,8 +16,11 @@
 
 #include "common.h"
 #include "error.h"
+#include "ip.h"
 #include "log.h"
 #include "req_pattern.h"
+#include "tcp.h"
+#include "udp.h"
 
 typedef enum
 {
@@ -89,7 +88,7 @@ typedef struct ReqPatternCustomMatcher
 
 typedef struct ReqPatternAutoMatcher
 {
-    uint8_t mac_addr[ETH_ALEN];
+    uint8_t mac_addr[ETHER_ADDR_LEN];
 } req_pattern_auto_matcher_t;
 
 typedef struct ReqPattern
@@ -433,20 +432,22 @@ static bool req_pattern_custom_match_by_ipport(req_pattern_custom_matcher_t *mat
 static int req_pattern_custom_judge_pkt_dir(req_pattern_custom_matcher_t *matcher, const struct pcap_pkthdr *header,
                                             const uint8_t *pkt_data, size_t ip_hdr_offset)
 {
-    struct iphdr *ip_hdr = (struct iphdr *)(pkt_data + ip_hdr_offset);
+    struct ipv4_hdr *ip_hdr = (struct ipv4_hdr *)(pkt_data + ip_hdr_offset);
     size_t ip_hdr_len = ip_hdr->ihl * 4;
     uint16_t sport = 0;
     uint16_t dport = 0;
 
+    struct tcphdr *tcp_hdr;
+    struct udphdr *udp_hdr;
     switch (ip_hdr->protocol)
     {
     case IPPROTO_TCP:
-        struct tcphdr *tcp_hdr = (struct tcphdr *)(pkt_data + ip_hdr_offset + ip_hdr_len);
-        sport = ntohs(tcp_hdr->source);
-        dport = ntohs(tcp_hdr->dest);
+        tcp_hdr = (struct tcphdr *)(pkt_data + ip_hdr_offset + ip_hdr_len);
+        sport = ntohs(tcp_hdr->sport);
+        dport = ntohs(tcp_hdr->dport);
         break;
     case IPPROTO_UDP:
-        struct udphdr *udp_hdr = (struct udphdr *)(pkt_data + ip_hdr_offset + ip_hdr_len);
+        udp_hdr = (struct udphdr *)(pkt_data + ip_hdr_offset + ip_hdr_len);
         sport = ntohs(udp_hdr->source);
         dport = ntohs(udp_hdr->dest);
 
@@ -470,7 +471,7 @@ int req_pattern_judge_pkt_direction(req_pattern_t *req_pattern, const struct pca
 
     if (req_pattern->type == REQ_PATTERN_TYPE_AUTO)
     {
-        if (memcmp(eth_hdr->ether_shost, req_pattern->matcher._auto.mac_addr, ETH_ALEN) == 0)
+        if (memcmp(eth_hdr->ether_shost, req_pattern->matcher._auto.mac_addr, ETHER_ADDR_LEN) == 0)
             return PKT_DIR_OUTGOING;
         else
             return PKT_DIR_INCOMING;

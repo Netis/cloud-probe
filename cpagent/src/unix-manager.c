@@ -516,6 +516,7 @@ static void *unix_manager_run(void *arg)
             break;
         }
     }
+    return NULL;
 }
 
 int unix_manager_init(const char *socket_file)

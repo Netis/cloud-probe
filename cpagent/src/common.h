@@ -1,9 +1,10 @@
 #ifndef CPAGENT_COMMON_H
 #define CPAGENT_COMMON_H
 
-#include <endian.h>
 #include <netinet/in.h>
 #include <stdint.h>
+
+#include "byteorder.h"
 
 #define PKT_DIR_UNKNOWN -1
 #define PKT_DIR_NONCHECK 0
@@ -21,7 +22,7 @@
 
 typedef struct
 {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if ENDIANNESS_LE
     unsigned int reserved0 : 3;    // MPLS Label
     unsigned int rra : 4;          // MPLS Label
     unsigned int magic_number : 1; // MPLS Label
@@ -33,7 +34,7 @@ typedef struct
     unsigned int service_tag_l : 4; // MPLS Label
 
     unsigned int reserved2 : 8; // MPLS TTL
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif ENDIANNESS_BE
     unsigned int magic_number : 1; // MPLS Label
     unsigned int rra : 4;          // MPLS Label
     unsigned int reserved0 : 3;    // MPLS Label
@@ -45,6 +46,8 @@ typedef struct
     unsigned int bottom : 1;        // MPLS Bottom of Label Stack
 
     unsigned int reserved2 : 8; // MPLS TTL
+#else
+#error "Please fix byteorder.h"
 #endif
 } mpls_header;
 
@@ -68,13 +71,6 @@ struct vlanhdr
 {
     uint16_t tci;
     uint16_t h_proto;
-};
-
-struct grehdr
-{
-    uint16_t flags;
-    uint16_t protocol;
-    uint32_t keybit;
 };
 
 typedef struct
@@ -112,14 +108,7 @@ int get_if_addr(const char *ifname, ip_addr_t *addr, char *errbuf);
 int format_ip_addr(ip_addr_t *addr, char *buf, size_t buflen);
 char *bpf_filter_replace_nic(const char *input, char *errbuf);
 
-int set_cpu_affinity(int cpu);
-
 void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes);
 void packets_stats_add(packets_stats_t *stat, uint64_t packets);
-
-int open_self_netns(char *errbuf);
-int enter_netns_by_path(char *ns_path, char *errbuf);
-int enter_netns_by_fd(int fd, char *errbuf);
-int close_netns_fd(int fd);
 
 #endif /* CPAGENT_COMMON_H */

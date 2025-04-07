@@ -1,7 +1,8 @@
-package agent
+package cgroup
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -10,9 +11,69 @@ import (
 )
 
 const (
-	CgroupVersionV1 = "v1"
-	CgroupVersionV2 = "v2"
+	VersionV1 = "v1"
+	VersionV2 = "v2"
 )
+
+type CgroupCfg struct {
+	Version   string
+	Root      string
+	Hierarchy string
+}
+
+type CgroupLimit struct {
+	CpuLimit *float64 // cpu usage percentage, eg: 100 means 100%
+}
+
+func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (func() error, error) {
+	cgroupName := fmt.Sprintf("pid-%d", pid)
+	switch cfg.Version {
+	case VersionV1:
+		cgroupPath, err := CreateV1CpuCgroup(cfg.Root, cfg.Hierarchy, cgroupName)
+		if err != nil {
+			return nil, err
+		}
+		slog.Default().Info("create cgroup", slog.String("cgroupPath", cgroupPath))
+
+		clean := func() error {
+			return RemoveCgroup(cgroupPath)
+		}
+
+		if limit.CpuLimit != nil {
+			if err := SetV1CpuQuota(cgroupPath, *limit.CpuLimit); err != nil {
+				return clean, err
+			}
+		}
+
+		if err := AddCgroupProcess(cgroupPath, pid); err != nil {
+			return clean, err
+		}
+		return clean, nil
+	case VersionV2:
+		cgroupPath, err := CreateV2Cgroup(cfg.Root, cfg.Hierarchy, cgroupName)
+		if err != nil {
+			return nil, err
+		}
+		slog.Default().Info("create cgroup", slog.String("cgroupPath", cgroupPath))
+
+		clean := func() error {
+			return RemoveCgroup(cgroupPath)
+		}
+
+		if limit.CpuLimit != nil {
+			if err := SetV2CpuQuota(cgroupPath, *limit.CpuLimit); err != nil {
+				return clean, err
+			}
+		}
+
+		if err := AddCgroupProcess(cgroupPath, pid); err != nil {
+			return clean, err
+		}
+		return clean, nil
+	default:
+		return nil, errors.Errorf("unknown cgroup version: %s", cfg.Version)
+	}
+}
 
 func AddCgroupProcess(cgroupPath string, pid int) error {
 	if err := os.WriteFile(

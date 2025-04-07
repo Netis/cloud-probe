@@ -3,13 +3,9 @@
         {
             "name": "Linux",
             "includePath": [
-                "/root/cpagent_libs_sdk/include/",
                 "${workspaceFolder}/**"
             ],
-            "defines": [
-                "ENABLE_DPDK"
-            ],
-            "compilerPath": "/opt/rh/devtoolset-11/root/usr/bin/gcc",
+            "defines": [],
             "cStandard": "gnu11",
             "cppStandard": "gnu++11",
             "intelliSenseMode": "linux-gcc-x64"

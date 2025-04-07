@@ -10,6 +10,7 @@
 #include "error.h"
 #include "libpcap.h"
 #include "log.h"
+#include "netns.h"
 #include "req_pattern.h"
 
 uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
@@ -20,11 +21,11 @@ uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *
     const u_char *data;
     uint64_t retval;
 
+    int direction;
     int ret = pcap_next_ex(capturer->p, &hdr, &data);
     switch (ret)
     {
     case 1:
-        int direction = PKT_DIR_UNKNOWN;
         if (capturer->req_pattern == NULL)
             direction = PKT_DIR_NONCHECK;
         else

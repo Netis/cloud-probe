@@ -17,6 +17,8 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/cgroup"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/tool"
 	"github.com/Netis/cloud-probe/cpgolib/agentclient"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
@@ -44,10 +46,7 @@ type AgentConfig struct {
 	Executable string
 	Env        map[string]string
 	WorkDir    string
-
-	CgroupVersion   string
-	CgroupRoot      string
-	CgroupHierarchy string
+	CgroupCfg  cgroup.CgroupCfg
 
 	LogLevel   string
 	UnixSocket string
@@ -64,8 +63,7 @@ func (c *AgentConfig) Validate() error {
 type AgentManager struct {
 	agentCfg     AgentConfig
 	agentFactory AgentFactory
-	virsh        VirshCmdExecutor
-	container    ContainerCmdExecutor
+	tool         tool.Tool
 	lg           *slog.Logger
 
 	mu     sync.Mutex
@@ -76,14 +74,12 @@ type AgentManager struct {
 func NewAgentManager(
 	agentCfg AgentConfig,
 	agentFactory AgentFactory,
-	virsh VirshCmdExecutor,
-	container ContainerCmdExecutor,
+	tool tool.Tool,
 ) *AgentManager {
 	return &AgentManager{
 		agentCfg:     agentCfg,
 		agentFactory: agentFactory,
-		virsh:        virsh,
-		container:    container,
+		tool:         tool,
 		lg:           slog.Default().With(slogx.LoggerName("cpm.agentMgr")),
 	}
 }
@@ -214,8 +210,7 @@ func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyRespon
 	}
 
 	tb := &tasksBuilder{
-		virsh:           m.virsh,
-		container:       m.container,
+		tool:            m.tool,
 		activeInstances: activeInstances,
 		buffSize:        buffSize,
 	}
@@ -237,11 +232,7 @@ func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyRespon
 		Executable: m.agentCfg.Executable,
 		Env:        m.agentCfg.Env,
 		WorkDir:    m.agentCfg.WorkDir,
-
-		CgroupVersion:   m.agentCfg.CgroupVersion,
-		CgroupRoot:      m.agentCfg.CgroupRoot,
-		CgroupHierarchy: m.agentCfg.CgroupHierarchy,
-
+		CgroupCfg:  m.agentCfg.CgroupCfg,
 		LogLevel:   m.agentCfg.LogLevel,
 		UnixSocket: m.agentCfg.UnixSocket,
 		TasksFile:  m.agentCfg.TasksFile,
@@ -273,8 +264,7 @@ func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyRespon
 }
 
 type tasksBuilder struct {
-	virsh           VirshCmdExecutor
-	container       ContainerCmdExecutor
+	tool            tool.Tool
 	activeInstances []string
 	buffSize        uint64
 
@@ -322,7 +312,7 @@ func (b *tasksBuilder) addContainerIds(strategy StrategyEntry) {
 			nics = []string{"eth0"}
 		}
 
-		hostPid, err := b.container.GetHostPid(containerId)
+		hostPid, err := b.tool.GetContainerHostPid(containerId)
 		if err != nil {
 			b.warnings = append(b.warnings, errors.Wrapf(err, "get container host process id failed: %s", containerId))
 			idx += len(nics)
@@ -373,7 +363,7 @@ func (b *tasksBuilder) addInstanceName(strategy StrategyEntry, instanceName stri
 		return
 	}
 
-	ifs, err := b.virsh.ListInterfaces(instanceName)
+	ifs, err := b.tool.GetKvmInstanceNics(instanceName)
 	if err != nil {
 		b.warnings = append(b.warnings, err)
 		return

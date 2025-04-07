@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/cgroup"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
@@ -22,9 +23,7 @@ type AgentRunTimeConfig struct {
 	Env        map[string]string
 	WorkDir    string
 
-	CgroupVersion   string
-	CgroupRoot      string
-	CgroupHierarchy string
+	CgroupCfg cgroup.CgroupCfg
 
 	LogLevel   string
 	UnixSocket string
@@ -109,9 +108,9 @@ func (a *Agent) Start(ctx context.Context) error {
 			}
 		}()
 
-		cleanCgroup, err := a.createCgroup()
+		cleanup, err := a.createResLimit()
 		if err != nil {
-			a.lg.Error("create cgroup failed, stopping agent", slogx.Error(err))
+			a.lg.Error("create resource limit failed, stopping agent", slogx.Error(err))
 			a.Stop()
 		}
 
@@ -124,11 +123,11 @@ func (a *Agent) Start(ctx context.Context) error {
 		a.waitDone <- err
 		close(a.waitDone)
 
-		if cleanCgroup != nil {
-			if err := cleanCgroup(); err != nil {
-				a.lg.Error("clean cgroup failed", slogx.Error(err))
+		if cleanup != nil {
+			if err := cleanup(); err != nil {
+				a.lg.Error("clean resource limitfailed", slogx.Error(err))
 			} else {
-				a.lg.Info("clean cgroup success")
+				a.lg.Info("clean resource limit success")
 			}
 		}
 
@@ -217,7 +216,7 @@ func (a *Agent) Stop() error {
 	return nil
 }
 
-func (a *Agent) createCgroup() (func() error, error) {
+func (a *Agent) createResLimit() (func() error, error) {
 	emptyClean := func() error { return nil }
 
 	if a.cfg.CpuLimit == nil || *a.cfg.CpuLimit <= 0 {
@@ -231,48 +230,15 @@ func (a *Agent) createCgroup() (func() error, error) {
 		a.lg.Error("agent is not running, skip cgroup")
 		return emptyClean, nil
 	}
-
-	cgroupName := fmt.Sprintf("pid-%d", cmd.Process.Pid)
-	switch a.cfg.CgroupVersion {
-	case CgroupVersionV1:
-		cgroupPath, err := CreateV1CpuCgroup(a.cfg.CgroupRoot, a.cfg.CgroupHierarchy, cgroupName)
-		if err != nil {
-			return nil, err
-		}
-		a.lg.Info("create cgroup", slog.String("cgroupPath", cgroupPath))
-
-		clean := func() error {
-			return RemoveCgroup(cgroupPath)
-		}
-
-		if err := SetV1CpuQuota(cgroupPath, *a.cfg.CpuLimit); err != nil {
-			return clean, err
-		}
-		if err := AddCgroupProcess(cgroupPath, cmd.Process.Pid); err != nil {
-			return clean, err
-		}
-		return clean, nil
-	case CgroupVersionV2:
-		cgroupPath, err := CreateV2Cgroup(a.cfg.CgroupRoot, a.cfg.CgroupHierarchy, cgroupName)
-		if err != nil {
-			return nil, err
-		}
-		a.lg.Info("create cgroup", slog.String("cgroupPath", cgroupPath))
-
-		clean := func() error {
-			return RemoveCgroup(cgroupPath)
-		}
-
-		if err := SetV2CpuQuota(cgroupPath, *a.cfg.CpuLimit); err != nil {
-			return clean, err
-		}
-		if err := AddCgroupProcess(cgroupPath, cmd.Process.Pid); err != nil {
-			return clean, err
-		}
-		return clean, nil
-	default:
-		return nil, errors.Errorf("unknown cgroup version: %s", a.cfg.CgroupVersion)
-	}
+	return CreateProcessResLimit(
+		cmd.Process.Pid,
+		ResLimitCfg{
+			CgroupCfg: a.cfg.CgroupCfg,
+		},
+		ResLimitQuota{
+			CpuLimit: a.cfg.CpuLimit,
+		},
+	)
 }
 
 func (a *Agent) writeTasks() error {

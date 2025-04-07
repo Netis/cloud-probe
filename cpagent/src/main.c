@@ -7,7 +7,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "affinity.h"
 #include "common.h"
+#include "config.h"
 #include "error.h"
 #include "log.h"
 #include "task.h"
@@ -27,11 +29,17 @@ static const char *unix_socket = "";
 static const char *log_level = "INFO";
 
 static bool quit_signal;
+
 static const char *version(void)
 {
     static char str[128];
 
-    snprintf(str, sizeof(str), "%s 1.0\n", progname);
+#if defined(CPAGENT_VERSION_SUFFIX)
+    snprintf(str, sizeof(str), "version %s_%s (Git-%s)\n", CPAGENT_VERSION, CPAGENT_VERSION_SUFFIX,
+             CPAGENT_GIT_COMMIT_HASH);
+#else
+    snprintf(str, sizeof(str), "version %s (Git-%s)\n", CPAGENT_VERSION, CPAGENT_GIT_COMMIT_HASH);
+#endif
     return str;
 }
 

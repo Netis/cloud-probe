@@ -17,6 +17,7 @@ import (
 	"github.com/shirou/gopsutil/v4/process"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/tool"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
 	"github.com/Netis/cloud-probe/cpgolib/agentclient"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
@@ -61,7 +62,7 @@ type SyncerConfig struct {
 type Syncer struct {
 	client   *HttpClient
 	agentMgr *AgentManager
-	virsh    VirshCmdExecutor
+	tool     tool.Tool
 	cfg      SyncerConfig
 
 	daemonUUID        string
@@ -93,8 +94,7 @@ func checkAgentRunning(unixSocket string) (bool, error) {
 func NewSyncer(
 	client *HttpClient,
 	agentCfg AgentConfig,
-	virsh VirshCmdExecutor,
-	container ContainerCmdExecutor,
+	tool tool.Tool,
 	cfg SyncerConfig,
 ) (*Syncer, error) {
 	if err := cfg.RegCfg.Validate(); err != nil {
@@ -119,13 +119,13 @@ func NewSyncer(
 		&SyncLogHandler{w: logBuf, level: slog.LevelDebug},
 	))
 
-	agentMgr := NewAgentManager(agentCfg, AgentFactoryFunc(agent.NewAgent), virsh, container)
+	agentMgr := NewAgentManager(agentCfg, AgentFactoryFunc(agent.NewAgent), tool)
 	agentMgr.SetLogger(lg.With(slogx.LoggerName("cpm.agentMgr")))
 
 	s := &Syncer{
 		client:   client,
 		agentMgr: agentMgr,
-		virsh:    virsh,
+		tool:     tool,
 		cfg:      cfg,
 
 		logBuf: logBuf,
@@ -384,7 +384,7 @@ func (s *Syncer) UpdateIfInstanceChanged(ctx context.Context) error {
 		return nil
 	}
 
-	activeInstances, err := s.virsh.ListNames()
+	activeInstances, err := s.tool.GetKvmInstances()
 	if err != nil {
 		s.lg.Error("get active instances failed", slogx.Error(err))
 		return nil
@@ -421,7 +421,7 @@ func (s *Syncer) activeInstancesIfRequired(resp *SyncStrategyResponse) ([]string
 	if !resp.HasInstances() {
 		return nil, nil
 	}
-	return s.virsh.ListNames()
+	return s.tool.GetKvmInstances()
 }
 
 func (s *Syncer) syncMetric(ctx context.Context) error {

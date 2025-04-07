@@ -27,7 +27,7 @@ var (
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringP("config", "c", "config.yml", "config file path")
+	rootCmd.PersistentFlags().StringP("config", "c", "config.json", "config file path")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	_ = rootCmd.MarkPersistentFlagFilename("config")
 }
