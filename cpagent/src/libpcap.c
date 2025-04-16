@@ -6,12 +6,14 @@
 #include <pcap/pcap.h>
 
 #include "capturer.h"
-#include "common.h"
 #include "error.h"
+#include "if_util.h"
 #include "libpcap.h"
 #include "log.h"
 #include "netns.h"
+#include "pkt_dir.h"
 #include "req_pattern.h"
+#include "stats.h"
 
 uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
 {

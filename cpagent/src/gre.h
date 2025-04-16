@@ -1,0 +1,15 @@
+#ifndef CPAGENT_GRE_H
+#define CPAGENT_GRE_H
+
+#include <stdint.h>
+
+struct grehdr
+{
+    uint16_t flags;
+    uint16_t protocol;
+    uint32_t keybit;
+};
+
+#define GRE_HEADER_LEN 8
+
+#endif /* CPAGENT_GRE_H */

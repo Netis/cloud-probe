@@ -36,10 +36,11 @@
 #include <pcap/bpf.h>
 #include <pcap/pcap.h>
 
-#include "common.h"
 #include "dpdk/pdump.h"
 #include "error.h"
 #include "log.h"
+#include "pkt_dir.h"
+#include "stats.h"
 
 #define MONITOR_INTERVAL (500 * 1000)
 #define MBUF_POOL_CACHE_SIZE 32

@@ -7,18 +7,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "common.h"
 #include "error.h"
+#include "gre.h"
 #include "log.h"
 #include "output_gre.h"
+#include "pkt_dir.h"
+#include "stats.h"
 #include "taskconf.h"
-
-struct grehdr
-{
-    uint16_t flags;
-    uint16_t protocol;
-    uint32_t keybit;
-};
 
 int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {

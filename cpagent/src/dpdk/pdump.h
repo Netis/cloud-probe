@@ -7,7 +7,6 @@
 #include <rte_ring.h>
 
 #include "capturer.h"
-#include "common.h"
 #include "req_pattern.h"
 #include "taskconf.h"
 

@@ -6,7 +6,7 @@
 
 #include <pcap/pcap.h>
 
-#include "common.h"
+#include "stats.h"
 #include "taskconf.h"
 
 typedef struct OutputStats

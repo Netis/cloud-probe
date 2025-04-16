@@ -3,15 +3,16 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "common.h"
 #include "error.h"
 #include "log.h"
 #include "output_rotating_file.h"
+#include "pkt_dir.h"
+#include "stats.h"
 
 #define PATH_SEPARATOR '/'
 #define PATH_MAX 4096
 
-static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, char *errbuf)
+static int generate_path(const char *root_dir, struct tm *ptm, char *filepath)
 {
     char date[15];
     snprintf(date, sizeof(date), "%04d%02d%02d%02d%02d%02d", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday,
@@ -29,7 +30,7 @@ static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, c
     int written = snprintf(currDir, sizeof(currDir), "%s%s%s", root_dir, separator, subPath);
     if (written < 0 || (size_t)written >= sizeof(currDir))
     {
-        error_format(errbuf, "path string overflow");
+        log_error("path string overflow");
         return -1;
     }
 
@@ -38,7 +39,7 @@ static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, c
     {
         if (mkdir(currDir, 0755) != 0)
         {
-            error_format(errbuf, "create path %s error: %s", currDir, strerror(errno));
+            log_error("create path %s error: %s", currDir, strerror(errno));
             return -1;
         }
     }
@@ -46,19 +47,19 @@ static int generate_path(const char *root_dir, struct tm *ptm, char *filepath, c
     written = snprintf(filepath, PATH_MAX, "%s%spktminerg_dump_%s.pcap", currDir, (char[]){PATH_SEPARATOR, '\0'}, date);
     if (written < 0 || (size_t)written >= PATH_MAX)
     {
-        error_format(errbuf, "path string overflow");
+        log_error("path string overflow");
         return -1;
     }
 
     return 0;
 }
 
-static int create_dumper(rotating_file_output_t *output, char *errbuf)
+static int create_dumper(rotating_file_output_t *output)
 {
     struct tm tm_buf;
     struct tm *ptm = localtime_r(&output->file_time, &tm_buf);
     char filepath[PATH_MAX];
-    if (generate_path(output->file_root, ptm, filepath, errbuf) != 0)
+    if (generate_path(output->file_root, ptm, filepath) != 0)
     {
         return -1;
     }
@@ -66,6 +67,7 @@ static int create_dumper(rotating_file_output_t *output, char *errbuf)
     FILE *fp = fopen(filepath, "w+");
     if (!fp)
     {
+        log_error("open file %s error", filepath);
         return -1;
     }
     rewind(fp);
@@ -73,6 +75,7 @@ static int create_dumper(rotating_file_output_t *output, char *errbuf)
     pcap_dumper_t *dumper = pcap_dump_fopen(output->pcap, fp);
     if (!dumper)
     {
+        log_error("pcap_dump_fopen error: %s", pcap_geterr(output->pcap));
         fclose(fp);
         return -1;
     }
@@ -108,8 +111,7 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
     else if (output->dumper == NULL)
     {
         time(&output->file_time);
-        char errbuf[ERROR_BUFFER_SIZE];
-        if (create_dumper(output, errbuf) != 0)
+        if (create_dumper(output) != 0)
         {
             output->dumper_error = true;
             bytes_stats_add(&output->base.stats.error_drop_bytes, header->caplen);
@@ -128,8 +130,7 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
             output->dumper = NULL;
             output->fp = NULL;
 
-            char errbuf[ERROR_BUFFER_SIZE];
-            if (create_dumper(output, errbuf) != 0)
+            if (create_dumper(output) != 0)
             {
                 output->dumper_error = true;
                 bytes_stats_add(&output->base.stats.error_drop_bytes, header->caplen);

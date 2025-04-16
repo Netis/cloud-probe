@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include "affinity.h"
-#include "common.h"
 #include "config.h"
 #include "error.h"
 #include "log.h"

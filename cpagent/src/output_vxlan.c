@@ -6,10 +6,22 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "common.h"
 #include "error.h"
 #include "log.h"
 #include "output_vxlan.h"
+#include "pkt_dir.h"
+#include "stats.h"
+#include "vxlan.h"
+
+typedef struct
+{
+    uint8_t reserved1 : 4;
+    uint8_t rra : 4;
+    uint8_t service_tag_h : 4;
+    uint8_t reserved2 : 4;
+    uint8_t service_tag_l : 8;
+    uint8_t check;
+} pa_tag_t;
 
 int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {

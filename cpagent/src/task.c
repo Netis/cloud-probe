@@ -1,3 +1,4 @@
+#include <net/ethernet.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,7 @@
 #include "output_vxlan.h"
 #include "output_zmq.h"
 #include "queue.h"
+#include "stats.h"
 #include "task.h"
 #include "taskconf.h"
 
@@ -116,6 +118,9 @@ void capture_task_destory(capture_task_t *task)
 
 void task_handle_packet_cb(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct, void *user)
 {
+    if (header->caplen < sizeof(struct ether_header))
+        return;
+
     capture_task_t *task = (capture_task_t *)user;
 
     for (int i = 0; i < task->num_outputs; ++i)

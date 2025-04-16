@@ -1,9 +1,9 @@
-#include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
 #include <ifaddrs.h>
 #include <net/ethernet.h>
 #include <net/if.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,8 +19,8 @@
 #include <linux/if_packet.h>
 #endif
 
-#include "common.h"
 #include "error.h"
+#include "if_util.h"
 #include "log.h"
 
 int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
@@ -89,20 +89,6 @@ int get_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
     return 0;
 }
 
-void format_mac_addr(const uint8_t *mac_addr, char *buf)
-{
-    char *ptr = buf;
-    for (int i = 0; i < ETHER_ADDR_LEN; ++i)
-    {
-        if (i > 0)
-        {
-            *ptr++ = ':';
-        }
-        ptr += sprintf(ptr, "%02x", mac_addr[i]);
-    }
-    *ptr = '\0';
-}
-
 int get_if_addr(const char *ifname, ip_addr_t *addr, char *errbuf)
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -142,40 +128,6 @@ int get_if_addr(const char *ifname, ip_addr_t *addr, char *errbuf)
     {
         error_format(errbuf, "No IPv4 address found for %s", ifname);
         return -1;
-    }
-    return 0;
-}
-
-int format_ip_addr(ip_addr_t *addr, char *buf, size_t buflen)
-{
-    if (!addr || !buf || buflen < 1)
-        return -1;
-
-    size_t required_len = (addr->type == IP_TYPE_IPv4) ? INET_ADDRSTRLEN : INET6_ADDRSTRLEN;
-    if (buflen < required_len)
-    {
-        buf[0] = '\0';
-        return -2;
-    }
-
-    const char *result = NULL;
-    switch (addr->type)
-    {
-    case IP_TYPE_IPv4:
-        result = inet_ntop(AF_INET, &addr->data.v4, buf, INET_ADDRSTRLEN);
-        break;
-    case IP_TYPE_IPv6:
-        result = inet_ntop(AF_INET6, &addr->data.v6, buf, INET6_ADDRSTRLEN);
-        break;
-    default:
-        buf[0] = '\0';
-        return -3;
-    }
-
-    if (result == NULL)
-    {
-        buf[0] = '\0';
-        return -3;
     }
     return 0;
 }
@@ -232,34 +184,4 @@ char *bpf_filter_replace_nic(const char *input, char *errbuf)
     }
     *out_ptr = '\0';
     return output;
-}
-
-void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes)
-{
-    uint64_t new_eib = bytes / EIB_IN_BYTES;
-    uint64_t new_bytes = bytes % EIB_IN_BYTES;
-
-    stat->bytes += new_bytes;
-    if (stat->bytes >= EIB_IN_BYTES)
-    {
-        stat->bytes -= EIB_IN_BYTES;
-        new_eib += 1;
-    }
-
-    stat->eib += new_eib;
-}
-
-void packets_stats_add(packets_stats_t *stat, uint64_t packets)
-{
-    uint64_t new_peta = packets / PETA_IN_PACKETS;
-    uint64_t new_packets = packets % PETA_IN_PACKETS;
-
-    stat->packets += new_packets;
-    if (stat->packets >= PETA_IN_PACKETS)
-    {
-        stat->packets -= PETA_IN_PACKETS;
-        new_peta += 1;
-    }
-
-    stat->peta += new_peta;
 }
