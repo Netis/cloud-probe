@@ -104,7 +104,11 @@ func (ins *Instance) ListenHTTP(
 }
 
 func NewCpmClient(vp *viper.Viper) (*cpm.HttpClient, error) {
-	return cpm.NewHttpClient(vp.GetString(VKey.Cpm.BaseUrl), cpm.ClientConfig{
+	baseUrl := vp.GetString(VKey.Cpm.BaseUrl)
+	if baseUrl == "" {
+		return nil, errors.New("cpm.baseUrl is missing")
+	}
+	return cpm.NewHttpClient(baseUrl, cpm.ClientConfig{
 		Timeout:               vp.GetDuration(VKey.Cpm.Client.Timeout),
 		DialTimeout:           vp.GetDuration(VKey.Cpm.Client.DialTimeout),
 		ResponseHeaderTimeout: vp.GetDuration(VKey.Cpm.Client.ResponseHeaderTimeout),

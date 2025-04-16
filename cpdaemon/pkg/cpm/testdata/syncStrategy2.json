@@ -1,0 +1,43 @@
+{
+    "id": 3542,
+    "daemonId": 3277,
+    "strategy": [
+        {
+            "sliceLen": 0,
+            "networkInterfaceName": "eth0",
+            "startup": "-s 65535 -t 0",
+            "forwardRateLimit": 256,
+            "buffLimit": 64,
+            "bpf": "host 10.1.1.1",
+            "hasServiceTag": true,
+            "serviceTag": 3456,
+            "hasReqPattern": true,
+            "reqPattern": "host nic.eth0 and port 22",
+            "reqPatternType": "CUSTOM",
+            "apiVersion": "v1",
+            "hasObservationTag": false,
+            "hasExtensionFlag": false,
+            "extensionFlag": 0,
+            "packetChannelType": "ZMQ",
+            "address": "127.0.0.1",
+            "port": 5555,
+            "dumpDir": null,
+            "dumpInterval": null,
+            "clusterId": 13,
+            "strategyConditions": [],
+            "strategyApplications": [],
+            "id": 3331,
+            "containerIds": [],
+            "interfaceNames": [
+                "eth0"
+            ],
+            "instanceNames": [],
+            "observationDomainIds": [],
+            "observationPointIds": []
+        }
+    ],
+    "cpuLimit": 10,
+    "memLimit": 1024,
+    "version": 3,
+    "syncInterval": 15
+}

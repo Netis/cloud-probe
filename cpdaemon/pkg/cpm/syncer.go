@@ -16,7 +16,6 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/process"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/tool"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
 	"github.com/Netis/cloud-probe/cpgolib/agentclient"
@@ -59,10 +58,33 @@ type SyncerConfig struct {
 	SyncMetricInterval   time.Duration
 }
 
+type Tool interface {
+	GetContainerHostPid(containerId string) (int, error)
+	GetKvmInstances() ([]string, error)
+	GetKvmInstanceNics(instanceName string) ([]string, error)
+}
+
+type IAgentManager interface {
+	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, activeInstances []string) error
+	Update(ctx context.Context, resp *SyncStrategyResponse, activeInstances []string) error
+	Stop() error
+	CollectStats(ctx context.Context) (agentclient.Stats, error)
+	IsAlive(ctx context.Context) (bool, error)
+	StartTime() time.Time
+	Pid() (int, bool)
+	SetLogger(lg *slog.Logger)
+}
+
+type Client interface {
+	Register(ctx context.Context, req RegisterRequest) (*RegisterResponse, error)
+	SyncStrategy(ctx context.Context, daemonId int64, version int32) (*SyncStrategyResult, error)
+	SyncMetrics(ctx context.Context, daemonId int64, req SyncMetricsRequest) error
+}
+
 type Syncer struct {
-	client   *HttpClient
-	agentMgr *AgentManager
-	tool     tool.Tool
+	client   Client
+	agentMgr IAgentManager
+	tool     Tool
 	cfg      SyncerConfig
 
 	daemonUUID        string
@@ -113,13 +135,21 @@ func NewSyncer(
 		return nil, errors.New("agent is running, please stop it first")
 	}
 
+	agentMgr := NewAgentManager(agentCfg, tool)
+	return newSyncer(client, agentMgr, tool, cfg)
+}
+
+func newSyncer(
+	client Client,
+	agentMgr IAgentManager,
+	tool Tool,
+	cfg SyncerConfig,
+) (*Syncer, error) {
 	logBuf := &SyncLogBuffer{}
 	lg := slog.New(slogx.Multiple(
 		slog.Default().With(slogx.LoggerName("cpm.syncer")).Handler(),
 		&SyncLogHandler{w: logBuf, level: slog.LevelDebug},
 	))
-
-	agentMgr := NewAgentManager(agentCfg, AgentFactoryFunc(agent.NewAgent), tool)
 	agentMgr.SetLogger(lg.With(slogx.LoggerName("cpm.agentMgr")))
 
 	s := &Syncer{
@@ -446,6 +476,7 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 			return err
 		}
 
+		// WARN: 存在溢出问题
 		for _, task := range stats.Tasks {
 			metrics.CapBytes += task.Capture.CapBytes.Bytes
 			metrics.CapPackets += task.Capture.CapPackets.Packets

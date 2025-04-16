@@ -56,12 +56,24 @@ func getEnvCfgE(name string) (string, error) {
 	return value, nil
 }
 
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0644)
+}
+
 func packageRoot(os string, arch string) string {
 	return filepath.Join(distDir, fmt.Sprintf("%s-%s", os, arch), "cloud-probe")
 }
 
 func packageBinaryPath(os string, arch string) string {
 	return filepath.Join(packageRoot(os, arch), "bin")
+}
+
+func packageConfigPath(os string, arch string) string {
+	return filepath.Join(packageRoot(os, arch), "etc")
 }
 
 func packageFile(os_ string, arch string, version string) string {
@@ -71,15 +83,27 @@ func packageFile(os_ string, arch string, version string) string {
 	return filepath.Join(distDir, fmt.Sprintf("cloud-probe%s-%s-%s.tar.gz", version, os_, arch))
 }
 
-func createPackage(os string, arch string, version string) error {
-	return sh.RunV(
+func createPackage(os_ string, arch string, version string) error {
+	cfgPath := packageConfigPath(os_, arch)
+	if err := os.MkdirAll(cfgPath, 0755); err != nil {
+		return fmt.Errorf("create dir %q error: %w", cfgPath, err)
+	}
+	if err := sh.RunV(
 		"tar",
 		"-czvf",
-		packageFile(os, arch, version),
+		packageFile(os_, arch, version),
 		"-C",
-		filepath.Join(distDir, fmt.Sprintf("%s-%s", os, arch)),
+		filepath.Join(distDir, fmt.Sprintf("%s-%s", os_, arch)),
 		"cloud-probe",
-	)
+	); err != nil {
+		return err
+	}
+
+	if err := copyFile("../cpdaemon/config.json", filepath.Join(cfgPath, "cpdeamon-config.json")); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func runCommand(cmd *exec.Cmd) error {

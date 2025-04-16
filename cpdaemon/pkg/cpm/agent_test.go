@@ -1,81 +1,81 @@
 package cpm
 
 import (
-	"reflect"
+	"context"
 	"testing"
 
-	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/testutils"
 )
 
-func Test_parseStartup(t *testing.T) {
-	type args struct {
-		startup       string
-		ignoreUnknown bool
+func TestAgentManager(t *testing.T) {
+	mgr := NewAgentManager(
+		AgentConfig{
+			Executable: "../agent/fakeagent/fakeagent",
+			UnixSocket: "testdata/tmp/test.sock",
+			TasksFile:  "testdata/tmp/test-tasks.json",
+		},
+		testTool{},
+	)
+	t.Cleanup(func() {
+		mgr.Stop()
+	})
+
+	var res SyncStrategyResponse
+	require.NoError(t, testutils.LoadResultFromJSON("testdata/syncStrategy1.json", &res))
+
+	{
+		isAlive, err := mgr.IsAlive(context.Background())
+		require.NoError(t, err)
+		require.False(t, isAlive)
+
+		pid, ok := mgr.Pid()
+		require.False(t, ok)
+		require.Zero(t, pid)
 	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *startupArgs
-		wantErr bool
-	}{
-		{
-			args: args{
-				startup: "",
-			},
-			want: &startupArgs{},
-		},
-		{
-			args: args{
-				startup: "-s 65535 -t 1000",
-			},
-			want: &startupArgs{
-				Snaplen: lo.ToPtr(65535),
-				Timeout: lo.ToPtr(1000),
-			},
-		},
-		{
-			args: args{
-				startup: "--snaplen=65535 --timeout=1000",
-			},
-			want: &startupArgs{
-				Snaplen: lo.ToPtr(65535),
-				Timeout: lo.ToPtr(1000),
-			},
-		},
-		{
-			args: args{
-				startup: "--snaplen 65535",
-			},
-			want: &startupArgs{
-				Snaplen: lo.ToPtr(65535),
-			},
-		},
-		{
-			args: args{
-				startup: "--snaplen 65535 --unknown=xxx",
-			},
-			wantErr: true,
-		},
-		{
-			args: args{
-				startup:       "--snaplen 65535 --unknown=xxx",
-				ignoreUnknown: true,
-			},
-			want: &startupArgs{
-				Snaplen: lo.ToPtr(65535),
-			},
-		},
+
+	{
+		err := mgr.Update(context.Background(), &res, []string{})
+		require.NoError(t, err)
+
+		isAlive, err := mgr.IsAlive(context.Background())
+		require.NoError(t, err)
+		require.True(t, isAlive)
+
+		pid, ok := mgr.Pid()
+		require.True(t, ok)
+		require.NotZero(t, pid)
+
+		err = mgr.CreateIfDead(context.Background(), &res, []string{})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "agent is still running")
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseStartup(tt.args.startup, tt.args.ignoreUnknown)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseStartup() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseStartup() = %v, want %v", got, tt.want)
-			}
-		})
+
+	{
+		err := mgr.Stop()
+		require.NoError(t, err)
+
+		isAlive, err := mgr.IsAlive(context.Background())
+		require.NoError(t, err)
+		require.False(t, isAlive)
+
+		pid, ok := mgr.Pid()
+		require.False(t, ok)
+		require.Zero(t, pid)
+	}
+
+	{
+		err := mgr.CreateIfDead(context.Background(), &res, []string{})
+		require.NoError(t, err)
+
+		isAlive, err := mgr.IsAlive(context.Background())
+		require.NoError(t, err)
+		require.True(t, isAlive)
+
+		pid, ok := mgr.Pid()
+		require.True(t, ok)
+		require.NotZero(t, pid)
 	}
 }

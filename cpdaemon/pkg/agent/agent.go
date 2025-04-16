@@ -125,7 +125,7 @@ func (a *Agent) Start(ctx context.Context) error {
 
 		if cleanup != nil {
 			if err := cleanup(); err != nil {
-				a.lg.Error("clean resource limitfailed", slogx.Error(err))
+				a.lg.Error("clean resource limit failed", slogx.Error(err))
 			} else {
 				a.lg.Info("clean resource limit success")
 			}
@@ -217,18 +217,16 @@ func (a *Agent) Stop() error {
 }
 
 func (a *Agent) createResLimit() (func() error, error) {
-	emptyClean := func() error { return nil }
-
 	if a.cfg.CpuLimit == nil || *a.cfg.CpuLimit <= 0 {
 		a.lg.Info("cpu limit is not set, skip cgroup")
-		return emptyClean, nil
+		return nil, nil
 	}
 
 	cmd := a.cmd
 	if cmd == nil || cmd.Process == nil {
 		// never happen
 		a.lg.Error("agent is not running, skip cgroup")
-		return emptyClean, nil
+		return nil, nil
 	}
 	return CreateProcessResLimit(
 		cmd.Process.Pid,

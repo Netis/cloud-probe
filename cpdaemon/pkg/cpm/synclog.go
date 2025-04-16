@@ -2,12 +2,14 @@ package cpm
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
 	slogcommon "github.com/samber/slog-common"
+
+	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 type SyncLogHandler struct {
@@ -46,10 +48,22 @@ func (h *SyncLogHandler) WithGroup(name string) slog.Handler {
 
 func (h *SyncLogHandler) convert(record *slog.Record) string {
 	attrs := slogcommon.AppendRecordAttrsToAttrs(h.attrs, h.groups, record)
-	extra := slogcommon.AttrsToMap(attrs...)
-	extra["msg"] = record.Message
-	data, _ := json.Marshal(extra)
-	return string(data)
+	parts := []string{"msg=" + record.Message}
+	parts = append(parts, formatSyncLogAttrs("", attrs)...)
+	return strings.Join(parts, " ")
+}
+
+func formatSyncLogAttrs(base string, attrs []slog.Attr) []string {
+	result := make([]string, 0, len(attrs))
+	for i := range attrs {
+		attr := attrs[i]
+		if attr.Value.Kind() == slog.KindGroup {
+			result = append(result, formatSyncLogAttrs(base+attr.Key+".", attr.Value.Group())...)
+		} else {
+			result = append(result, attr.Key+"="+slogx.ValueToString(attr.Value))
+		}
+	}
+	return result
 }
 
 const SyncLogBufSize = 100

@@ -1,0 +1,43 @@
+{
+    "id": 3541,
+    "daemonId": 3277,
+    "strategy": [
+        {
+            "sliceLen": 0,
+            "networkInterfaceName": "eth0",
+            "startup": "-s 65535 -t 0",
+            "forwardRateLimit": null,
+            "buffLimit": 64,
+            "bpf": null,
+            "hasServiceTag": false,
+            "serviceTag": null,
+            "hasReqPattern": false,
+            "reqPattern": null,
+            "reqPatternType": null,
+            "apiVersion": "v1",
+            "hasObservationTag": false,
+            "hasExtensionFlag": false,
+            "extensionFlag": 0,
+            "packetChannelType": "ZMQ",
+            "address": "127.0.0.1",
+            "port": 5555,
+            "dumpDir": null,
+            "dumpInterval": null,
+            "clusterId": 13,
+            "strategyConditions": [],
+            "strategyApplications": [],
+            "id": 3328,
+            "containerIds": [],
+            "interfaceNames": [
+                "eth0"
+            ],
+            "instanceNames": [],
+            "observationDomainIds": [],
+            "observationPointIds": []
+        }
+    ],
+    "cpuLimit": null,
+    "memLimit": null,
+    "version": 1,
+    "syncInterval": 15
+}
