@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "capturer.h"
-#include "error.h"
+#include "errorf.h"
 #include "libpcap.h"
 #include "log.h"
 #include "output_file.h"

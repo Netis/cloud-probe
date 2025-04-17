@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "error.h"
+#include "errorf.h"
 
 int open_self_netns(char *errbuf)
 {

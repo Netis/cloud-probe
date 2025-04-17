@@ -6,6 +6,7 @@
 #include <linux/ip.h>
 */
 #include <netinet/in.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "byteorder.h"

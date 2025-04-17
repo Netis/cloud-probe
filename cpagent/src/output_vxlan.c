@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "error.h"
+#include "errorf.h"
 #include "log.h"
 #include "output_vxlan.h"
 #include "pkt_dir.h"

@@ -1,0 +1,6 @@
+[wrap-git]
+url = https://github.com/ThrowTheSwitch/Unity.git
+revision = head
+
+[provide]
+unity = unity_dep

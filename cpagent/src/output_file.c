@@ -6,7 +6,7 @@
 
 #include <pcap/pcap.h>
 
-#include "error.h"
+#include "errorf.h"
 #include "log.h"
 #include "output_file.h"
 #include "pkt_dir.h"

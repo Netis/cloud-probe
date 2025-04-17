@@ -5,8 +5,9 @@
 
 #include <pcap/pcap.h>
 
+#include "bpf_util.h"
 #include "capturer.h"
-#include "error.h"
+#include "errorf.h"
 #include "if_util.h"
 #include "libpcap.h"
 #include "log.h"
@@ -139,7 +140,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
 
     if (opts.bpf_filter && strcmp(opts.bpf_filter, "") != 0)
     {
-        char *bpf_filter = bpf_filter_replace_nic(opts.bpf_filter, errbuf);
+        char *bpf_filter = bpf_filter_replace_nic(opts.bpf_filter, get_if_ip_addr, errbuf);
         if (bpf_filter == NULL)
         {
             error_wrap_format(errbuf, "invalid bpf: %s", opts.bpf_filter);

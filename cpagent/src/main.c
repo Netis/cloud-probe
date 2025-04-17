@@ -9,7 +9,7 @@
 
 #include "affinity.h"
 #include "config.h"
-#include "error.h"
+#include "errorf.h"
 #include "log.h"
 #include "task.h"
 #include "taskconf.h"

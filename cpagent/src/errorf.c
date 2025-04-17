@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "error.h"
+#include "errorf.h"
 
 void error_format(char *errbuf, const char *format, ...)
 {

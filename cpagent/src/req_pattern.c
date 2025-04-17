@@ -14,7 +14,7 @@
 #include <pcap/pcap.h>
 #include <pcap/vlan.h>
 
-#include "error.h"
+#include "errorf.h"
 #include "ether.h"
 #include "if_util.h"
 #include "ip.h"
@@ -85,26 +85,6 @@ typedef struct
     char *value;
 } Token;
 
-typedef struct ReqPatternCustomMatcher
-{
-    struct Node *node;
-} req_pattern_custom_matcher_t;
-
-typedef struct ReqPatternAutoMatcher
-{
-    uint8_t mac_addr[ETHER_ADDR_LEN];
-} req_pattern_auto_matcher_t;
-
-typedef struct ReqPattern
-{
-    int type;
-    union
-    {
-        req_pattern_auto_matcher_t _auto;
-        req_pattern_custom_matcher_t custom;
-    } matcher;
-} req_pattern_t;
-
 // 词法分析函数
 static Token get_next_token(char **input)
 {
@@ -159,7 +139,7 @@ static Token get_next_token(char **input)
     return (Token){TOKEN_VALUE, value};
 }
 
-static Node *create_condition_node(ConditionType type, const char *value)
+static Node *create_condition_node(ConditionType type, const char *value, get_if_ip_addr_fn get_ip)
 {
     Node *node = malloc(sizeof(Node));
     node->type = NODE_CONDITION;
@@ -169,7 +149,7 @@ static Node *create_condition_node(ConditionType type, const char *value)
         if (strlen(value) >= 4 && strncmp(value, "nic.", 4) == 0)
         {
             char errbuf[ERROR_BUFFER_SIZE];
-            if (get_if_addr(value + 4, &node->data.condition.addr, errbuf) == 0)
+            if (get_ip(value + 4, &node->data.condition.addr, errbuf) == 0)
             {
                 char buf[INET6_ADDRSTRLEN];
                 format_ip_addr(&node->data.condition.addr, buf, sizeof(buf));
@@ -177,7 +157,7 @@ static Node *create_condition_node(ConditionType type, const char *value)
                 return node;
             }
 
-            log_error("get_if_addr error: %s", errbuf);
+            log_error("get interface ip error: %s", errbuf);
             goto error;
         }
 
@@ -233,23 +213,23 @@ static void free_ast(Node *node)
 }
 
 // 语法分析函数
-static Node *parse_expression(char **input, Token *current_token);
-static Node *parse_term(char **input, Token *current_token);
-static Node *parse_factor(char **input, Token *current_token);
-static Node *parse_condition(char **input, Token *current_token);
+static Node *parse_expression(char **input, Token *current_token, get_if_ip_addr_fn get_ip);
+static Node *parse_term(char **input, Token *current_token, get_if_ip_addr_fn get_ip);
+static Node *parse_factor(char **input, Token *current_token, get_if_ip_addr_fn get_ip);
+static Node *parse_condition(char **input, Token *current_token, get_if_ip_addr_fn get_ip);
 
 static void next_token(char **input, Token *current_token) { *current_token = get_next_token(input); }
 
-static Node *parse_expression(char **input, Token *current_token)
+static Node *parse_expression(char **input, Token *current_token, get_if_ip_addr_fn get_ip)
 {
-    Node *left = parse_term(input, current_token);
+    Node *left = parse_term(input, current_token, get_ip);
     if (!left)
         return NULL;
 
     while (current_token->type == TOKEN_OR)
     {
         next_token(input, current_token);
-        Node *right = parse_term(input, current_token);
+        Node *right = parse_term(input, current_token, get_ip);
         if (!right)
         {
             free_ast(left);
@@ -260,16 +240,16 @@ static Node *parse_expression(char **input, Token *current_token)
     return left;
 }
 
-static Node *parse_term(char **input, Token *current_token)
+static Node *parse_term(char **input, Token *current_token, get_if_ip_addr_fn get_ip)
 {
-    Node *left = parse_factor(input, current_token);
+    Node *left = parse_factor(input, current_token, get_ip);
     if (!left)
         return NULL;
 
     while (current_token->type == TOKEN_AND)
     {
         next_token(input, current_token);
-        Node *right = parse_factor(input, current_token);
+        Node *right = parse_factor(input, current_token, get_ip);
         if (!right)
         {
             free_ast(left);
@@ -280,12 +260,12 @@ static Node *parse_term(char **input, Token *current_token)
     return left;
 }
 
-static Node *parse_factor(char **input, Token *current_token)
+static Node *parse_factor(char **input, Token *current_token, get_if_ip_addr_fn get_ip)
 {
     if (current_token->type == TOKEN_LPAREN)
     {
         next_token(input, current_token);
-        Node *expr = parse_expression(input, current_token);
+        Node *expr = parse_expression(input, current_token, get_ip);
         if (current_token->type != TOKEN_RPAREN)
         {
             free_ast(expr);
@@ -296,11 +276,11 @@ static Node *parse_factor(char **input, Token *current_token)
     }
     else
     {
-        return parse_condition(input, current_token);
+        return parse_condition(input, current_token, get_ip);
     }
 }
 
-static Node *parse_condition(char **input, Token *current_token)
+static Node *parse_condition(char **input, Token *current_token, get_if_ip_addr_fn get_ip)
 {
     if (current_token->type == TOKEN_HOST)
     {
@@ -311,7 +291,7 @@ static Node *parse_condition(char **input, Token *current_token)
         }
         char *value = current_token->value;
         next_token(input, current_token);
-        Node *node = create_condition_node(COND_HOST, value);
+        Node *node = create_condition_node(COND_HOST, value, get_ip);
         free(value);
         return node;
     }
@@ -324,7 +304,7 @@ static Node *parse_condition(char **input, Token *current_token)
         }
         char *value = current_token->value;
         next_token(input, current_token);
-        Node *node = create_condition_node(COND_PORT, value);
+        Node *node = create_condition_node(COND_PORT, value, get_ip);
         free(value);
         return node;
     }
@@ -531,7 +511,17 @@ void req_pattern_destory(req_pattern_t *req_pattern)
     free(req_pattern);
 }
 
-static int req_pattern_custom_matcher_init(req_pattern_custom_matcher_t *matcher, const char *pattern)
+void req_pattern_custom_matcher_destroy(req_pattern_custom_matcher_t *matcher)
+{
+    if (!matcher)
+        return;
+
+    if (matcher->node)
+        free_ast(matcher->node);
+}
+
+int req_pattern_custom_matcher_init(req_pattern_custom_matcher_t *matcher, const char *pattern,
+                                    get_if_ip_addr_fn get_ip)
 {
     // pattern example:
     // 1. host nic.eth0 and port 8011
@@ -542,7 +532,7 @@ static int req_pattern_custom_matcher_init(req_pattern_custom_matcher_t *matcher
     char *pos = (char *)pattern;
     Token token;
     next_token(&pos, &token);
-    Node *ast = parse_expression(&pos, &token);
+    Node *ast = parse_expression(&pos, &token, get_ip);
     if (!ast)
         return -1;
 
@@ -550,7 +540,8 @@ static int req_pattern_custom_matcher_init(req_pattern_custom_matcher_t *matcher
     return 0;
 }
 
-req_pattern_t *req_pattern_new_from_cfg(ReqPatternConfig cfg, const char *interface, char *errbuf)
+req_pattern_t *req_pattern_new_from_cfg_adv(ReqPatternConfig cfg, const char *ifname, get_if_mac_addr_fn get_mac,
+                                            get_if_ip_addr_fn get_ip, char *errbuf)
 {
     req_pattern_t *req_pattern = (req_pattern_t *)calloc(1, sizeof(req_pattern_t *));
     if (!req_pattern)
@@ -563,18 +554,18 @@ req_pattern_t *req_pattern_new_from_cfg(ReqPatternConfig cfg, const char *interf
         req_pattern->type = REQ_PATTERN_TYPE_NONE;
     else if (strcmp(cfg.type, REQ_PATTERN_TYPE_AUTO_STR) == 0)
     {
-        if (get_mac_addr(interface, req_pattern->matcher._auto.mac_addr, errbuf) != 0)
+        if (get_mac(ifname, req_pattern->matcher._auto.mac_addr, errbuf) != 0)
             goto error;
 
         req_pattern->type = REQ_PATTERN_TYPE_AUTO;
 
         char mac_addr_str[MAC_ADDR_STR_BUFSIZE];
         format_mac_addr(req_pattern->matcher._auto.mac_addr, mac_addr_str);
-        log_info("interface '%s' mac addr: %s", interface, mac_addr_str);
+        log_info("interface '%s' mac addr: %s", ifname, mac_addr_str);
     }
     else if (strcmp(cfg.type, REQ_PATTERN_TYPE_CUSTOM_STR) == 0)
     {
-        if (req_pattern_custom_matcher_init(&req_pattern->matcher.custom, cfg.custom.pattern) != 0)
+        if (req_pattern_custom_matcher_init(&req_pattern->matcher.custom, cfg.custom.pattern, get_ip) != 0)
         {
             error_format(errbuf, "invalid pattern: %s", cfg.custom.pattern);
             goto error;
@@ -589,10 +580,14 @@ error:
     return NULL;
 }
 
-static bool req_pattern_custom_match_by_ipport(req_pattern_custom_matcher_t *matcher, const ip_addr_t *ip,
-                                               uint16_t port)
+req_pattern_t *req_pattern_new_from_cfg(ReqPatternConfig cfg, const char *ifname, char *errbuf)
 {
-    return evaluate(matcher->node, ip, port);
+    return req_pattern_new_from_cfg_adv(cfg, ifname, get_if_mac_addr, get_if_ip_addr, errbuf);
+}
+
+bool req_pattern_custom_match_by_ipport(req_pattern_custom_matcher_t *matcher, const ip_addr_t *ip, uint16_t port)
+{
+    return evaluate((Node *)matcher->node, ip, port);
 }
 
 int req_pattern_judge_pkt_direction(req_pattern_t *req_pattern, const struct pcap_pkthdr *header,

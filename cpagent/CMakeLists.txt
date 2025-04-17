@@ -4,7 +4,8 @@ cmake_minimum_required(VERSION 3.10)
 project(cpagent VERSION "0.9.0" LANGUAGES C)
 
 option(ENABLE_DPDK "Enable DPDK support" OFF)
-option(LINK_STATIC_LIBPCAP "Link static libpcap library" OFF)
+option(ENABLE_LINK_STATIC_LIBPCAP "Enable link static libpcap library" OFF)
+option(ENABLE_UNIT_TESTS "Enable building unit test" ON)
 
 # 设置C标准
 set(CMAKE_C_STANDARD 11)
@@ -62,7 +63,7 @@ if (NOT LIBRARY_ROOT)
 endif()
 
 # 查找libpcap
-if(LINK_STATIC_LIBPCAP)
+if(ENABLE_LINK_STATIC_LIBPCAP)
     find_library(PCAP_LIB libpcap.a PATHS ${LIBRARY_ROOT}/lib NO_DEFAULT_PATH)
 else()
     find_library(PCAP_LIB pcap PATHS ${LIBRARY_ROOT}/lib NO_DEFAULT_PATH)
@@ -117,13 +118,16 @@ target_include_directories(cpagent PRIVATE
 # 链接库（注意顺序）
 target_link_libraries(cpagent
     ${LIBDPDK_STATIC_LDFLAGS}
-
     ${PCAP_LIB}
     ${ZMQ_LIB}
-
     pthread
     m
 
     # ZMQ require C++ runtime
     stdc++
 )
+
+if(ENABLE_UNIT_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "error.h"
+#include "errorf.h"
 #include "gre.h"
 #include "log.h"
 #include "output_gre.h"

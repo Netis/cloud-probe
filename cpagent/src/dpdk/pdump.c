@@ -37,7 +37,7 @@
 #include <pcap/pcap.h>
 
 #include "dpdk/pdump.h"
-#include "error.h"
+#include "errorf.h"
 #include "log.h"
 #include "pkt_dir.h"
 #include "stats.h"

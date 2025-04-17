@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "error.h"
+#include "errorf.h"
 #include "log.h"
 #include "output_rotating_file.h"
 #include "pkt_dir.h"

@@ -9,7 +9,7 @@
 #include <pcap/vlan.h>
 #include <zmq.h>
 
-#include "error.h"
+#include "errorf.h"
 #include "log.h"
 #include "mpls.h"
 #include "output.h"
