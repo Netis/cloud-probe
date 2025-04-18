@@ -88,6 +88,23 @@ func createPackage(os_ string, arch string, version string) error {
 	if err := os.MkdirAll(cfgPath, 0755); err != nil {
 		return fmt.Errorf("create dir %q error: %w", cfgPath, err)
 	}
+	if err := copyFile("../cpdaemon/config.json", filepath.Join(cfgPath, "cpdeamon.json")); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(cfgPath, "tasks"), 0755); err != nil {
+		return fmt.Errorf("create dir %q error: %w", filepath.Join(cfgPath, "tasks"), err)
+	}
+	for _, fileName := range []string{
+		"full.json",
+		"libpcap_file.json",
+		"libpcap_rotating_file.json",
+		"libpcap_zmq.json",
+	} {
+		if err := copyFile(filepath.Join("../cpagent/examples", fileName), filepath.Join(cfgPath, "tasks", fileName)); err != nil {
+			return err
+		}
+	}
+
 	if err := sh.RunV(
 		"tar",
 		"-czvf",
@@ -98,11 +115,6 @@ func createPackage(os_ string, arch string, version string) error {
 	); err != nil {
 		return err
 	}
-
-	if err := copyFile("../cpdaemon/config.json", filepath.Join(cfgPath, "cpdeamon-config.json")); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -256,6 +268,7 @@ type CBuildConfig struct {
 	ProjectPath string
 	BuildPath   string
 	Defines     []string
+	RunInstall  bool
 }
 
 func newCBuildConfig(os string, arch string) CBuildConfig {
@@ -291,6 +304,14 @@ func buildCBinary(cfg CBuildConfig) error {
 	if err := runCommand(cmd); err != nil {
 		return err
 	}
+
+	if cfg.RunInstall {
+		cmd = exec.Command("make", "install")
+		cmd.Dir = cfg.BuildPath
+		if err := runCommand(cmd); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -319,25 +340,20 @@ func buildCpagent(cfg CBuildConfig) error {
 		return err
 	}
 
+	installPrefix, _ := filepath.Abs(packageRoot(cfg.OS, cfg.Arch))
 	cfg.BuildPath = filepath.Join(tmpDir, fmt.Sprintf("build-%s-%s", cfg.OS, cfg.Arch))
 	cfg.ProjectPath = "../cpagent"
 	cfg.Defines = append(cfg.Defines,
 		fmt.Sprintf("LIBRARY_ROOT=%s", libRoot),
 		fmt.Sprintf("CPAGENT_VERSION=%s", version),
+		fmt.Sprintf("CMAKE_INSTALL_PREFIX=%s", installPrefix),
 	)
 	if tc := getEnvCfg(ENV_CPAGENT_CMAKE_TOOLCHAIN_FILE); tc != "" {
 		cfg.Defines = append(cfg.Defines, fmt.Sprintf("CMAKE_TOOLCHAIN_FILE=%s", tc))
 	}
+	cfg.RunInstall = true
 
 	if err := buildCBinary(cfg); err != nil {
-		return err
-	}
-
-	binaryOutputPath := packageBinaryPath(cfg.OS, cfg.Arch)
-	if err := sh.RunV("mkdir", "-p", binaryOutputPath); err != nil {
-		return err
-	}
-	if err := sh.RunV("cp", filepath.Join(cfg.BuildPath, "cpagent"), binaryOutputPath); err != nil {
 		return err
 	}
 	return nil

@@ -16,10 +16,6 @@
                     "bpf": "",
                     "buffer_size_mb": 256,
                     "timeout_ms": 3
-                },
-                "dpdk_pdump": {
-                    "bpf": "",
-                    "ring_size": 2048
                 }
             },
             "outputs": [

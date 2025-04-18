@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 
-
 project(cpagent VERSION "0.9.0" LANGUAGES C)
 
 option(ENABLE_DPDK "Enable DPDK support" OFF)
@@ -130,4 +129,11 @@ target_link_libraries(cpagent
 if(ENABLE_UNIT_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+install(TARGETS cpagent RUNTIME DESTINATION bin COMPONENT cpagent)
+
+if(NOT ENABLE_LINK_STATIC_LIBPCAP)
+    get_filename_component(PCAP_REALPATH ${PCAP_LIB} REALPATH)
+    install(FILES ${PCAP_REALPATH} DESTINATION lib COMPONENT cpagent)
 endif()

@@ -1,4 +1,5 @@
-add_subdirectory(unity)
+# add_subdirectory(unity)
+add_library(unity STATIC unity/src/unity.c)
 
 # 获取主项目源文件（排除main.c）
 file(GLOB MAIN_SRCS
