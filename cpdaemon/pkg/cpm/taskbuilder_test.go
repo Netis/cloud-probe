@@ -194,3 +194,21 @@ func Test_parseStartup(t *testing.T) {
 		})
 	}
 }
+
+func Test_Vni2Tag(t *testing.T) {
+	tag := Vni2Tag{
+		ObservationDomainId:    23,
+		ExtensionFlag:          1,
+		ObservationPointId:     6,
+		ResourcePointDirection: 0,
+	}
+	assert.Equal(t, uint32(6040), tag.Encode())
+
+	tag = Vni2Tag{
+		ObservationDomainId:    3568,
+		ExtensionFlag:          0,
+		ObservationPointId:     9,
+		ResourcePointDirection: 0,
+	}
+	assert.Equal(t, uint32(913444), tag.Encode())
+}

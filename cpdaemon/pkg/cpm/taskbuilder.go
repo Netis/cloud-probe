@@ -300,6 +300,25 @@ type taskItem struct {
 	dumpSubDirs []string
 }
 
+/*
+typedef struct {
+    uint32_t resourcePointDirection:2;
+    uint32_t observationPointId:5;
+    uint32_t extensionFlag:1;
+    uint32_t observationDomainId:24;
+} Vni2Tag;
+
+int main() {
+	uint32_t service_tag;
+	Vni2Tag tag;
+	tag.observationDomainId = 3568;
+    tag.extensionFlag = 0;
+    tag.observationPointId = 9;
+    tag.resourcePointDirection = 0;
+	memcpy(&serviceTag, &tag, sizeof(serviceTag));
+}
+*/
+
 type Vni2Tag struct {
 	ResourcePointDirection uint32 // 2bits
 	ObservationPointId     uint32 // 5bits
