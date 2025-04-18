@@ -1,7 +1,7 @@
 {
     "tasks": [
         {
-            "interface": "enp0s3",
+            "interface": "eth0",
             "snaplen": 2048,
             "req_pattern": {
                 "type": "auto"

@@ -14,11 +14,11 @@
             },
             "outputs": [
                 {
-                    "type": "rotating_file",
+                    "type": "gre",
                     "rate_limit_mbps": 10,
-                    "rotating_file": {
-                        "file_root": "tmp/rotating_file",
-                        "max_file_interval": 5
+                    "gre": {
+                        "host": "192.168.33.20",
+                        "bind_device": "eth1"
                     }
                 }
             ]

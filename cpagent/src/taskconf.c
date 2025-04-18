@@ -314,7 +314,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         // VNI1 and VNI2
         cJSON *vni1 = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "vni1");
         cJSON *vni2 = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "vni2");
-        if (!vni1)
+        if (vni1)
         {
             if (cJSON_IsNumber(vni1))
             {
@@ -327,7 +327,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
                 return PARSE_ERROR;
             }
         }
-        else if (!vni2)
+        else if (vni2)
         {
             if (cJSON_IsNumber(vni2))
             {

@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
+#include <net/ethernet.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +8,7 @@
 #include <unistd.h>
 
 #include "errorf.h"
+#include "ip.h"
 #include "log.h"
 #include "output_vxlan.h"
 #include "pkt_dir.h"
@@ -22,6 +24,51 @@ typedef struct
     uint8_t service_tag_l : 8;
     uint8_t check;
 } pa_tag_t;
+
+static inline uint32_t __rte_raw_cksum(const void *buf, size_t len, uint32_t sum)
+{
+    /* workaround gcc strict-aliasing warning */
+    uintptr_t ptr = (uintptr_t)buf;
+    typedef uint16_t u16_p;
+    const u16_p *u16 = (const u16_p *)ptr;
+
+    while (len >= (sizeof(*u16) * 4))
+    {
+        sum += u16[0];
+        sum += u16[1];
+        sum += u16[2];
+        sum += u16[3];
+        len -= sizeof(*u16) * 4;
+        u16 += 4;
+    }
+    while (len >= sizeof(*u16))
+    {
+        sum += *u16;
+        len -= sizeof(*u16);
+        u16 += 1;
+    }
+
+    /* if length is in odd bytes */
+    if (len == 1)
+        sum += *((const uint8_t *)u16);
+
+    return sum;
+}
+
+static inline uint16_t __rte_raw_cksum_reduce(uint32_t sum)
+{
+    sum = ((sum & 0xffff0000) >> 16) + (sum & 0xffff);
+    sum = ((sum & 0xffff0000) >> 16) + (sum & 0xffff);
+    return (uint16_t)sum;
+}
+
+static inline uint16_t rte_raw_cksum(const void *buf, size_t len)
+{
+    uint32_t sum;
+
+    sum = __rte_raw_cksum(buf, len, 0x4a3b2d1c);
+    return __rte_raw_cksum_reduce(sum);
+}
 
 int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
@@ -75,7 +122,9 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
             ((pa_tag_t *)&vxlan_hdr->vx_vni)->reserved2 = 0;
             ((pa_tag_t *)&vxlan_hdr->vx_vni)->check = 0;
         }
-        // TODO: add check sum
+        // CheckSum
+        ((pa_tag_t *)&vxlan_hdr->vx_vni)->check = (uint8_t)rte_raw_cksum(
+            vxlan_hdr, sizeof(struct vxlanhdr) + sizeof(struct ether_header) + sizeof(struct ipv4_hdr));
     }
     else
     {
@@ -88,8 +137,12 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     // TODO: retry if errno == ENOBUFS
     if (send_bytes == -1)
     {
+        bytes_stats_add(&output->base.stats.error_drop_bytes, length);
+        packets_stats_add(&output->base.stats.error_drop_packets, 1);
         return -1;
     }
+    bytes_stats_add(&output->base.stats.fwd_bytes, length);
+    packets_stats_add(&output->base.stats.fwd_packets, 1);
     return 0;
 }
 
@@ -176,6 +229,11 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
         .slice = output_cfg->slice,
     };
+    log_info("vxlan output options: host=%s, port=%d, capture_time=%d, vni_version=%d, vni=%d, bind_device=%s, "
+             "pmtudisc=%d, rate_limit_mbps=%d, slice=%d",
+             output_cfg->config.vxlan.host, output_cfg->config.vxlan.port, output_cfg->config.vxlan.capture_time,
+             output_cfg->config.vxlan.vni_version, output_cfg->config.vxlan.vni, output_cfg->config.vxlan.bind_device,
+             output_cfg->config.vxlan.pmtudisc, output_cfg->rate_limit_mbps, output_cfg->slice);
     return (output_base_t *)vxlan_output_new(opts, errbuf);
 }
 

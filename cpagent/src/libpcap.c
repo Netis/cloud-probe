@@ -213,8 +213,8 @@ capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf
         .netns = task_cfg->netns,
         .req_pattern = task_cfg->req_pattern,
     };
-    log_info("libpcap options, interface %s, snaplen %d, buffer_size: %d, bpf_filter: `%s`", opts.interface,
-             opts.snaplen, opts.buffer_size, opts.bpf_filter);
+    log_info("libpcap options: interface=%s, snaplen=%d, buffer_size=%d, bpf_filter='%s'", opts.interface, opts.snaplen,
+             opts.buffer_size, opts.bpf_filter);
 
     return (capturer_base_t *)libpcap_capturer_new(opts, errbuf);
 }

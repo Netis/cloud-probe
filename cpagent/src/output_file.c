@@ -80,6 +80,8 @@ output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outp
         .snaplen = task_cfg->snaplen,
         .slice = output_cfg->slice,
     };
+    log_info("file output options: name=%s, snaplen=%d, slice=%d", output_cfg->config.file.name, task_cfg->snaplen,
+             output_cfg->slice);
     return (output_base_t *)file_output_new(opts, errbuf);
 }
 

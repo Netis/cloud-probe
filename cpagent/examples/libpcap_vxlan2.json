@@ -14,11 +14,14 @@
             },
             "outputs": [
                 {
-                    "type": "rotating_file",
+                    "type": "vxlan",
                     "rate_limit_mbps": 10,
-                    "rotating_file": {
-                        "file_root": "tmp/rotating_file",
-                        "max_file_interval": 5
+                    "vxlan": {
+                        "host": "192.168.33.20",
+                        "port": 4789,
+                        "capture_time": true,
+                        "vni2": 1,
+                        "bind_device": "eth1"
                     }
                 }
             ]

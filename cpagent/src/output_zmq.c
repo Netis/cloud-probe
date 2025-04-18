@@ -258,6 +258,9 @@ output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
         .slice = output_cfg->slice,
     };
+    log_info("zmq output options: host=%s, port=%d, hwm=%d, service_tag=%d, rate_limit_mbps=%d, slice=%d",
+             output_cfg->config.zmq.host, output_cfg->config.zmq.port, output_cfg->config.zmq.hwm,
+             output_cfg->config.zmq.service_tag, output_cfg->rate_limit_mbps, output_cfg->slice);
     return (output_base_t *)zmq_output_new(opts, errbuf);
 }
 

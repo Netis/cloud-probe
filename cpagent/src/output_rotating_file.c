@@ -186,6 +186,9 @@ output_base_t *rotating_file_output_new_from_cfg(TaskConfig *task_cfg, OutputCon
         .snaplen = task_cfg->snaplen,
         .slice = output_cfg->slice,
     };
+    log_info("rotating_file output options: file_root=%s, max_file_interval=%d, snaplen=%d, slice=%d",
+             output_cfg->config.rotating_file.file_root, output_cfg->config.rotating_file.max_file_interval,
+             task_cfg->snaplen, output_cfg->slice);
     return (output_base_t *)rotating_file_output_new(opts, errbuf);
 }
 
