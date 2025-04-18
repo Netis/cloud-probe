@@ -1,19 +1,27 @@
 #include <getopt.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <stdbool.h>
+#include <arpa/inet.h> // 用于字节序转换函数
 
+#include <pcap/pcap.h>
 #include <zmq.h>
 
 /* command line flags */
 static const char *progname;
 static const char *bind_address = "tcp://*:5555";
+static const char *out_file = "";
+
+static bool quit_signal;
 
 static void usage(void)
 {
     printf("Usage: %s [options] ...\n\n", progname);
     printf("  -b --bind <address>    specify zmq bind address\n");
+    printf("  -o --output <file>     write packets to file\n");
     printf("  -h, --help             display this help and exit\n");
 }
 
@@ -21,17 +29,21 @@ static void parse_opts(int argc, char **argv)
 {
     struct option long_options[] = {
         {"bind", required_argument, NULL, 'b'},
+        {"output", required_argument, NULL, 'o'},
         {"help", no_argument, NULL, 'h'},
         {NULL, 0, NULL, 0},
     };
 
     int c;
-    while ((c = getopt_long(argc, argv, "b:h", long_options, NULL)) != -1)
+    while ((c = getopt_long(argc, argv, "b:o:h", long_options, NULL)) != -1)
     {
         switch (c)
         {
         case 'b':
             bind_address = optarg;
+            break;
+        case 'o':
+            out_file = optarg;
             break;
         case 'h':
             usage();
@@ -54,6 +66,160 @@ static void parse_opts(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 }
+
+typedef struct OutputBase
+{
+    int (*send_packet)(struct OutputBase *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data);
+    void (*destory)(struct OutputBase *output);
+} output_base_t;
+
+typedef struct FileOutput
+{
+    output_base_t base;
+
+    pcap_t *pcap;
+    FILE *fp;
+    pcap_dumper_t *dumper;
+} file_output_t;
+
+int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data)
+{
+    file_output_t *output = (file_output_t *)self;
+    pcap_dump((u_char *)output->dumper, header, pkt_data);
+    return 0;
+}
+
+void file_output_destory(output_base_t *self)
+{
+    if (!self)
+        return;
+
+    file_output_t *output = (file_output_t *)self;
+
+    pcap_dump_close(output->dumper);
+    pcap_close(output->pcap);
+    free(output);
+}
+
+file_output_t *file_output_new(const char *file_name)
+{
+    FILE *fp = fopen(file_name, "w+");
+    if (!fp)
+    {
+        printf("open file %s error: %s\n", file_name, strerror(errno));
+        return NULL;
+    }
+    rewind(fp);
+
+    pcap_t *pcap;
+    pcap = pcap_open_dead(DLT_EN10MB, 65535);
+    if (!pcap)
+    {
+        printf("pcap_open_dead failed\n");
+        fclose(fp);
+        return NULL;
+    }
+
+    pcap_dumper_t *dumper = pcap_dump_fopen(pcap, fp);
+    if (!dumper)
+    {
+        fclose(fp);
+        pcap_close(pcap);
+        printf("pcap_dump_fopen failed: %s\n", pcap_geterr(pcap));
+        return NULL;
+    }
+
+    file_output_t *output = (file_output_t *)calloc(1, sizeof(file_output_t));
+    if (!output)
+    {
+        printf("failed to allocate memory for file_output_t\n");
+        pcap_dump_close(dumper);
+        pcap_close(pcap);
+        return NULL;
+    }
+
+    output->base.send_packet = file_write_packet;
+    output->base.destory = file_output_destory;
+
+    output->pcap = pcap;
+    output->fp = fp;
+    output->dumper = dumper;
+    return output;
+}
+
+#define ZMQ_PKT_DATA_LEN_SIZE 2
+
+typedef struct
+{
+    uint32_t tv_sec;  // epoc seconds.  caution: unix 2038 problem
+    uint32_t tv_usec; // and microseconds
+    uint32_t caplen;  // actual capture length
+    uint32_t len;     // wire packet length
+} zmq_pkt_hdr_t;
+
+typedef struct
+{
+    uint16_t version;
+    uint16_t pkts_num;
+    uint32_t keybit;
+    uint8_t uuid[16];
+} zmq_pkt_batch_hdr_t;
+
+#define HANDLE_ERROR_SIZE 256
+char handle_error[HANDLE_ERROR_SIZE];
+
+int handle_zmq_msg(zmq_msg_t *msg, output_base_t *output)
+{
+
+    size_t msg_size = zmq_msg_size(msg);
+    if (msg_size < sizeof(zmq_pkt_batch_hdr_t))
+    {
+        snprintf(handle_error, HANDLE_ERROR_SIZE, "msg_size less than sizeof(zmq_pkt_batch_hdr_t)");
+        return -1;
+    }
+    uint8_t *msg_data = zmq_msg_data(msg);
+    zmq_pkt_batch_hdr_t *batch_hdr = (zmq_pkt_batch_hdr_t *)msg_data;
+    uint16_t pkts_num = ntohs(batch_hdr->pkts_num);
+    printf("zmq message has %d packets, size: %d\n", pkts_num, msg_size);
+
+    struct pcap_pkthdr header;
+    size_t msg_offset = sizeof(zmq_pkt_batch_hdr_t);
+    for (int i = 0; i < pkts_num; ++i)
+    {
+        if ((msg_size - msg_offset) < ZMQ_PKT_DATA_LEN_SIZE + sizeof(zmq_pkt_hdr_t))
+        {
+            snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: remain_size %d less than 2 + sizeof(zmq_pkt_hdr_t)", i + 1, msg_size - msg_offset);
+            return -1;
+        }
+        uint16_t pkt_data_len;
+        memcpy(&pkt_data_len, msg_data + msg_offset, ZMQ_PKT_DATA_LEN_SIZE);
+        pkt_data_len = ntohs(pkt_data_len);
+        msg_offset += ZMQ_PKT_DATA_LEN_SIZE;
+
+        zmq_pkt_hdr_t *pkt_hdr = (zmq_pkt_hdr_t *)(msg_data + msg_offset);
+        msg_offset += sizeof(zmq_pkt_hdr_t);
+
+        if (msg_size - msg_offset < pkt_data_len)
+        {
+            snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: remain_size: %d less than pkt_data length", i + 1, msg_size - msg_offset);
+            return -1;
+        }
+
+        header.ts.tv_sec = ntohl(pkt_hdr->tv_sec);
+        header.ts.tv_usec = ntohl(pkt_hdr->tv_usec);
+        header.caplen = ntohl(pkt_hdr->caplen);
+        header.len = ntohl(pkt_hdr->len);
+        if (output->send_packet(output, &header, msg_data + msg_offset) != 0)
+        {
+            snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: send_packet error", i + 1);
+            return -1;
+        }
+        msg_offset += pkt_data_len;
+    }
+    return 0;
+}
+
+static void signal_handler(int sig_num) { __atomic_store_n(&quit_signal, true, __ATOMIC_RELAXED); }
 
 int main(int argc, char **argv)
 {
@@ -88,7 +254,18 @@ int main(int argc, char **argv)
 
     printf("waiting for messages from PUSH senders on %s...\n", bind_address);
 
-    while (1)
+    output_base_t *output = NULL;
+    if (strcmp(out_file, "") != 0)
+    {
+        output = (output_base_t *)file_output_new(out_file);
+        if (output == NULL)
+            exit(EXIT_FAILURE);
+    }
+
+    signal(SIGINT, signal_handler);
+    signal(SIGPIPE, SIG_IGN);
+
+    while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
     {
         zmq_msg_t msg;
         zmq_msg_init(&msg);
@@ -102,8 +279,21 @@ int main(int argc, char **argv)
         }
 
         printf("received message size: %d\n", recv_size);
+        if (output)
+        {
+            if (handle_zmq_msg(&msg, output) != 0)
+            {
+                fprintf(stderr, "%s\n", handle_error);
+                zmq_msg_close(&msg);
+                break;
+            }
+        }
+
         zmq_msg_close(&msg);
     }
+
+    if (output)
+        output->destory(output);
 
     zmq_close(puller);
     zmq_ctx_destroy(context);

@@ -12,6 +12,7 @@
 #define ZMQ_MAX_BATCH_BUF_SIZE 1048576 // 1 * 1024 * 1024;
 #define ZMQ_PKTS_FLUSH_MAX_DUR_SEC 1
 #define ZMQ_BATCH_PKTS_VERSION 2
+#define ZMQ_PKT_DATA_LEN_SIZE 2
 
 typedef struct
 {

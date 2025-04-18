@@ -37,7 +37,7 @@ int zmq_flush_packet(zmq_output_t *output)
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
 
     uint64_t send_num = pkts_buf->batch_hdr.pkts_num;
-    pkts_buf->batch_hdr.pkts_num = htons(pkts_buf->batch_hdr.pkts_num);
+    pkts_buf->batch_hdr.pkts_num = htons(send_num);
     memcpy((&(pkts_buf->buf[0])), &pkts_buf->batch_hdr, sizeof(pkts_buf->batch_hdr));
 
     int rc = zmq_send(output->pusher, &(pkts_buf->buf[0]), pkts_buf->batch_bufpos, ZMQ_DONTWAIT);
@@ -69,7 +69,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         caplen = output->slice;
     }
 
-    size_t length = (size_t)(caplen <= 65531 ? caplen : 65531) + sizeof(mpls_header);
+    uint16_t length = (uint16_t)(caplen <= 65531 ? caplen : 65531) + sizeof(mpls_header);
 
     if (direct == PKT_DIR_UNKNOWN)
     {
@@ -93,10 +93,10 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         pkts_buf->first_pktsec = header->ts.tv_sec;
 
     zmq_pkt_hdr_t pkt_hdr = {
-        htonl((uint32_t)header->ts.tv_sec),
-        htonl((uint32_t)header->ts.tv_usec),
-        htonl((uint32_t)length),
-        htonl((uint32_t)header->len + sizeof(mpls_header)),
+        .tv_sec = htonl((uint32_t)header->ts.tv_sec),
+        .tv_usec = htonl((uint32_t)header->ts.tv_usec),
+        .caplen = htonl((uint32_t)length),
+        .len = htonl((uint32_t)header->len + sizeof(mpls_header)),
     };
 
     const bool is_pkt_num_exceeded = (pkts_buf->batch_hdr.pkts_num >= 65535);
@@ -121,8 +121,8 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     uint16_t hlen = htons(length);
     uint32_t buff_pos = pkts_buf->batch_bufpos;
 
-    memcpy(&(pkts_buf->buf[buff_pos]), &hlen, sizeof(hlen));
-    buff_pos += sizeof(length);
+    memcpy(&(pkts_buf->buf[buff_pos]), &hlen, ZMQ_PKT_DATA_LEN_SIZE);
+    buff_pos += ZMQ_PKT_DATA_LEN_SIZE;
 
     memcpy(&(pkts_buf->buf[buff_pos]), &pkt_hdr, sizeof(pkt_hdr));
     buff_pos += sizeof(pkt_hdr);
@@ -162,8 +162,9 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     const size_t payload_offset = eth_header_size + vlan_size;
     const size_t payload_copy_len = length - eth_header_size - sizeof(mpls_header) - vlan_size;
     memcpy(&(pkts_buf->buf[buff_pos]), pkt_data + payload_offset, payload_copy_len);
+    buff_pos += payload_copy_len;
 
-    pkts_buf->batch_bufpos += sizeof(length) + sizeof(pkt_hdr) + length;
+    pkts_buf->batch_bufpos = buff_pos;
     pkts_buf->batch_hdr.pkts_num++;
     return 0;
 }
