@@ -5,12 +5,11 @@
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
-#include <arpa/inet.h> // 用于字节序转换函数
+#include <arpa/inet.h>
 
 #include <pcap/pcap.h>
 #include <zmq.h>
 
-/* command line flags */
 static const char *progname;
 static const char *bind_address = "tcp://*:5555";
 static const char *out_file = "";
@@ -65,6 +64,30 @@ static void parse_opts(int argc, char **argv)
         usage();
         exit(EXIT_FAILURE);
     }
+}
+
+#define UUID_STR_BUFSIZE 37
+char uuid_str[UUID_STR_BUFSIZE];
+
+void bytes_to_uuid(const uint8_t uuid_bytes[16], char *uuid)
+{
+    char hex_chars[32];
+    for (int i = 0; i < 16; i++)
+    {
+        hex_chars[i * 2] = "0123456789abcdef"[uuid_bytes[i] >> 4];
+        hex_chars[i * 2 + 1] = "0123456789abcdef"[uuid_bytes[i] & 0x0F];
+    }
+
+    memcpy(&uuid[0], &hex_chars[0], 8);
+    uuid[8] = '-';
+    memcpy(&uuid[9], &hex_chars[8], 4);
+    uuid[13] = '-';
+    memcpy(&uuid[14], &hex_chars[12], 4);
+    uuid[18] = '-';
+    memcpy(&uuid[19], &hex_chars[16], 4);
+    uuid[23] = '-';
+    memcpy(&uuid[24], &hex_chars[20], 12);
+    uuid[36] = '\0';
 }
 
 typedef struct OutputBase
@@ -179,8 +202,11 @@ int handle_zmq_msg(zmq_msg_t *msg, output_base_t *output)
     }
     uint8_t *msg_data = zmq_msg_data(msg);
     zmq_pkt_batch_hdr_t *batch_hdr = (zmq_pkt_batch_hdr_t *)msg_data;
+
     uint16_t pkts_num = ntohs(batch_hdr->pkts_num);
-    printf("zmq message has %d packets, size: %d\n", pkts_num, msg_size);
+    bytes_to_uuid(batch_hdr->uuid, uuid_str);
+
+    printf("zmq message: size=%d, packets=%d, uuid=%s\n", msg_size, pkts_num, uuid_str);
 
     struct pcap_pkthdr header;
     size_t msg_offset = sizeof(zmq_pkt_batch_hdr_t);
@@ -209,10 +235,13 @@ int handle_zmq_msg(zmq_msg_t *msg, output_base_t *output)
         header.ts.tv_usec = ntohl(pkt_hdr->tv_usec);
         header.caplen = ntohl(pkt_hdr->caplen);
         header.len = ntohl(pkt_hdr->len);
-        if (output->send_packet(output, &header, msg_data + msg_offset) != 0)
+        if (output)
         {
-            snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: send_packet error", i + 1);
-            return -1;
+            if (output->send_packet(output, &header, msg_data + msg_offset) != 0)
+            {
+                snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: send_packet error", i + 1);
+                return -1;
+            }
         }
         msg_offset += pkt_data_len;
     }
@@ -278,15 +307,11 @@ int main(int argc, char **argv)
             break;
         }
 
-        printf("received message size: %d\n", recv_size);
-        if (output)
+        if (handle_zmq_msg(&msg, output) != 0)
         {
-            if (handle_zmq_msg(&msg, output) != 0)
-            {
-                fprintf(stderr, "%s\n", handle_error);
-                zmq_msg_close(&msg);
-                break;
-            }
+            fprintf(stderr, "%s\n", handle_error);
+            zmq_msg_close(&msg);
+            break;
         }
 
         zmq_msg_close(&msg);

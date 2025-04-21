@@ -231,9 +231,8 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
     };
     log_info("vxlan output options: host=%s, port=%d, capture_time=%d, vni_version=%d, vni=%d, bind_device=%s, "
              "pmtudisc=%d, rate_limit_mbps=%d, slice=%d",
-             output_cfg->config.vxlan.host, output_cfg->config.vxlan.port, output_cfg->config.vxlan.capture_time,
-             output_cfg->config.vxlan.vni_version, output_cfg->config.vxlan.vni, output_cfg->config.vxlan.bind_device,
-             output_cfg->config.vxlan.pmtudisc, output_cfg->rate_limit_mbps, output_cfg->slice);
+             opts.host, opts.port, opts.capture_time, opts.vni_version, opts.vni, opts.bind_device, opts.pmtudisc,
+             opts.rate_limit_mbps, opts.slice);
     return (output_base_t *)vxlan_output_new(opts, errbuf);
 }
 

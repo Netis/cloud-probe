@@ -65,8 +65,8 @@ type Tool interface {
 }
 
 type IAgentManager interface {
-	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, activeInstances []string) error
-	Update(ctx context.Context, resp *SyncStrategyResponse, activeInstances []string) error
+	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
+	Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
 	Stop() error
 	CollectStats(ctx context.Context) (agentclient.Stats, error)
 	IsAlive(ctx context.Context) (bool, error)
@@ -380,7 +380,7 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 				slog.Int("numItems", numItems),
 			)
 
-			if err := s.agentMgr.CreateIfDead(ctx, s.syncResp, activeInstances); err != nil {
+			if err := s.agentMgr.CreateIfDead(ctx, s.syncResp, s.daemonUUID, activeInstances); err != nil {
 				return err
 			}
 			s.syncActiveInstances = activeInstances
@@ -401,7 +401,7 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 		slog.Int("numItems", res.Response.NumItems(activeInstances)),
 	)
 
-	if err := s.agentMgr.Update(ctx, res.Response, activeInstances); err != nil {
+	if err := s.agentMgr.Update(ctx, res.Response, s.daemonUUID, activeInstances); err != nil {
 		return err
 	}
 	s.syncResp = res.Response
@@ -440,7 +440,7 @@ func (s *Syncer) UpdateIfInstanceChanged(ctx context.Context) error {
 		"instances changed, will restart agent",
 		slog.Int("numItems", s.syncResp.NumItems(activeInstances)),
 	)
-	if err := s.agentMgr.Update(ctx, s.syncResp, activeInstances); err != nil {
+	if err := s.agentMgr.Update(ctx, s.syncResp, s.daemonUUID, activeInstances); err != nil {
 		return err
 	}
 	s.syncActiveInstances = activeInstances

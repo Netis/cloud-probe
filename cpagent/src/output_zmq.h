@@ -47,6 +47,7 @@ typedef struct ZmqOptions
     int port;
     int hwm;
     uint32_t service_tag;
+    char *uuid;
     uint64_t rate_limit_mbps;
     int slice;
 } zmq_options_t;

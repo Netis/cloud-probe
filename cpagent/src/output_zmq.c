@@ -32,6 +32,43 @@ static uint32_t make_mpls_hdr(int direct, uint32_t service_tag)
     return flag;
 }
 
+static bool uuid_to_bytes(const char *uuid, uint8_t uuid_bytes[16])
+{
+    char clean[32];
+    int clean_index = 0;
+    const char *p = uuid;
+
+    while (*p != '\0')
+    {
+        if (*p != '-')
+        {
+            if (clean_index >= 32)
+                return false;
+            clean[clean_index++] = *p;
+        }
+        p++;
+    }
+
+    if (clean_index != 32)
+        return false;
+
+    for (int i = 0; i < 32; i += 2)
+    {
+        char byte_str[3] = {clean[i], clean[i + 1], '\0'};
+        char *endptr;
+        unsigned long val = strtoul(byte_str, &endptr, 16);
+
+        if (endptr != byte_str + 2 || val > 0xFF)
+        {
+            return false;
+        }
+
+        uuid_bytes[i / 2] = (uint8_t)val;
+    }
+
+    return true;
+}
+
 int zmq_flush_packet(zmq_output_t *output)
 {
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
@@ -171,6 +208,14 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
 zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
 {
+    uint8_t uuid[16];
+    memset(uuid, 0, sizeof(uuid));
+    if (!uuid_to_bytes(opts.uuid, uuid))
+    {
+        error_format(errbuf, "invalid uuid: %s", opts.uuid);
+        return NULL;
+    }
+
     void *context = zmq_ctx_new();
     if (context == NULL)
     {
@@ -244,7 +289,7 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
     output->pkts_buf.batch_hdr.version = htons(ZMQ_BATCH_PKTS_VERSION);
     output->pkts_buf.batch_hdr.keybit = htonl(opts.service_tag);
 
-    // TODO: uuid
+    memcpy(output->pkts_buf.batch_hdr.uuid, uuid, sizeof(uuid));
     return output;
 }
 
@@ -255,12 +300,12 @@ output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
         .port = output_cfg->config.zmq.port,
         .hwm = output_cfg->config.zmq.hwm,
         .service_tag = output_cfg->config.zmq.service_tag,
+        .uuid = output_cfg->config.zmq.uuid,
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
         .slice = output_cfg->slice,
     };
-    log_info("zmq output options: host=%s, port=%d, hwm=%d, service_tag=%d, rate_limit_mbps=%d, slice=%d",
-             output_cfg->config.zmq.host, output_cfg->config.zmq.port, output_cfg->config.zmq.hwm,
-             output_cfg->config.zmq.service_tag, output_cfg->rate_limit_mbps, output_cfg->slice);
+    log_info("zmq output options: host=%s, port=%d, hwm=%d, service_tag=%d, uuid=%s, rate_limit_mbps=%d, slice=%d",
+             opts.host, opts.port, opts.hwm, opts.service_tag, opts.uuid, opts.rate_limit_mbps, opts.slice);
     return (output_base_t *)zmq_output_new(opts, errbuf);
 }
 

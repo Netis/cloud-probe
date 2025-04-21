@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/samber/lo"
@@ -9,8 +10,10 @@ import (
 )
 
 func TestAgent(t *testing.T) {
+	require.NoError(t, os.MkdirAll("testdata/tmp", 0o755))
+
 	cfg := AgentRunTimeConfig{
-		Executable: "fakeagent/fakeagent",
+		Executable: "./fakeagent",
 		UnixSocket: "testdata/tmp/test.sock",
 		TasksFile:  "testdata/tmp/test-tasks.json",
 

@@ -56,6 +56,7 @@ typedef struct
             int port;
             int hwm;
             uint32_t service_tag;
+            char *uuid;
         } zmq;
 
         struct

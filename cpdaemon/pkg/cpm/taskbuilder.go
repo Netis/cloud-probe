@@ -17,6 +17,7 @@ import (
 
 type tasksBuilder struct {
 	tool            Tool
+	daemonUUID      string
 	activeInstances []string
 	buffSize        uint64
 
@@ -254,6 +255,7 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*ag
 		output.Type = agent.OutputType_Zmq
 		output.Zmq = &agent.ZmqOutputConfig{
 			Host: strategy.Address,
+			Uuid: b.daemonUUID,
 		}
 		if strategy.Port != nil {
 			output.Zmq.Port = int(*strategy.Port)

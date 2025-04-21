@@ -46,6 +46,7 @@ func Test_tasksBuilder_1(t *testing.T) {
 	tb := &tasksBuilder{
 		tool:            testTool{},
 		activeInstances: []string{},
+		daemonUUID:      "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
 		buffSize:        256,
 	}
 	for _, strategy := range res.Strategy {
@@ -69,6 +70,7 @@ func Test_tasksBuilder_1(t *testing.T) {
 					Zmq: &agent.ZmqOutputConfig{
 						Host: "127.0.0.1",
 						Port: 5555,
+						Uuid: "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
 					},
 				},
 			},
@@ -82,6 +84,7 @@ func Test_tasksBuilder_2(t *testing.T) {
 
 	tb := &tasksBuilder{
 		tool:            testTool{},
+		daemonUUID:      "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
 		activeInstances: []string{},
 		buffSize:        256,
 	}
@@ -115,6 +118,7 @@ func Test_tasksBuilder_2(t *testing.T) {
 						Host:       "127.0.0.1",
 						Port:       5555,
 						ServiceTag: lo.ToPtr[uint32](3456),
+						Uuid:       "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
 					},
 				},
 			},

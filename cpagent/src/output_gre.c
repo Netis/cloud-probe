@@ -145,8 +145,7 @@ output_base_t *gre_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
         .slice = output_cfg->slice,
     };
     log_info("gre output options: host=%s, service_tag=%d, bind_device=%s, pmtudisc=%d, rate_limit_mbps=%d, slice=%d",
-             output_cfg->config.gre.host, output_cfg->config.gre.service_tag, output_cfg->config.gre.bind_device,
-             output_cfg->config.gre.pmtudisc, output_cfg->rate_limit_mbps, output_cfg->slice);
+             opts.host, opts.service_tag, opts.bind_device, opts.pmtudisc, opts.rate_limit_mbps, opts.slice);
     return (output_base_t *)gre_output_new(opts, errbuf);
 }
 

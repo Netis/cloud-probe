@@ -30,6 +30,7 @@ static void free_output(OutputConfig *output)
         else if (strcmp(output->type, OUTPUT_TYPE_ZMQ) == 0)
         {
             free(output->config.zmq.host);
+            free(output->config.zmq.uuid);
         }
         else if (strcmp(output->type, OUTPUT_TYPE_FILE) == 0)
         {
@@ -503,6 +504,18 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         else
         {
             cjson_set_parse_error(err, "invalid zmq.service_tag");
+            return PARSE_ERROR;
+        }
+
+        // uuid
+        cJSON *uuid = cJSON_GetObjectItemCaseSensitive(zmq_obj, "uuid");
+        if (!uuid)
+            output->config.zmq.uuid = strdup("");
+        else if (cJSON_IsString(uuid))
+            output->config.zmq.uuid = strdup(uuid->valuestring);
+        else
+        {
+            cjson_set_parse_error(err, "invalid zmq.uuid");
             return PARSE_ERROR;
         }
     }

@@ -2,6 +2,7 @@ package cpm
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,9 +12,11 @@ import (
 )
 
 func TestAgentManager(t *testing.T) {
+	require.NoError(t, os.MkdirAll("testdata/tmp", 0o755))
+
 	mgr := NewAgentManager(
 		AgentConfig{
-			Executable: "../agent/fakeagent/fakeagent",
+			Executable: "../agent/fakeagent",
 			UnixSocket: "testdata/tmp/test.sock",
 			TasksFile:  "testdata/tmp/test-tasks.json",
 		},
@@ -37,7 +40,7 @@ func TestAgentManager(t *testing.T) {
 	}
 
 	{
-		err := mgr.Update(context.Background(), &res, []string{})
+		err := mgr.Update(context.Background(), &res, "", []string{})
 		require.NoError(t, err)
 
 		isAlive, err := mgr.IsAlive(context.Background())
@@ -48,7 +51,7 @@ func TestAgentManager(t *testing.T) {
 		require.True(t, ok)
 		require.NotZero(t, pid)
 
-		err = mgr.CreateIfDead(context.Background(), &res, []string{})
+		err = mgr.CreateIfDead(context.Background(), &res, "", []string{})
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "agent is still running")
 	}
@@ -67,7 +70,7 @@ func TestAgentManager(t *testing.T) {
 	}
 
 	{
-		err := mgr.CreateIfDead(context.Background(), &res, []string{})
+		err := mgr.CreateIfDead(context.Background(), &res, "", []string{})
 		require.NoError(t, err)
 
 		isAlive, err := mgr.IsAlive(context.Background())

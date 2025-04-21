@@ -116,7 +116,7 @@ func (m *AgentManager) CollectStats(ctx context.Context) (agentclient.Stats, err
 	return client.CollectStats(ctx)
 }
 
-func (m *AgentManager) CreateIfDead(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
+func (m *AgentManager) CreateIfDead(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -136,10 +136,10 @@ func (m *AgentManager) CreateIfDead(ctx context.Context, res *SyncStrategyRespon
 		}
 	}
 
-	return m.createUnsafe(ctx, res, activeInstances)
+	return m.createUnsafe(ctx, res, daemonUUID, activeInstances)
 }
 
-func (m *AgentManager) Update(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
+func (m *AgentManager) Update(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -154,10 +154,10 @@ func (m *AgentManager) Update(ctx context.Context, res *SyncStrategyResponse, ac
 			m.client = nil
 		}
 	}
-	return m.createUnsafe(ctx, res, activeInstances)
+	return m.createUnsafe(ctx, res, daemonUUID, activeInstances)
 }
 
-func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyResponse, activeInstances []string) error {
+func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
 	if m.agent != nil {
 		return errors.New("agent is already exists")
 	}
@@ -178,6 +178,7 @@ func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyRespon
 
 	tb := &tasksBuilder{
 		tool:            m.tool,
+		daemonUUID:      daemonUUID,
 		activeInstances: activeInstances,
 		buffSize:        buffSize,
 	}

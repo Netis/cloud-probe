@@ -30,7 +30,7 @@ func (r *testAgentManagerRecoder) Calls() []string {
 	return r.calls
 }
 
-func (r *testAgentManagerRecoder) CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, activeInstances []string) error {
+func (r *testAgentManagerRecoder) CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "CreateIfDead")
@@ -43,7 +43,7 @@ func (r *testAgentManagerRecoder) CreateIfDead(ctx context.Context, resp *SyncSt
 	return nil
 }
 
-func (r *testAgentManagerRecoder) Update(ctx context.Context, resp *SyncStrategyResponse, activeInstances []string) error {
+func (r *testAgentManagerRecoder) Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "Update")
