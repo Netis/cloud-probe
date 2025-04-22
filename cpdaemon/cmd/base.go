@@ -19,8 +19,6 @@ import (
 )
 
 var (
-	verbose bool
-
 	vpOnce         sync.Once
 	vpErr          error
 	initLoggerOnce sync.Once
@@ -28,7 +26,6 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().StringP("config", "c", "config.json", "config file path")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	_ = rootCmd.MarkPersistentFlagFilename("config")
 }
 
@@ -38,13 +35,9 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// 防止单元测试多次初始化导致 DATA RACE
 		initLoggerOnce.Do(func() {
-			level := slog.LevelInfo
-			if verbose {
-				level = slog.LevelDebug
-			}
 			hd := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 				AddSource: true,
-				Level:     level,
+				Level:     slog.LevelInfo,
 			})
 			lg := slog.New(hd)
 			slog.SetDefault(lg)

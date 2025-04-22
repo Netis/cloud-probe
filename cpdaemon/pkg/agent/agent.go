@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cgroup"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
@@ -23,15 +24,15 @@ type AgentRunTimeConfig struct {
 	Env        map[string]string
 	WorkDir    string
 
+	CpuAffinity int          `json:"cpu_affinity,omitempty"`
+	LogLevel    string       `json:"log_level"`
+	UnixSocket  string       `json:"unix_socket"`
+	Tasks       []TaskConfig `json:"tasks"`
+	ConfigFile  string
+
 	CgroupCfg cgroup.CgroupCfg
-
-	LogLevel   string
-	UnixSocket string
-	TasksFile  string
-	Tasks      []TaskConfig
-
-	CpuLimit *float64
-	MemLimit *int64
+	CpuLimit  *float64
+	MemLimit  *int64
 }
 
 type Agent struct {
@@ -148,15 +149,11 @@ func (a *Agent) startProcess() error {
 		return errors.Errorf("agent %s is already running", a.name)
 	}
 
-	if err := a.writeTasks(); err != nil {
+	if err := a.writeConfig(); err != nil {
 		return err
 	}
 
-	args := []string{
-		"--tasks", a.cfg.TasksFile,
-		"--unix-socket", a.cfg.UnixSocket,
-		"--log-level", a.cfg.LogLevel,
-	}
+	args := []string{"-c", a.cfg.ConfigFile}
 	cmd := exec.Command(a.cfg.Executable, args...)
 	cmd.Env = os.Environ()
 	for k, v := range a.cfg.Env {
@@ -239,25 +236,30 @@ func (a *Agent) createResLimit() (func() error, error) {
 	)
 }
 
-func (a *Agent) writeTasks() error {
-	fp, err := os.Create(a.cfg.TasksFile)
+func (a *Agent) writeConfig() error {
+	fp, err := os.Create(a.cfg.ConfigFile)
 	if err != nil {
-		return errors.Wrapf(err, "create tasks file: %s", a.cfg.TasksFile)
+		return errors.Wrapf(err, "create agent config file: %s", a.cfg.ConfigFile)
 	}
 	defer fp.Close()
 
-	cfg := struct {
-		Tasks []TaskConfig `json:"tasks"`
-	}{
-		Tasks: a.cfg.Tasks,
+	cfg := Config{
+		LogLevel:   a.cfg.LogLevel,
+		UnixSocket: a.cfg.UnixSocket,
+		Tasks:      a.cfg.Tasks,
+	}
+	if a.cfg.CpuAffinity >= 0 {
+		cfg.CpuAffinity = lo.ToPtr(a.cfg.CpuAffinity)
 	}
 
-	if err := json.NewEncoder(fp).Encode(cfg); err != nil {
+	enc := json.NewEncoder(fp)
+	enc.SetIndent("", "    ")
+	if err := enc.Encode(cfg); err != nil {
 		return errors.Wrapf(err, "marshal tasks error")
 	}
 
 	if err := fp.Close(); err != nil {
-		return errors.Wrapf(err, "close tasks file: %s", a.cfg.TasksFile)
+		return errors.Wrapf(err, "close agent config file: %s", a.cfg.ConfigFile)
 	}
 	return nil
 }

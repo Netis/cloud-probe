@@ -122,8 +122,18 @@ typedef struct
     int num_tasks;
 } TasksAllConfig;
 
-TasksAllConfig *parse_tasks_config(char *data, cJSONParseError *err);
+typedef struct
+{
+    int log_level;
+    int cpu_affinity;
+    char *unix_socket;
+    TasksAllConfig *tasks_cfg;
+} Config;
+
 TasksAllConfig *parse_tasks_file(const char *filename, cJSONParseError *err);
 void free_tasks_config(TasksAllConfig *config);
+
+Config *parse_config_file(const char *filename, cJSONParseError *err);
+void free_config(Config *config);
 
 #endif /* CPAGENT_TASKCONF_H */

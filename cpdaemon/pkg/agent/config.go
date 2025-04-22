@@ -13,6 +13,13 @@ const (
 	ReqPatternType_CUSTOM = "custom"
 )
 
+type Config struct {
+	CpuAffinity *int         `json:"cpu_affinity,omitempty"`
+	LogLevel    string       `json:"log_level"`
+	UnixSocket  string       `json:"unix_socket"`
+	Tasks       []TaskConfig `json:"tasks"`
+}
+
 type TaskConfig struct {
 	Interface  string         `json:"interface"`
 	Snaplen    *int           `json:"snaplen,omitempty"`

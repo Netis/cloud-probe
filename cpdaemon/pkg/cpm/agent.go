@@ -24,9 +24,10 @@ type AgentConfig struct {
 	WorkDir    string
 	CgroupCfg  cgroup.CgroupCfg
 
-	LogLevel   string
-	UnixSocket string
-	TasksFile  string
+	CpuAffinity int
+	LogLevel    string
+	UnixSocket  string
+	ConfigFile  string
 }
 
 func (c *AgentConfig) Validate() error {
@@ -201,10 +202,12 @@ func (m *AgentManager) createUnsafe(ctx context.Context, res *SyncStrategyRespon
 		Env:        m.agentCfg.Env,
 		WorkDir:    m.agentCfg.WorkDir,
 		CgroupCfg:  m.agentCfg.CgroupCfg,
-		LogLevel:   m.agentCfg.LogLevel,
-		UnixSocket: m.agentCfg.UnixSocket,
-		TasksFile:  m.agentCfg.TasksFile,
-		Tasks:      tb.tasks,
+
+		CpuAffinity: m.agentCfg.CpuAffinity,
+		LogLevel:    m.agentCfg.LogLevel,
+		UnixSocket:  m.agentCfg.UnixSocket,
+		Tasks:       tb.tasks,
+		ConfigFile:  m.agentCfg.ConfigFile,
 
 		CpuLimit: res.CpuLimit,
 		MemLimit: res.MemLimit,

@@ -14,9 +14,8 @@ func TestAgent(t *testing.T) {
 
 	cfg := AgentRunTimeConfig{
 		Executable: "./fakeagent",
+		ConfigFile: "testdata/tmp/test-tasks.json",
 		UnixSocket: "testdata/tmp/test.sock",
-		TasksFile:  "testdata/tmp/test-tasks.json",
-
 		Tasks: []TaskConfig{
 			{
 				Interface: "eth0",

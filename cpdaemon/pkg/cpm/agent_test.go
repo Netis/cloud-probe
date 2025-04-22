@@ -18,7 +18,7 @@ func TestAgentManager(t *testing.T) {
 		AgentConfig{
 			Executable: "../agent/fakeagent",
 			UnixSocket: "testdata/tmp/test.sock",
-			TasksFile:  "testdata/tmp/test-tasks.json",
+			ConfigFile: "testdata/tmp/test-tasks.json",
 		},
 		testTool{},
 	)

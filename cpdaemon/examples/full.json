@@ -1,0 +1,40 @@
+{
+    "listen": {
+        "http": {
+            "port": 9022
+        }
+    },
+    "agent": {
+        "executable": "./bin/cpagent"
+    },
+    "tool": {
+        "get_container_host_pid_script": "",
+        "get_kvm_instances_script": "",
+        "get_kvm_instance_nics_script": ""
+    },
+    "cgroup": {
+        "version": "v1",
+        "root": "/sys/fs/cgroup",
+        "hierarchy": "cpagent"
+    },
+    "cpm": {
+        "base_url": "https://127.0.0.1:48018",
+        "reg": {
+            "name": "cpdaemon-test",
+            "uuid_file": "cpm-uuid.txt",
+            "platform_id": "george-ali",
+            "deploy_env": "INSTANCE",
+            "labels": ["daemonset"],
+            "including_nics": ["eth0", "eth1"],
+            "pod_name": "test",
+            "namespace": "cloud-probe",
+            "node_name": "test"
+        },
+        "agent": {
+            "log_level": "INFO",
+            "config_file": "cpm-agent.json",
+            "unix_socket": "cpm-agent.sock",
+            "cpu_affinity": -1
+        }
+    }
+}

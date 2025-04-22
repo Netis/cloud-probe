@@ -5,6 +5,7 @@
 
 #include "cJSON/cJSON.h"
 
+#include "log.h"
 #include "taskconf.h"
 
 #define PARSE_ERROR -1
@@ -100,6 +101,20 @@ void free_tasks_config(TasksAllConfig *config)
         free_task(config->tasks[i]);
 
     free(config->tasks);
+    free(config);
+}
+
+void free_config(Config *config)
+{
+    if (!config)
+        return;
+
+    if (config->tasks_cfg)
+        free_tasks_config(config->tasks_cfg);
+
+    if (config->unix_socket)
+        free(config->unix_socket);
+
     free(config);
 }
 
@@ -746,20 +761,12 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
     return 0;
 }
 
-TasksAllConfig *parse_tasks_config(char *data, cJSONParseError *err)
+static TasksAllConfig *parse_tasks_json(cJSON *json, cJSONParseError *err)
 {
-    cJSON *json = cJSON_Parse(data);
-    if (!json)
-    {
-        cjson_set_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
-        return NULL;
-    }
-
     TasksAllConfig *config = (TasksAllConfig *)calloc(1, sizeof(TasksAllConfig));
     if (!config)
     {
         cjson_set_parse_error(err, "memory allocation failed");
-        cJSON_Delete(json);
         return NULL;
     }
 
@@ -802,12 +809,8 @@ TasksAllConfig *parse_tasks_config(char *data, cJSONParseError *err)
         }
         config->tasks[config->num_tasks++] = task;
     }
-
-    cJSON_Delete(json);
     return config;
-
 error:
-    cJSON_Delete(json);
     free_tasks_config(config);
     return NULL;
 }
@@ -859,7 +862,106 @@ TasksAllConfig *parse_tasks_file(const char *filename, cJSONParseError *err)
     if (!json_str)
         return NULL;
 
-    TasksAllConfig *config = parse_tasks_config(json_str, err);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json)
+    {
+        cjson_set_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
+        free(json_str);
+        return NULL;
+    }
+
+    TasksAllConfig *config = parse_tasks_json(json, err);
+    cJSON_Delete(json);
+    free(json_str);
+    return config;
+}
+
+static Config *parse_config_json(cJSON *json, cJSONParseError *err)
+{
+    Config *config = (Config *)calloc(1, sizeof(Config));
+    if (!config)
+    {
+        cjson_set_parse_error(err, "memory allocation failed");
+        return NULL;
+    }
+
+    TasksAllConfig *tasks_cfg = parse_tasks_json(json, err);
+    if (!tasks_cfg)
+    {
+        goto error;
+        return NULL;
+    }
+    config->tasks_cfg = tasks_cfg;
+
+    cJSON *log_level = cJSON_GetObjectItemCaseSensitive(json, "log_level");
+    if (!log_level)
+        config->log_level = LOG_INFO;
+    else if (cJSON_IsString(log_level))
+    {
+        if (strcasecmp(log_level->valuestring, "DEBUG") == 0)
+            config->log_level = LOG_DEBUG;
+        else if (strcasecmp(log_level->valuestring, "INFO") == 0)
+            config->log_level = LOG_INFO;
+        else if (strcasecmp(log_level->valuestring, "WARN") == 0)
+            config->log_level = LOG_WARN;
+        else if (strcasecmp(log_level->valuestring, "ERROR") == 0)
+            config->log_level = LOG_ERROR;
+        else
+        {
+            cjson_set_parse_error(err, "invalid log_level");
+            goto error;
+        }
+    }
+    else
+    {
+        cjson_set_parse_error(err, "invalid log_level");
+        goto error;
+    }
+
+    cJSON *unix_socket = cJSON_GetObjectItemCaseSensitive(json, "unix_socket");
+    if (!unix_socket)
+        config->unix_socket = strdup("");
+    else if (cJSON_IsString(unix_socket))
+        config->unix_socket = strdup(unix_socket->valuestring);
+    else
+    {
+        cjson_set_parse_error(err, "invalid unix_socket");
+        goto error;
+    }
+
+    cJSON *cpu_affinity = cJSON_GetObjectItemCaseSensitive(json, "cpu_affinity");
+    if (!cpu_affinity)
+        config->cpu_affinity = -1;
+    else if (cJSON_IsNumber(cpu_affinity))
+        config->cpu_affinity = cpu_affinity->valueint;
+    else
+    {
+        cjson_set_parse_error(err, "invalid cpu_affinity");
+        goto error;
+    }
+
+    return config;
+error:
+    free_config(config);
+    return NULL;
+}
+
+Config *parse_config_file(const char *filename, cJSONParseError *err)
+{
+    char *json_str = read_file_contents(filename, err);
+    if (!json_str)
+        return NULL;
+
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json)
+    {
+        cjson_set_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
+        free(json_str);
+        return NULL;
+    }
+
+    Config *config = parse_config_json(json, err);
+    cJSON_Delete(json);
     free(json_str);
     return config;
 }

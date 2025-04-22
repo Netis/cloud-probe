@@ -12,6 +12,7 @@ import (
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -72,37 +73,73 @@ func packageBinaryPath(os string, arch string) string {
 	return filepath.Join(packageRoot(os, arch), "bin")
 }
 
-func packageConfigPath(os string, arch string) string {
-	return filepath.Join(packageRoot(os, arch), "etc")
-}
-
 func packageFile(os_ string, arch string, version string) string {
 	if v := getEnvCfg(ENV_CLOUD_PROBE_PACKAGE_FILE); v != "" {
 		return v
 	}
-	return filepath.Join(distDir, fmt.Sprintf("cloud-probe%s-%s-%s.tar.gz", version, os_, arch))
+	return filepath.Join(distDir, fmt.Sprintf("cloud-probe-%s-%s-%s.tar.gz", version, os_, arch))
+}
+
+func copyCpagentExamples(targetDir string) error {
+	srcDir := "../cpagent/examples"
+	dstDir := filepath.Join(targetDir, "cpagent")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		return fmt.Errorf("create dir %q error: %w", dstDir, err)
+	}
+	entires, err := os.ReadDir(srcDir)
+	if err != nil {
+		return errors.Errorf("read directory: %s error", srcDir)
+	}
+	for _, entry := range entires {
+		if entry.IsDir() {
+			continue
+		}
+		if err := copyFile(filepath.Join(srcDir, entry.Name()), filepath.Join(dstDir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyCpdaemonExamples(targetDir string) error {
+	srcDir := "../cpdaemon/examples"
+	dstDir := filepath.Join(targetDir, "cpdaemon")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		return fmt.Errorf("create dir %q error: %w", dstDir, err)
+	}
+	entires, err := os.ReadDir(srcDir)
+	if err != nil {
+		return errors.Errorf("read directory: %s error", srcDir)
+	}
+	for _, entry := range entires {
+		if entry.IsDir() {
+			continue
+		}
+		if err := copyFile(filepath.Join(srcDir, entry.Name()), filepath.Join(dstDir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyExamples(targetDir string) error {
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("create dir %q error: %w", targetDir, err)
+	}
+
+	if err := copyCpagentExamples(targetDir); err != nil {
+		return err
+	}
+	if err := copyCpdaemonExamples(targetDir); err != nil {
+		return err
+	}
+	return nil
 }
 
 func createPackage(os_ string, arch string, version string) error {
-	cfgPath := packageConfigPath(os_, arch)
-	if err := os.MkdirAll(cfgPath, 0755); err != nil {
-		return fmt.Errorf("create dir %q error: %w", cfgPath, err)
-	}
-	if err := copyFile("../cpdaemon/config.json", filepath.Join(cfgPath, "cpdeamon.json")); err != nil {
+	examplesPath := filepath.Join(packageRoot(os_, arch), "examples")
+	if err := copyExamples(examplesPath); err != nil {
 		return err
-	}
-	if err := os.MkdirAll(filepath.Join(cfgPath, "tasks"), 0755); err != nil {
-		return fmt.Errorf("create dir %q error: %w", filepath.Join(cfgPath, "tasks"), err)
-	}
-	for _, fileName := range []string{
-		"full.json",
-		"libpcap_file.json",
-		"libpcap_rotating_file.json",
-		"libpcap_zmq.json",
-	} {
-		if err := copyFile(filepath.Join("../cpagent/examples", fileName), filepath.Join(cfgPath, "tasks", fileName)); err != nil {
-			return err
-		}
 	}
 
 	if err := sh.RunV(

@@ -1,4 +1,7 @@
 {
+    "cpu_affinity": 1,
+    "log_level": "INFO",
+    "unix_socket": "/var/run/cloud-probe/cpagent.sock",
     "tasks": [
         {
             "interface": "eth0",
@@ -13,7 +16,7 @@
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
-                    "bpf": "",
+                    "bpf": "host nic.eth0",
                     "buffer_size_mb": 256,
                     "timeout_ms": 3
                 }

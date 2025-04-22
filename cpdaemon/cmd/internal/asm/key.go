@@ -12,52 +12,53 @@ const AppName = "cpdaemon"
 var VKey = struct {
 	Listen struct {
 		Http struct {
-			Address string
-			Port    string
-		}
-	}
+			Address string `json:"address"`
+			Port    string `json:"port"`
+		} `json:"http"`
+	} `json:"listen"`
 	Agent struct {
-		Executable string
-	}
+		Executable string `json:"executable"`
+	} `json:"agent"`
 	Tool struct {
-		GetContainerHostPidScript string
-		GetKvmInstancesScript     string
-		GetKvmInstanceNicsScript  string
-	}
+		GetContainerHostPidScript string `json:"get_container_host_pid_script"`
+		GetKvmInstancesScript     string `json:"get_kvm_instances_script"`
+		GetKvmInstanceNicsScript  string `json:"get_kvm_instance_nics_script"`
+	} `json:"tool"`
 	Cgroup struct {
-		Version   string
-		Root      string
-		Hierarchy string
-	}
+		Version   string `json:"version"`
+		Root      string `json:"root"`
+		Hierarchy string `json:"hierarchy"`
+	} `json:"cgroup"`
 	Cpm struct {
-		BaseUrl string
+		BaseUrl string `json:"base_url"`
 		Client  struct {
-			Timeout               string
-			DialTimeout           string
-			ResponseHeaderTimeout string
-			MaxIdleConns          string
-			MaxIdleConnsPerHost   string
-			Pkcs12CertFile        string
-			Pkcs12CertPassword    string
-		}
+			Timeout               string `json:"timeout"`
+			DialTimeout           string `json:"dial_timeout"`
+			ResponseHeaderTimeout string `json:"response_header_timeout"`
+			MaxIdleConns          string `json:"max_idle_conns"`
+			MaxIdleConnsPerHost   string `json:"max_idle_conns_per_host"`
+			Pkcs12CertFile        string `json:"pkcs12_cert_file"`
+			Pkcs12CertPassword    string `json:"pkcs12_cert_password"`
+		} `json:"client"`
 		Reg struct {
-			Name          string
-			UuidFile      string
-			PlatformId    string
-			DeployEnv     string
-			Labels        string
-			IncludingNICs string
+			Name          string `json:"name"`
+			UuidFile      string `json:"uuid_file"`
+			PlatformId    string `json:"platform_id"`
+			DeployEnv     string `json:"deploy_env"`
+			Labels        string `json:"labels"`
+			IncludingNICs string `json:"including_nics"`
 
-			PodName   string
-			Namespace string
-			NodeName  string
-		}
+			PodName   string `json:"pod_name"`
+			Namespace string `json:"namespace"`
+			NodeName  string `json:"node_name"`
+		} `json:"reg"`
 		Agent struct {
-			LogLevel   string
-			UnixSocket string
-			TasksFile  string
-		}
-	}
+			LogLevel    string `json:"log_level"`
+			UnixSocket  string `json:"unix_socket"`
+			ConfigFile  string `json:"config_file"`
+			CpuAffinity string `json:"cpu_affinity"`
+		} `json:"agent"`
+	} `json:"cpm"`
 }{}
 
 func SetDefaults(vp *viper.Viper) {
@@ -69,8 +70,9 @@ func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
 
 	vp.SetDefault(VKey.Cpm.Agent.LogLevel, "INFO")
-	vp.SetDefault(VKey.Cpm.Agent.UnixSocket, "/var/run/cloud-probe/cpm-agent.sock")
-	vp.SetDefault(VKey.Cpm.Agent.TasksFile, "cpm-tasks.json")
+	vp.SetDefault(VKey.Cpm.Agent.UnixSocket, "cpm-agent.sock")
+	vp.SetDefault(VKey.Cpm.Agent.ConfigFile, "cpm-agent.json")
+	vp.SetDefault(VKey.Cpm.Agent.CpuAffinity, -1)
 
 	vp.SetDefault(VKey.Cpm.Client.Timeout, 15*time.Second)
 	vp.SetDefault(VKey.Cpm.Client.DialTimeout, 5*time.Second)
@@ -95,9 +97,17 @@ func fillKey(v reflect.Value, prefix string) {
 		fv := v.Field(i)
 		switch ft.Type.Kind() {
 		case reflect.String:
-			fv.SetString(prefix + ft.Name)
+			name := ft.Name
+			if v := ft.Tag.Get("json"); v != "" {
+				name = v
+			}
+			fv.SetString(prefix + name)
 		case reflect.Struct:
-			fillKey(fv.Addr(), prefix+ft.Name+".")
+			name := ft.Name
+			if v := ft.Tag.Get("json"); v != "" {
+				name = v
+			}
+			fillKey(fv.Addr(), prefix+name+".")
 		}
 	}
 }
