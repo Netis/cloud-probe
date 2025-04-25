@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Netis/cloud-probe/cpgolib/agentclient"
+	"github.com/Netis/cloud-probe/cpgolib/cpworker"
 )
 
-type testAgentManagerRecoder struct {
+type testWorkerManagerRecoder struct {
 	mu    sync.Mutex
 	calls []string
 
@@ -24,13 +24,13 @@ type testAgentManagerRecoder struct {
 	startTime time.Time
 }
 
-func (r *testAgentManagerRecoder) Calls() []string {
+func (r *testWorkerManagerRecoder) Calls() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.calls
 }
 
-func (r *testAgentManagerRecoder) CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
+func (r *testWorkerManagerRecoder) CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "CreateIfDead")
@@ -43,7 +43,7 @@ func (r *testAgentManagerRecoder) CreateIfDead(ctx context.Context, resp *SyncSt
 	return nil
 }
 
-func (r *testAgentManagerRecoder) Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
+func (r *testWorkerManagerRecoder) Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "Update")
@@ -53,7 +53,7 @@ func (r *testAgentManagerRecoder) Update(ctx context.Context, resp *SyncStrategy
 	return nil
 }
 
-func (r *testAgentManagerRecoder) Stop() error {
+func (r *testWorkerManagerRecoder) Stop() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "Stop")
@@ -61,21 +61,21 @@ func (r *testAgentManagerRecoder) Stop() error {
 	return nil
 }
 
-func (r *testAgentManagerRecoder) CollectStats(ctx context.Context) (agentclient.Stats, error) {
+func (r *testWorkerManagerRecoder) CollectStats(ctx context.Context) (cpworker.Stats, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "CollectStats")
-	return agentclient.Stats{}, nil
+	return cpworker.Stats{}, nil
 }
 
-func (r *testAgentManagerRecoder) IsAlive(ctx context.Context) (bool, error) {
+func (r *testWorkerManagerRecoder) IsAlive(ctx context.Context) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "IsAlive")
 	return r.isAlive, nil
 }
 
-func (r *testAgentManagerRecoder) StartTime() time.Time {
+func (r *testWorkerManagerRecoder) StartTime() time.Time {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "StartTime")
@@ -85,7 +85,7 @@ func (r *testAgentManagerRecoder) StartTime() time.Time {
 	return time.Time{}
 }
 
-func (r *testAgentManagerRecoder) Pid() (int, bool) {
+func (r *testWorkerManagerRecoder) Pid() (int, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "Pid")
@@ -95,13 +95,13 @@ func (r *testAgentManagerRecoder) Pid() (int, bool) {
 	return 0, false
 }
 
-func (r *testAgentManagerRecoder) kill() {
+func (r *testWorkerManagerRecoder) kill() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.isAlive = false
 }
 
-func (r *testAgentManagerRecoder) SetLogger(lg *slog.Logger) {
+func (r *testWorkerManagerRecoder) SetLogger(lg *slog.Logger) {
 }
 
 type (
@@ -154,9 +154,9 @@ func TestSyncer(t *testing.T) {
 			}
 		},
 	}
-	agentMgr := &testAgentManagerRecoder{}
+	workerMgr := &testWorkerManagerRecoder{}
 
-	syncer, err := newSyncer(client, agentMgr, testTool{}, SyncerConfig{
+	syncer, err := newSyncer(client, workerMgr, testTool{}, SyncerConfig{
 		RegCfg: RegConfig{
 			PlatformId: "test",
 			UuidFile:   "testdata/tmp/uuid",
@@ -201,7 +201,7 @@ func TestSyncer(t *testing.T) {
 	<-syncReqCh
 	{
 		// 第1次同步后
-		calls := lo.Filter(agentMgr.Calls(), func(item string, index int) bool {
+		calls := lo.Filter(workerMgr.Calls(), func(item string, index int) bool {
 			return slices.Contains([]string{"CreateIfDead", "Update", "Stop"}, item)
 		})
 		assert.Equal(t, []string{"Update"}, calls)
@@ -213,7 +213,7 @@ func TestSyncer(t *testing.T) {
 	<-syncReqCh
 	{
 		// 第2次同步后
-		calls := lo.Filter(agentMgr.Calls(), func(item string, index int) bool {
+		calls := lo.Filter(workerMgr.Calls(), func(item string, index int) bool {
 			return slices.Contains([]string{"CreateIfDead", "Update", "Stop"}, item)
 		})
 		assert.Equal(t, []string{"Update"}, calls)
@@ -243,7 +243,7 @@ func TestSyncer(t *testing.T) {
 	<-syncReqCh
 	{
 		// 第3次同步后
-		calls := lo.Filter(agentMgr.Calls(), func(item string, index int) bool {
+		calls := lo.Filter(workerMgr.Calls(), func(item string, index int) bool {
 			return slices.Contains([]string{"CreateIfDead", "Update", "Stop"}, item)
 		})
 		assert.Equal(t, []string{"Update", "Update"}, calls)
@@ -256,12 +256,12 @@ func TestSyncer(t *testing.T) {
 	<-syncReqCh
 	{
 		// 第4次同步后
-		calls := lo.Filter(agentMgr.Calls(), func(item string, index int) bool {
+		calls := lo.Filter(workerMgr.Calls(), func(item string, index int) bool {
 			return slices.Contains([]string{"CreateIfDead", "Update", "Stop"}, item)
 		})
 		assert.Equal(t, []string{"Update", "Update"}, calls)
 	}
-	agentMgr.kill()
+	workerMgr.kill()
 	syncRespCh <- &SyncStrategyResult{
 		Changed: false,
 	}
@@ -269,7 +269,7 @@ func TestSyncer(t *testing.T) {
 	<-syncReqCh
 	{
 		// 第5次同步后
-		calls := lo.Filter(agentMgr.Calls(), func(item string, index int) bool {
+		calls := lo.Filter(workerMgr.Calls(), func(item string, index int) bool {
 			return slices.Contains([]string{"CreateIfDead", "Update", "Stop"}, item)
 		})
 		assert.Equal(t, []string{"Update", "Update", "CreateIfDead"}, calls)

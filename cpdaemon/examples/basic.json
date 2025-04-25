@@ -1,6 +1,6 @@
 {
-    "agent": {
-        "executable": "./bin/cpagent"
+    "worker": {
+        "executable": "./bin/cpworker"
     },
     "cpm": {
         "base_url": "https://127.0.0.1:48018",

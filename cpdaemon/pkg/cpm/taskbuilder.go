@@ -12,7 +12,7 @@ import (
 	"github.com/samber/lo"
 	flag "github.com/spf13/pflag"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/worker"
 )
 
 type tasksBuilder struct {
@@ -22,7 +22,7 @@ type tasksBuilder struct {
 	buffSize        uint64
 
 	warnings []error
-	tasks    []agent.TaskConfig
+	tasks    []worker.TaskConfig
 }
 
 func (b *tasksBuilder) addStrategy(strategy StrategyEntry) {
@@ -140,11 +140,11 @@ func (b *tasksBuilder) addInstanceName(strategy StrategyEntry, instanceName stri
 	b.tasks = append(b.tasks, *task)
 }
 
-func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*agent.TaskConfig, error) {
-	task := agent.TaskConfig{
-		Capturer: agent.CapturerConfig{
-			Type: agent.CapturerType_Libpcap,
-			Libpcap: &agent.LibpcapConfig{
+func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*worker.TaskConfig, error) {
+	task := worker.TaskConfig{
+		Capturer: worker.CapturerConfig{
+			Type: worker.CapturerType_Libpcap,
+			Libpcap: &worker.LibpcapConfig{
 				BufferSizeMB: lo.ToPtr(b.buffSize),
 			},
 		},
@@ -170,13 +170,13 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*ag
 	if strategy.ReqPatternType != nil {
 		switch *strategy.ReqPatternType {
 		case ReqPatternType_AUTO:
-			task.ReqPattern = &agent.ReqPattern{
-				Type: agent.ReqPatternType_AUTO,
+			task.ReqPattern = &worker.ReqPattern{
+				Type: worker.ReqPatternType_AUTO,
 			}
 		case ReqPatternType_CUSTOM:
-			task.ReqPattern = &agent.ReqPattern{
-				Type:   agent.ReqPatternType_CUSTOM,
-				Custom: &agent.CustomReqPattern{},
+			task.ReqPattern = &worker.ReqPattern{
+				Type:   worker.ReqPatternType_CUSTOM,
+				Custom: &worker.CustomReqPattern{},
 			}
 			if strategy.ReqPattern != nil {
 				task.ReqPattern.Custom.Pattern = *strategy.ReqPattern
@@ -184,7 +184,7 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*ag
 		}
 	}
 
-	output := agent.OutputConfig{}
+	output := worker.OutputConfig{}
 	if strategy.SliceLen != nil && *strategy.SliceLen > 0 {
 		output.Slice = lo.ToPtr(uint64(*strategy.SliceLen))
 	}
@@ -195,8 +195,8 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*ag
 
 	switch strategy.PacketChannelType {
 	case PacketChannelType_VXLAN:
-		output.Type = agent.OutputType_Vxlan
-		output.Vxlan = &agent.VxlanOutputConfig{
+		output.Type = worker.OutputType_Vxlan
+		output.Vxlan = &worker.VxlanOutputConfig{
 			Host: strategy.Address,
 		}
 		if strategy.Port != nil {
@@ -244,16 +244,16 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*ag
 		}
 
 	case PacketChannelType_GRE:
-		output.Type = agent.OutputType_Gre
-		output.Gre = &agent.GreOutputConfig{
+		output.Type = worker.OutputType_Gre
+		output.Gre = &worker.GreOutputConfig{
 			Host: strategy.Address,
 		}
 		if strategy.HasServiceTag && strategy.ServiceTag != nil {
 			output.Gre.ServiceTag = lo.ToPtr(uint32(*strategy.ServiceTag))
 		}
 	case PacketChannelType_ZMQ:
-		output.Type = agent.OutputType_Zmq
-		output.Zmq = &agent.ZmqOutputConfig{
+		output.Type = worker.OutputType_Zmq
+		output.Zmq = &worker.ZmqOutputConfig{
 			Host: strategy.Address,
 			Uuid: b.daemonUUID,
 		}
@@ -266,7 +266,7 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*ag
 			output.Zmq.ServiceTag = lo.ToPtr(uint32(*strategy.ServiceTag))
 		}
 	case PacketChannelType_FILE:
-		output.Type = agent.OutputType_RotatingFile
+		output.Type = worker.OutputType_RotatingFile
 		if strategy.DumpDir == nil {
 			return nil, errors.New("missing dumpDir")
 		}
@@ -276,7 +276,7 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*ag
 		if err := os.MkdirAll(fileRoot, 0o755); err != nil {
 			return nil, errors.Wrapf(err, "create dump dir failed: %s", fileRoot)
 		}
-		output.RotatingFile = &agent.RotatingFileOutputConfig{
+		output.RotatingFile = &worker.RotatingFileOutputConfig{
 			FileRoot: fileRoot,
 		}
 		if strategy.DumpInterval != nil {

@@ -1,0 +1,9 @@
+#ifndef CPWORKER_PKT_DIR_H
+#define CPWORKER_PKT_DIR_H
+
+#define PKT_DIR_UNKNOWN -1
+#define PKT_DIR_NONCHECK 0
+#define PKT_DIR_INCOMING 1
+#define PKT_DIR_OUTGOING 2
+
+#endif /* CPWORKER_PKT_DIR_H */

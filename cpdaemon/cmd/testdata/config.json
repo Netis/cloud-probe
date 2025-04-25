@@ -4,8 +4,8 @@
             "port": 9022
         }
     },
-    "agent": {
-        "executable": "./bin/cpagent"
+    "worker": {
+        "executable": "./bin/cpworker"
     },
     "tool": {
         "get_container_host_pid_script": "",
@@ -15,7 +15,7 @@
     "cgroup": {
         "version": "v1",
         "root": "/sys/fs/cgroup",
-        "hierarchy": "cpagent"
+        "hierarchy": "cloud-probe"
     },
     "cpm": {
         "base_url": "https://127.0.0.1:48018",
@@ -30,10 +30,10 @@
             "namespace": "cloud-probe",
             "node_name": "test"
         },
-        "agent": {
+        "worker": {
             "log_level": "INFO",
-            "config_file": "cpm-agent.json",
-            "unix_socket": "cpm-agent.sock",
+            "config_file": "cpm-worker.json",
+            "unix_socket": "cpm-worker.sock",
             "cpu_affinity": -1
         }
     }

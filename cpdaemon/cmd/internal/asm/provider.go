@@ -132,12 +132,12 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 
 	syncer, err := cpm.NewSyncer(
 		cpmClient,
-		cpm.AgentConfig{
-			Executable:  vp.GetString(VKey.Agent.Executable),
-			CpuAffinity: vp.GetInt(VKey.Cpm.Agent.CpuAffinity),
-			LogLevel:    vp.GetString(VKey.Cpm.Agent.LogLevel),
-			UnixSocket:  filepath.Clean(vp.GetString(VKey.Cpm.Agent.UnixSocket)),
-			ConfigFile:  vp.GetString(VKey.Cpm.Agent.ConfigFile),
+		cpm.WorkerConfig{
+			Executable:  vp.GetString(VKey.Worker.Executable),
+			CpuAffinity: vp.GetInt(VKey.Cpm.Worker.CpuAffinity),
+			LogLevel:    vp.GetString(VKey.Cpm.Worker.LogLevel),
+			UnixSocket:  filepath.Clean(vp.GetString(VKey.Cpm.Worker.UnixSocket)),
+			ConfigFile:  vp.GetString(VKey.Cpm.Worker.ConfigFile),
 			CgroupCfg: cgroup.CgroupCfg{
 				Version:   vp.GetString(VKey.Cgroup.Version),
 				Root:      vp.GetString(VKey.Cgroup.Root),

@@ -24,9 +24,9 @@ const (
 	ENV_CLOUD_PROBE_VERSION      = "CLOUD_PROBE_VERSION"
 	ENV_CLOUD_PROBE_PACKAGE_FILE = "CLOUD_PROBE_PACKAGE_FILE"
 
-	ENV_CPAGENT_VERSION              = "CPAGENT_VERSION"
-	ENV_CPAGENT_LIBRARY_ROOT         = "CPAGENT_LIBRARY_ROOT"
-	ENV_CPAGENT_CMAKE_TOOLCHAIN_FILE = "CPAGENT_CMAKE_TOOLCHAIN_FILE"
+	ENV_CPWORKER_VERSION              = "CPWORKER_VERSION"
+	ENV_CPWORKER_LIBRARY_ROOT         = "CPWORKER_LIBRARY_ROOT"
+	ENV_CPWORKER_CMAKE_TOOLCHAIN_FILE = "CPWORKER_CMAKE_TOOLCHAIN_FILE"
 
 	ENV_CPDAEMON_VERSION = "CPDAEMON_VERSION"
 	ENV_CPCTL_VERSION    = "CPCTL_VERSION"
@@ -37,9 +37,9 @@ var allEnvCfg = []string{
 	ENV_CLOUD_PROBE_VERSION,
 	ENV_CLOUD_PROBE_PACKAGE_FILE,
 
-	ENV_CPAGENT_VERSION,
-	ENV_CPAGENT_LIBRARY_ROOT,
-	ENV_CPAGENT_CMAKE_TOOLCHAIN_FILE,
+	ENV_CPWORKER_VERSION,
+	ENV_CPWORKER_LIBRARY_ROOT,
+	ENV_CPWORKER_CMAKE_TOOLCHAIN_FILE,
 
 	ENV_CPDAEMON_VERSION,
 	ENV_CPCTL_VERSION,
@@ -80,9 +80,9 @@ func packageFile(os_ string, arch string, version string) string {
 	return filepath.Join(distDir, fmt.Sprintf("cloud-probe-%s-%s-%s.tar.gz", version, os_, arch))
 }
 
-func copyCpagentExamples(targetDir string) error {
-	srcDir := "../cpagent/examples"
-	dstDir := filepath.Join(targetDir, "cpagent")
+func copyCpworkerExamples(targetDir string) error {
+	srcDir := "../cpworker/examples"
+	dstDir := filepath.Join(targetDir, "cpworker")
 	if err := os.MkdirAll(dstDir, 0755); err != nil {
 		return fmt.Errorf("create dir %q error: %w", dstDir, err)
 	}
@@ -127,7 +127,7 @@ func copyExamples(targetDir string) error {
 		return fmt.Errorf("create dir %q error: %w", targetDir, err)
 	}
 
-	if err := copyCpagentExamples(targetDir); err != nil {
+	if err := copyCpworkerExamples(targetDir); err != nil {
 		return err
 	}
 	if err := copyCpdaemonExamples(targetDir); err != nil {
@@ -352,8 +352,8 @@ func buildCBinary(cfg CBuildConfig) error {
 	return nil
 }
 
-func cpagentVersion() (string, error) {
-	version := getEnvCfg(ENV_CPAGENT_VERSION)
+func cpworkerVersion() (string, error) {
+	version := getEnvCfg(ENV_CPWORKER_VERSION)
 	if version != "" {
 		return version, nil
 	}
@@ -363,29 +363,29 @@ func cpagentVersion() (string, error) {
 		return version, nil
 	}
 
-	return "", fmt.Errorf("%s or %s is not set", ENV_CPAGENT_VERSION, ENV_CLOUD_PROBE_VERSION)
+	return "", fmt.Errorf("%s or %s is not set", ENV_CPWORKER_VERSION, ENV_CLOUD_PROBE_VERSION)
 }
 
-func buildCpagent(cfg CBuildConfig) error {
-	version, err := cpagentVersion()
+func buildCpworker(cfg CBuildConfig) error {
+	version, err := cpworkerVersion()
 	if err != nil {
 		return err
 	}
 
-	libRoot, err := getEnvCfgE(ENV_CPAGENT_LIBRARY_ROOT)
+	libRoot, err := getEnvCfgE(ENV_CPWORKER_LIBRARY_ROOT)
 	if err != nil {
 		return err
 	}
 
 	installPrefix, _ := filepath.Abs(packageRoot(cfg.OS, cfg.Arch))
 	cfg.BuildPath = filepath.Join(tmpDir, fmt.Sprintf("build-%s-%s", cfg.OS, cfg.Arch))
-	cfg.ProjectPath = "../cpagent"
+	cfg.ProjectPath = "../cpworker"
 	cfg.Defines = append(cfg.Defines,
 		fmt.Sprintf("LIBRARY_ROOT=%s", libRoot),
-		fmt.Sprintf("CPAGENT_VERSION=%s", version),
+		fmt.Sprintf("CPWORKER_VERSION=%s", version),
 		fmt.Sprintf("CMAKE_INSTALL_PREFIX=%s", installPrefix),
 	)
-	if tc := getEnvCfg(ENV_CPAGENT_CMAKE_TOOLCHAIN_FILE); tc != "" {
+	if tc := getEnvCfg(ENV_CPWORKER_CMAKE_TOOLCHAIN_FILE); tc != "" {
 		cfg.Defines = append(cfg.Defines, fmt.Sprintf("CMAKE_TOOLCHAIN_FILE=%s", tc))
 	}
 	cfg.RunInstall = true
@@ -396,26 +396,26 @@ func buildCpagent(cfg CBuildConfig) error {
 	return nil
 }
 
-type Cpagent mg.Namespace
+type Cpworker mg.Namespace
 
-func (Cpagent) Linux() error {
-	return buildCpagent(newCBuildConfig("linux", "amd64"))
+func (Cpworker) Linux() error {
+	return buildCpworker(newCBuildConfig("linux", "amd64"))
 }
 
-func (Cpagent) LinuxARM64() error {
-	return buildCpagent(newCBuildConfig("linux", "arm64"))
+func (Cpworker) LinuxARM64() error {
+	return buildCpworker(newCBuildConfig("linux", "arm64"))
 }
 
-func (Cpagent) Windows() error {
-	return buildCpagent(newCBuildConfig("windows", "amd64"))
+func (Cpworker) Windows() error {
+	return buildCpworker(newCBuildConfig("windows", "amd64"))
 }
 
-func (Cpagent) Darwin() error {
-	return buildCpagent(newCBuildConfig("darwin", "amd64"))
+func (Cpworker) Darwin() error {
+	return buildCpworker(newCBuildConfig("darwin", "amd64"))
 }
 
-func (Cpagent) DarwinARM64() error {
-	return buildCpagent(newCBuildConfig("darwin", "arm64"))
+func (Cpworker) DarwinARM64() error {
+	return buildCpworker(newCBuildConfig("darwin", "arm64"))
 }
 
 func cpctlVersion() (string, error) {
@@ -472,7 +472,7 @@ func (Build) Linux() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpagent.Linux, Cpdaemon.Linux, Cpctl.Linux)
+	mg.Deps(Cpworker.Linux, Cpdaemon.Linux, Cpctl.Linux)
 	return createPackage("linux", "amd64", version)
 }
 
@@ -481,7 +481,7 @@ func (Build) LinuxARM64() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpagent.LinuxARM64, Cpdaemon.LinuxARM64, Cpctl.LinuxARM64)
+	mg.Deps(Cpworker.LinuxARM64, Cpdaemon.LinuxARM64, Cpctl.LinuxARM64)
 	return createPackage("linux", "arm64", version)
 }
 
@@ -490,7 +490,7 @@ func (Build) Windows() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpagent.Windows, Cpdaemon.Windows, Cpctl.Windows)
+	mg.Deps(Cpworker.Windows, Cpdaemon.Windows, Cpctl.Windows)
 	return createPackage("windows", "amd64", version)
 }
 
@@ -499,7 +499,7 @@ func (Build) Darwin() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpagent.Darwin, Cpdaemon.Darwin, Cpctl.Darwin)
+	mg.Deps(Cpworker.Darwin, Cpdaemon.Darwin, Cpctl.Darwin)
 	return createPackage("darwin", "amd64", version)
 }
 
@@ -508,6 +508,6 @@ func (Build) DarwinARM64() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpagent.DarwinARM64, Cpdaemon.DarwinARM64, Cpctl.DarwinARM64)
+	mg.Deps(Cpworker.DarwinARM64, Cpdaemon.DarwinARM64, Cpctl.DarwinARM64)
 	return createPackage("darwin", "arm64", version)
 }

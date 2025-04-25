@@ -29,7 +29,7 @@ func Test_Viper(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", vp.GetString(asm.VKey.Listen.Http.Address))
 	assert.Equal(t, "21110", vp.GetString(asm.VKey.Listen.Http.Port))
 
-	assert.Equal(t, "./bin/cpagent", vp.GetString(asm.VKey.Agent.Executable))
+	assert.Equal(t, "./bin/cpworker", vp.GetString(asm.VKey.Worker.Executable))
 
 	assert.Equal(t, "get_container_host_pid.sh", vp.GetString(asm.VKey.Tool.GetContainerHostPidScript))
 	assert.Equal(t, "", vp.GetString(asm.VKey.Tool.GetKvmInstancesScript))
@@ -37,7 +37,7 @@ func Test_Viper(t *testing.T) {
 
 	assert.Equal(t, "v1", vp.GetString(asm.VKey.Cgroup.Version))
 	assert.Equal(t, "/sys/fs/cgroup", vp.GetString(asm.VKey.Cgroup.Root))
-	assert.Equal(t, "cpagent", vp.GetString(asm.VKey.Cgroup.Hierarchy))
+	assert.Equal(t, "cloud-probe", vp.GetString(asm.VKey.Cgroup.Hierarchy))
 
 	assert.Equal(t, "https://127.0.0.1:48018", vp.GetString(asm.VKey.Cpm.BaseUrl))
 
@@ -57,8 +57,8 @@ func Test_Viper(t *testing.T) {
 	assert.Equal(t, "cloud-probe", vp.GetString(asm.VKey.Cpm.Reg.Namespace))
 	assert.Equal(t, "test", vp.GetString(asm.VKey.Cpm.Reg.NodeName))
 
-	assert.Equal(t, "INFO", vp.GetString(asm.VKey.Cpm.Agent.LogLevel))
-	assert.Equal(t, "cpm-agent.json", vp.GetString(asm.VKey.Cpm.Agent.ConfigFile))
-	assert.Equal(t, "cpm-agent.sock", vp.GetString(asm.VKey.Cpm.Agent.UnixSocket))
-	assert.Equal(t, -1, vp.GetInt(asm.VKey.Cpm.Agent.CpuAffinity))
+	assert.Equal(t, "INFO", vp.GetString(asm.VKey.Cpm.Worker.LogLevel))
+	assert.Equal(t, "cpm-worker.json", vp.GetString(asm.VKey.Cpm.Worker.ConfigFile))
+	assert.Equal(t, "cpm-worker.sock", vp.GetString(asm.VKey.Cpm.Worker.UnixSocket))
+	assert.Equal(t, -1, vp.GetInt(asm.VKey.Cpm.Worker.CpuAffinity))
 }

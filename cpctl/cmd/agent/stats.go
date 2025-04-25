@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Netis/cloud-probe/cpgolib/agentclient"
+	"github.com/Netis/cloud-probe/cpgolib/cpworker"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 func init() {
 	AgentCmd.AddCommand(statsCmd)
 
-	statsCmd.Flags().StringVarP(&statsCfg.socketPath, "unix-socket", "s", "", "unix socket path, example: /var/run/cloud-probe/cpagent.sock")
+	statsCmd.Flags().StringVarP(&statsCfg.socketPath, "unix-socket", "s", "", "unix socket path, example: /var/run/cloud-probe/cpworker.sock")
 	statsCmd.MarkFlagRequired("unix-socket")
 }
 
@@ -32,7 +32,7 @@ var statsCmd = &cobra.Command{
 	Short: "Show agent stats",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		client, err := agentclient.New(statsCfg.socketPath)
+		client, err := cpworker.NewClient(statsCfg.socketPath)
 		if err != nil {
 			return err
 		}
@@ -180,26 +180,26 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 type summaryStats struct {
 	Time time.Time
 
-	CapBytes   agentclient.BytesStats
-	CapPackets agentclient.PacketsStats
+	CapBytes   cpworker.BytesStats
+	CapPackets cpworker.PacketsStats
 
-	DropPackets   agentclient.PacketsStats
-	IfdropPackets agentclient.PacketsStats
+	DropPackets   cpworker.PacketsStats
+	IfdropPackets cpworker.PacketsStats
 
-	FwdBytes   agentclient.BytesStats
-	FwdPackets agentclient.PacketsStats
+	FwdBytes   cpworker.BytesStats
+	FwdPackets cpworker.PacketsStats
 
-	DirectionDropBytes   agentclient.BytesStats
-	DirectionDropPackets agentclient.PacketsStats
+	DirectionDropBytes   cpworker.BytesStats
+	DirectionDropPackets cpworker.PacketsStats
 
-	ErrorDropBytes   agentclient.BytesStats
-	ErrorDropPackets agentclient.PacketsStats
+	ErrorDropBytes   cpworker.BytesStats
+	ErrorDropPackets cpworker.PacketsStats
 
-	RatelimitDropBytes   agentclient.BytesStats
-	RatelimitDropPackets agentclient.PacketsStats
+	RatelimitDropBytes   cpworker.BytesStats
+	RatelimitDropPackets cpworker.PacketsStats
 }
 
-func newSummaryStats(stats agentclient.Stats) summaryStats {
+func newSummaryStats(stats cpworker.Stats) summaryStats {
 	var summary summaryStats
 	summary.Time = time.Unix(stats.Time.Sec, stats.Time.Nsec)
 
@@ -228,34 +228,34 @@ func newSummaryStats(stats agentclient.Stats) summaryStats {
 	return summary
 }
 
-func comparePacketsStats(stats agentclient.PacketsStats, lastStats agentclient.PacketsStats) int {
+func comparePacketsStats(stats cpworker.PacketsStats, lastStats cpworker.PacketsStats) int {
 	return cmp.Or(
 		cmp.Compare(stats.Peta, lastStats.Peta),
 		cmp.Compare(stats.Packets, lastStats.Packets),
 	)
 }
 
-func compareBytesStats(stats agentclient.BytesStats, lastStats agentclient.BytesStats) int {
+func compareBytesStats(stats cpworker.BytesStats, lastStats cpworker.BytesStats) int {
 	return cmp.Or(
 		cmp.Compare(stats.Eib, lastStats.Eib),
 		cmp.Compare(stats.Bytes, lastStats.Bytes),
 	)
 }
 
-func addPacketsStats(stats agentclient.PacketsStats, lastStats agentclient.PacketsStats) agentclient.PacketsStats {
+func addPacketsStats(stats cpworker.PacketsStats, lastStats cpworker.PacketsStats) cpworker.PacketsStats {
 	packets := stats.Packets + lastStats.Packets
 	peta := stats.Peta + lastStats.Peta
 	if packets >= PETA_IN_PACKETS {
 		peta++
 		packets -= PETA_IN_PACKETS
 	}
-	return agentclient.PacketsStats{
+	return cpworker.PacketsStats{
 		Packets: packets,
 		Peta:    peta,
 	}
 }
 
-func diffPacketsStats(stats agentclient.PacketsStats, lastStats agentclient.PacketsStats) (agentclient.PacketsStats, bool) {
+func diffPacketsStats(stats cpworker.PacketsStats, lastStats cpworker.PacketsStats) (cpworker.PacketsStats, bool) {
 	cmpRet := comparePacketsStats(stats, lastStats)
 	isLess := cmpRet < 0
 
@@ -275,26 +275,26 @@ func diffPacketsStats(stats agentclient.PacketsStats, lastStats agentclient.Pack
 		packets = xStats.Packets - yStats.Packets
 	}
 
-	return agentclient.PacketsStats{
+	return cpworker.PacketsStats{
 		Packets: packets,
 		Peta:    peta,
 	}, isLess
 }
 
-func addBytesStats(stats agentclient.BytesStats, lastStats agentclient.BytesStats) agentclient.BytesStats {
+func addBytesStats(stats cpworker.BytesStats, lastStats cpworker.BytesStats) cpworker.BytesStats {
 	bytes := stats.Bytes + lastStats.Bytes
 	eib := stats.Eib + lastStats.Eib
 	if bytes >= EIB_IN_BYTES {
 		eib++
 		bytes -= EIB_IN_BYTES
 	}
-	return agentclient.BytesStats{
+	return cpworker.BytesStats{
 		Bytes: bytes,
 		Eib:   eib,
 	}
 }
 
-func diffBytesStats(stats agentclient.BytesStats, lastStats agentclient.BytesStats) (agentclient.BytesStats, bool) {
+func diffBytesStats(stats cpworker.BytesStats, lastStats cpworker.BytesStats) (cpworker.BytesStats, bool) {
 	cmpRet := compareBytesStats(stats, lastStats)
 	isLess := cmpRet < 0
 
@@ -314,37 +314,37 @@ func diffBytesStats(stats agentclient.BytesStats, lastStats agentclient.BytesSta
 		bytes = xStats.Bytes - yStats.Bytes
 	}
 
-	return agentclient.BytesStats{
+	return cpworker.BytesStats{
 		Bytes: bytes,
 		Eib:   eib,
 	}, isLess
 }
 
-func packetsStatsPerSec(stats agentclient.PacketsStats, secs float64) agentclient.PacketsStats {
+func packetsStatsPerSec(stats cpworker.PacketsStats, secs float64) cpworker.PacketsStats {
 	packets := uint64(float64(stats.Packets) / secs)
 	peta := float64(stats.Peta) / secs
 	petaInt := math.Trunc(peta)
 	petaRem := peta - petaInt
 	packets += uint64(petaRem * PETA_IN_PACKETS)
-	return agentclient.PacketsStats{
+	return cpworker.PacketsStats{
 		Packets: packets,
 		Peta:    uint64(petaInt),
 	}
 }
 
-func bytesStatsPerSec(stats agentclient.BytesStats, secs float64) agentclient.BytesStats {
+func bytesStatsPerSec(stats cpworker.BytesStats, secs float64) cpworker.BytesStats {
 	bytes := uint64(float64(stats.Bytes) / secs)
 	eib := float64(stats.Eib) / secs
 	eibInt := math.Trunc(eib)
 	eibRem := eib - eibInt
 	bytes += uint64(eibRem * EIB_IN_BYTES)
-	return agentclient.BytesStats{
+	return cpworker.BytesStats{
 		Bytes: bytes,
 		Eib:   uint64(eibInt),
 	}
 }
 
-func formatPacketsStats(stats agentclient.PacketsStats) string {
+func formatPacketsStats(stats cpworker.PacketsStats) string {
 	v := fmt.Sprintf("%d", stats.Packets)
 	if stats.Peta != 0 {
 		v = fmt.Sprintf("%d Peta, %s", stats.Peta, v)
@@ -352,12 +352,12 @@ func formatPacketsStats(stats agentclient.PacketsStats) string {
 	return v
 }
 
-func formatPacketsAndPerSec(stats agentclient.PacketsStats, secs float64) string {
+func formatPacketsAndPerSec(stats cpworker.PacketsStats, secs float64) string {
 	perSec := packetsStatsPerSec(stats, secs)
 	return fmt.Sprintf("%s; (%s / s)", formatPacketsStats(stats), formatPacketsStats(perSec))
 }
 
-func formatBytesStats(stats agentclient.BytesStats) string {
+func formatBytesStats(stats cpworker.BytesStats) string {
 	v := formatBytes(stats.Bytes)
 	if stats.Eib != 0 {
 		v = fmt.Sprintf("%d EB, %s", stats.Eib, v)
@@ -365,7 +365,7 @@ func formatBytesStats(stats agentclient.BytesStats) string {
 	return v
 }
 
-func formatBytesAndPerSec(stats agentclient.BytesStats, secs float64) string {
+func formatBytesAndPerSec(stats cpworker.BytesStats, secs float64) string {
 	perSec := bytesStatsPerSec(stats, secs)
 	return fmt.Sprintf("%s; (%s / s)", formatBytesStats(stats), formatBytesStats(perSec))
 }

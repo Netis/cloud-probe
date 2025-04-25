@@ -1,9 +1,0 @@
-#ifndef CPAGENT_PKT_DIR_H
-#define CPAGENT_PKT_DIR_H
-
-#define PKT_DIR_UNKNOWN -1
-#define PKT_DIR_NONCHECK 0
-#define PKT_DIR_INCOMING 1
-#define PKT_DIR_OUTGOING 2
-
-#endif /* CPAGENT_PKT_DIR_H */

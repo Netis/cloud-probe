@@ -18,7 +18,7 @@ import (
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/tool"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
-	"github.com/Netis/cloud-probe/cpgolib/agentclient"
+	"github.com/Netis/cloud-probe/cpgolib/cpworker"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
@@ -64,11 +64,11 @@ type Tool interface {
 	GetKvmInstanceNics(instanceName string) ([]string, error)
 }
 
-type IAgentManager interface {
+type IWorkerManager interface {
 	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
 	Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
 	Stop() error
-	CollectStats(ctx context.Context) (agentclient.Stats, error)
+	CollectStats(ctx context.Context) (cpworker.Stats, error)
 	IsAlive(ctx context.Context) (bool, error)
 	StartTime() time.Time
 	Pid() (int, bool)
@@ -82,10 +82,10 @@ type Client interface {
 }
 
 type Syncer struct {
-	client   Client
-	agentMgr IAgentManager
-	tool     Tool
-	cfg      SyncerConfig
+	client    Client
+	workerMgr IWorkerManager
+	tool      Tool
+	cfg       SyncerConfig
 
 	daemonUUID        string
 	startTime         time.Time
@@ -99,14 +99,14 @@ type Syncer struct {
 	lg     *slog.Logger
 }
 
-func checkAgentRunning(unixSocket string) (bool, error) {
-	agentClient, err := agentclient.New(unixSocket)
+func checkWorkerRunning(unixSocket string) (bool, error) {
+	client, err := cpworker.NewClient(unixSocket)
 	if err != nil {
-		return false, errors.Wrap(err, "create agent client")
+		return false, errors.Wrap(err, "create worker client")
 	}
-	defer agentClient.Close()
+	defer client.Close()
 
-	err = agentClient.Dial(context.Background())
+	err = client.Dial(context.Background())
 	if err == nil {
 		return true, nil
 	}
@@ -115,33 +115,33 @@ func checkAgentRunning(unixSocket string) (bool, error) {
 
 func NewSyncer(
 	client *HttpClient,
-	agentCfg AgentConfig,
+	workerCfg WorkerConfig,
 	tool tool.Tool,
 	cfg SyncerConfig,
 ) (*Syncer, error) {
 	if err := cfg.RegCfg.Validate(); err != nil {
 		return nil, err
 	}
-	if err := agentCfg.Validate(); err != nil {
+	if err := workerCfg.Validate(); err != nil {
 		return nil, err
 	}
 
-	// 检查agent是否正在运行，只有在cpdaemon被kill时才会出现这种情况
-	running, err := checkAgentRunning(agentCfg.UnixSocket)
+	// 检查 cpworker 是否正在运行，只有在 cpdaemon 被kill时才会出现这种情况
+	running, err := checkWorkerRunning(workerCfg.UnixSocket)
 	if err != nil {
-		return nil, errors.Wrap(err, "check agent running")
+		return nil, errors.Wrap(err, "check worker running")
 	}
 	if running {
-		return nil, errors.New("agent is running, please stop it first")
+		return nil, errors.New("worker is running, please stop it first")
 	}
 
-	agentMgr := NewAgentManager(agentCfg, tool)
-	return newSyncer(client, agentMgr, tool, cfg)
+	workerMgr := NewWorkerManager(workerCfg, tool)
+	return newSyncer(client, workerMgr, tool, cfg)
 }
 
 func newSyncer(
 	client Client,
-	agentMgr IAgentManager,
+	workerMgr IWorkerManager,
 	tool Tool,
 	cfg SyncerConfig,
 ) (*Syncer, error) {
@@ -150,13 +150,13 @@ func newSyncer(
 		slog.Default().With(slogx.LoggerName("cpm.syncer")).Handler(),
 		&SyncLogHandler{w: logBuf, level: slog.LevelDebug},
 	))
-	agentMgr.SetLogger(lg.With(slogx.LoggerName("cpm.agentMgr")))
+	workerMgr.SetLogger(lg.With(slogx.LoggerName("cpm.workerMgr")))
 
 	s := &Syncer{
-		client:   client,
-		agentMgr: agentMgr,
-		tool:     tool,
-		cfg:      cfg,
+		client:    client,
+		workerMgr: workerMgr,
+		tool:      tool,
+		cfg:       cfg,
 
 		logBuf: logBuf,
 		lg:     lg,
@@ -330,8 +330,8 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			if err := s.agentMgr.Stop(); err != nil {
-				s.lg.Error("stop agent failed", slogx.Error(err))
+			if err := s.workerMgr.Stop(); err != nil {
+				s.lg.Error("stop worker failed", slogx.Error(err))
 			}
 			return ctx.Err()
 		case <-strategyTimer.C:
@@ -359,9 +359,9 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 
 func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) error {
 	if !res.Changed {
-		alive, err := s.agentMgr.IsAlive(ctx)
+		alive, err := s.workerMgr.IsAlive(ctx)
 		if err != nil {
-			s.lg.Info("agent check alive failed", slogx.Error(err))
+			s.lg.Info("worker check alive failed", slogx.Error(err))
 			return nil
 		}
 		if !alive && s.syncResp != nil {
@@ -376,11 +376,11 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 			}
 
 			s.lg.Info(
-				"agent is not alive, will restart",
+				"worker is not alive, will restart",
 				slog.Int("numItems", numItems),
 			)
 
-			if err := s.agentMgr.CreateIfDead(ctx, s.syncResp, s.daemonUUID, activeInstances); err != nil {
+			if err := s.workerMgr.CreateIfDead(ctx, s.syncResp, s.daemonUUID, activeInstances); err != nil {
 				return err
 			}
 			s.syncActiveInstances = activeInstances
@@ -401,7 +401,7 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 		slog.Int("numItems", res.Response.NumItems(activeInstances)),
 	)
 
-	if err := s.agentMgr.Update(ctx, res.Response, s.daemonUUID, activeInstances); err != nil {
+	if err := s.workerMgr.Update(ctx, res.Response, s.daemonUUID, activeInstances); err != nil {
 		return err
 	}
 	s.syncResp = res.Response
@@ -437,10 +437,10 @@ func (s *Syncer) UpdateIfInstanceChanged(ctx context.Context) error {
 	}
 
 	s.lg.Info(
-		"instances changed, will restart agent",
+		"instances changed, will restart worker",
 		slog.Int("numItems", s.syncResp.NumItems(activeInstances)),
 	)
-	if err := s.agentMgr.Update(ctx, s.syncResp, s.daemonUUID, activeInstances); err != nil {
+	if err := s.workerMgr.Update(ctx, s.syncResp, s.daemonUUID, activeInstances); err != nil {
 		return err
 	}
 	s.syncActiveInstances = activeInstances
@@ -459,7 +459,7 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 		return nil
 	}
 
-	pid, alive := s.agentMgr.Pid()
+	pid, alive := s.workerMgr.Pid()
 	if !alive {
 		return nil
 	}
@@ -467,11 +467,11 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 	metrics := MetricsEntry{
 		SamplingTimestamp:      time.Now().Unix(),
 		SamplingMicroTimestamp: time.Now().UnixMicro() % 1e6,
-		StartTime:              s.agentMgr.StartTime().Unix(),
+		StartTime:              s.workerMgr.StartTime().Unix(),
 	}
 
 	err := func() error {
-		stats, err := s.agentMgr.CollectStats(ctx)
+		stats, err := s.workerMgr.CollectStats(ctx)
 		if err != nil {
 			return err
 		}
@@ -489,7 +489,7 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 		return nil
 	}()
 	if err != nil {
-		s.lg.Error("agent stats error", slogx.Error(err))
+		s.lg.Error("worker stats error", slogx.Error(err))
 	}
 
 	err = func() error {

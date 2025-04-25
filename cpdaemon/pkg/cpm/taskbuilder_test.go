@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Netis/cloud-probe/cpdaemon/pkg/agent"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/testutils"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/worker"
 )
 
 type testTool struct {
@@ -53,21 +53,21 @@ func Test_tasksBuilder_1(t *testing.T) {
 		tb.addStrategy(strategy)
 	}
 	assert.Len(t, tb.warnings, 0)
-	assert.Equal(t, []agent.TaskConfig{
+	assert.Equal(t, []worker.TaskConfig{
 		{
 			Interface: "eth0",
 			Snaplen:   lo.ToPtr(65535),
-			Capturer: agent.CapturerConfig{
+			Capturer: worker.CapturerConfig{
 				Type: "libpcap",
-				Libpcap: &agent.LibpcapConfig{
+				Libpcap: &worker.LibpcapConfig{
 					BufferSizeMB: lo.ToPtr[uint64](256),
 					TimeoutMs:    lo.ToPtr(0),
 				},
 			},
-			Outputs: []agent.OutputConfig{
+			Outputs: []worker.OutputConfig{
 				{
 					Type: "zmq",
-					Zmq: &agent.ZmqOutputConfig{
+					Zmq: &worker.ZmqOutputConfig{
 						Host: "127.0.0.1",
 						Port: 5555,
 						Uuid: "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
@@ -92,29 +92,29 @@ func Test_tasksBuilder_2(t *testing.T) {
 		tb.addStrategy(strategy)
 	}
 	assert.Len(t, tb.warnings, 0)
-	assert.Equal(t, []agent.TaskConfig{
+	assert.Equal(t, []worker.TaskConfig{
 		{
 			Interface: "eth0",
 			Snaplen:   lo.ToPtr(65535),
-			ReqPattern: &agent.ReqPattern{
+			ReqPattern: &worker.ReqPattern{
 				Type: "custom",
-				Custom: &agent.CustomReqPattern{
+				Custom: &worker.CustomReqPattern{
 					Pattern: "host nic.eth0 and port 22",
 				},
 			},
-			Capturer: agent.CapturerConfig{
+			Capturer: worker.CapturerConfig{
 				Type: "libpcap",
-				Libpcap: &agent.LibpcapConfig{
+				Libpcap: &worker.LibpcapConfig{
 					Bpf:          lo.ToPtr("host 10.1.1.1"),
 					BufferSizeMB: lo.ToPtr[uint64](256),
 					TimeoutMs:    lo.ToPtr(0),
 				},
 			},
-			Outputs: []agent.OutputConfig{
+			Outputs: []worker.OutputConfig{
 				{
 					Type:          "zmq",
 					RateLimitMbps: lo.ToPtr[uint64](256),
-					Zmq: &agent.ZmqOutputConfig{
+					Zmq: &worker.ZmqOutputConfig{
 						Host:       "127.0.0.1",
 						Port:       5555,
 						ServiceTag: lo.ToPtr[uint32](3456),
