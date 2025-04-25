@@ -24,10 +24,10 @@ type RunTimeConfig struct {
 	Env        map[string]string
 	WorkDir    string
 
-	CpuAffinity int          `json:"cpu_affinity,omitempty"`
-	LogLevel    string       `json:"log_level"`
-	UnixSocket  string       `json:"unix_socket"`
-	Tasks       []TaskConfig `json:"tasks"`
+	CpuAffinity int
+	LogLevel    string
+	UnixSocket  string
+	Tasks       []TaskConfig
 	ConfigFile  string
 
 	CgroupCfg cgroup.CgroupCfg
@@ -196,18 +196,19 @@ func (w *Worker) Stop() error {
 		}
 	}
 
+	killTimeout := 10 * time.Second
 	select {
 	case <-w.waitDone:
-	case <-time.After(5 * time.Second):
-		w.lg.Info("forcing kill after timeout")
+	case <-time.After(killTimeout):
+		w.lg.Info("forcing kill after timeout", slog.String("timeout", killTimeout.String()))
 		if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-			w.lg.Error("kill failed", slogx.Error(err))
+			w.lg.Error("force kill failed", slogx.Error(err))
 		}
 
 		select {
 		case <-w.waitDone:
 		case <-time.After(1 * time.Second):
-			w.lg.Error("wait timed out after kill")
+			w.lg.Error("wait timeout after force kill")
 		}
 	}
 	return nil

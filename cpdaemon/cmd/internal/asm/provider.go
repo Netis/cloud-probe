@@ -133,7 +133,7 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 	syncer, err := cpm.NewSyncer(
 		cpmClient,
 		cpm.WorkerConfig{
-			Executable:  vp.GetString(VKey.Worker.Executable),
+			Executable:  vp.GetString(VKey.Cpm.Worker.Executable),
 			CpuAffinity: vp.GetInt(VKey.Cpm.Worker.CpuAffinity),
 			LogLevel:    vp.GetString(VKey.Cpm.Worker.LogLevel),
 			UnixSocket:  filepath.Clean(vp.GetString(VKey.Cpm.Worker.UnixSocket)),

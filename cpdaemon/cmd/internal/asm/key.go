@@ -16,9 +16,6 @@ var VKey = struct {
 			Port    string `json:"port"`
 		} `json:"http"`
 	} `json:"listen"`
-	Worker struct {
-		Executable string `json:"executable"`
-	} `json:"worker"`
 	Tool struct {
 		GetContainerHostPidScript string `json:"get_container_host_pid_script"`
 		GetKvmInstancesScript     string `json:"get_kvm_instances_script"`
@@ -53,6 +50,7 @@ var VKey = struct {
 			NodeName  string `json:"node_name"`
 		} `json:"reg"`
 		Worker struct {
+			Executable  string `json:"executable"`
 			LogLevel    string `json:"log_level"`
 			UnixSocket  string `json:"unix_socket"`
 			ConfigFile  string `json:"config_file"`
@@ -64,11 +62,10 @@ var VKey = struct {
 func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Listen.Http.Port, 9022)
 
-	vp.SetDefault(VKey.Worker.Executable, "cpworker")
-
 	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
 
+	vp.SetDefault(VKey.Cpm.Worker.Executable, "cpworker")
 	vp.SetDefault(VKey.Cpm.Worker.LogLevel, "INFO")
 	vp.SetDefault(VKey.Cpm.Worker.UnixSocket, "cpm-worker.sock")
 	vp.SetDefault(VKey.Cpm.Worker.ConfigFile, "cpm-worker.json")

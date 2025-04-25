@@ -4,9 +4,6 @@
             "port": 9022
         }
     },
-    "worker": {
-        "executable": "./bin/cpworker"
-    },
     "tool": {
         "get_container_host_pid_script": "",
         "get_kvm_instances_script": "",
@@ -31,6 +28,7 @@
             "node_name": "test"
         },
         "worker": {
+            "executable": "./bin/cpworker",
             "log_level": "INFO",
             "config_file": "cpm-worker.json",
             "unix_socket": "cpm-worker.sock",

@@ -29,8 +29,6 @@ func Test_Viper(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", vp.GetString(asm.VKey.Listen.Http.Address))
 	assert.Equal(t, "21110", vp.GetString(asm.VKey.Listen.Http.Port))
 
-	assert.Equal(t, "./bin/cpworker", vp.GetString(asm.VKey.Worker.Executable))
-
 	assert.Equal(t, "get_container_host_pid.sh", vp.GetString(asm.VKey.Tool.GetContainerHostPidScript))
 	assert.Equal(t, "", vp.GetString(asm.VKey.Tool.GetKvmInstancesScript))
 	assert.Equal(t, "", vp.GetString(asm.VKey.Tool.GetKvmInstanceNicsScript))
@@ -57,6 +55,7 @@ func Test_Viper(t *testing.T) {
 	assert.Equal(t, "cloud-probe", vp.GetString(asm.VKey.Cpm.Reg.Namespace))
 	assert.Equal(t, "test", vp.GetString(asm.VKey.Cpm.Reg.NodeName))
 
+	assert.Equal(t, "./bin/cpworker", vp.GetString(asm.VKey.Cpm.Worker.Executable))
 	assert.Equal(t, "INFO", vp.GetString(asm.VKey.Cpm.Worker.LogLevel))
 	assert.Equal(t, "cpm-worker.json", vp.GetString(asm.VKey.Cpm.Worker.ConfigFile))
 	assert.Equal(t, "cpm-worker.sock", vp.GetString(asm.VKey.Cpm.Worker.UnixSocket))
