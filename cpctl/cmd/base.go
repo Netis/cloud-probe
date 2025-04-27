@@ -10,14 +10,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Netis/cloud-probe/cpctl/cmd/agent"
+	"github.com/Netis/cloud-probe/cpctl/cmd/worker"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 var initLoggerOnce sync.Once
 
 func init() {
-	rootCmd.AddCommand(agent.AgentCmd)
+	rootCmd.AddCommand(worker.WorkerCmd)
 }
 
 var rootCmd = &cobra.Command{

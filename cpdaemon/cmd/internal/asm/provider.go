@@ -162,9 +162,9 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 				PodName:   vp.GetString(VKey.Cpm.Reg.PodName),
 				Namespace: vp.GetString(VKey.Cpm.Reg.Namespace),
 			},
-			RegRetryInterval:     5 * time.Second,
-			SyncStrategyInterval: 15 * time.Second,
-			SyncMetricInterval:   15 * time.Second,
+			RegRetryInterval:     vp.GetDuration(VKey.Cpm.Syncer.RegRetryInterval),
+			SyncStrategyInterval: vp.GetDuration(VKey.Cpm.Syncer.SyncStrategyInterval),
+			SyncMetricInterval:   vp.GetDuration(VKey.Cpm.Syncer.SyncMetricInterval),
 		})
 	if err != nil {
 		return nil, err

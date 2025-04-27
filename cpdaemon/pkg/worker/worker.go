@@ -19,7 +19,7 @@ import (
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
-type RunTimeConfig struct {
+type ExecConfig struct {
 	Executable string
 	Env        map[string]string
 	WorkDir    string
@@ -37,7 +37,7 @@ type RunTimeConfig struct {
 
 type Worker struct {
 	name string
-	cfg  RunTimeConfig
+	cfg  ExecConfig
 	lg   *slog.Logger
 
 	mu        sync.Mutex
@@ -46,7 +46,7 @@ type Worker struct {
 	startTime time.Time
 }
 
-func NewWorker(name string, cfg RunTimeConfig) (*Worker, error) {
+func NewWorker(name string, cfg ExecConfig) (*Worker, error) {
 	return &Worker{
 		name: name,
 		cfg:  cfg,
@@ -55,7 +55,7 @@ func NewWorker(name string, cfg RunTimeConfig) (*Worker, error) {
 }
 
 func (w *Worker) SetLogger(lg *slog.Logger) {
-	w.lg = lg
+	w.lg = lg.With(slogx.LoggerName("worker"), slog.String("name", w.name))
 }
 
 func (w *Worker) StartTime() time.Time {
@@ -160,8 +160,8 @@ func (w *Worker) startProcess() error {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 	cmd.Dir = w.cfg.WorkDir
-	cmd.Stderr = os.Stdout
-	cmd.Stdout = os.Stdout
+	cmd.Stderr = newSlogWriter(w.lg)
+	cmd.Stdout = newSlogWriter(w.lg)
 
 	if err := cmd.Start(); err != nil {
 		return errors.Wrapf(err, "start worker %s failed", w.name)

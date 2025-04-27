@@ -40,6 +40,7 @@ func (c *WorkerConfig) Validate() error {
 type WorkerManager struct {
 	workerCfg WorkerConfig
 	tool      Tool
+	baseLg    *slog.Logger
 	lg        *slog.Logger
 
 	mu     sync.Mutex
@@ -54,12 +55,14 @@ func NewWorkerManager(
 	return &WorkerManager{
 		workerCfg: workerCfg,
 		tool:      tool,
+		baseLg:    slog.Default(),
 		lg:        slog.Default().With(slogx.LoggerName("cpm.workerMgr")),
 	}
 }
 
 func (m *WorkerManager) SetLogger(lg *slog.Logger) {
-	m.lg = lg
+	m.baseLg = lg
+	m.lg = lg.With(slogx.LoggerName("cpm.workerMgr"))
 }
 
 func (m *WorkerManager) StartTime() time.Time {
@@ -166,18 +169,19 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 	numItems := res.NumItems(activeInstances)
 	if numItems == 0 {
 		// 策略为空
+		m.lg.Info("skip create worker: strategy is empty")
 		return nil
 	}
 
 	buffSize := uint64(256)
 	if res.MemLimit != nil && *res.MemLimit > 0 {
 		if *res.MemLimit < int64(numItems) {
-			return errors.New("mem limit small than number of strategy items")
+			return errors.New("memory limit small than number of strategy items")
 		}
 		buffSize = uint64(*res.MemLimit) / uint64(numItems)
 	}
 
-	tb := &tasksBuilder{
+	tb := &workerTasksBuilder{
 		tool:            m.tool,
 		daemonUUID:      daemonUUID,
 		activeInstances: activeInstances,
@@ -197,7 +201,7 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 		return nil
 	}
 
-	cfg := worker.RunTimeConfig{
+	cfg := worker.ExecConfig{
 		Executable: m.workerCfg.Executable,
 		Env:        m.workerCfg.Env,
 		WorkDir:    m.workerCfg.WorkDir,
@@ -229,7 +233,7 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 	if err != nil {
 		return errors.Wrap(err, "create worker failed")
 	}
-	m.worker.SetLogger(m.lg.With(slogx.LoggerName("worker"), slog.String("name", "cpm")))
+	m.worker.SetLogger(m.baseLg)
 
 	return m.worker.Start(ctx)
 }

@@ -147,10 +147,10 @@ func newSyncer(
 ) (*Syncer, error) {
 	logBuf := &SyncLogBuffer{}
 	lg := slog.New(slogx.Multiple(
-		slog.Default().With(slogx.LoggerName("cpm.syncer")).Handler(),
+		slog.Default().Handler(),
 		&SyncLogHandler{w: logBuf, level: slog.LevelDebug},
 	))
-	workerMgr.SetLogger(lg.With(slogx.LoggerName("cpm.workerMgr")))
+	workerMgr.SetLogger(lg)
 
 	s := &Syncer{
 		client:    client,
@@ -159,7 +159,7 @@ func newSyncer(
 		cfg:       cfg,
 
 		logBuf: logBuf,
-		lg:     lg,
+		lg:     lg.With(slogx.LoggerName("cpm.syncer")),
 
 		startTime: time.Now(),
 	}

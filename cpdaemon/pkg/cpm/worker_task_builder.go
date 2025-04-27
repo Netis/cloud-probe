@@ -15,7 +15,7 @@ import (
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/worker"
 )
 
-type tasksBuilder struct {
+type workerTasksBuilder struct {
 	tool            Tool
 	daemonUUID      string
 	activeInstances []string
@@ -25,7 +25,7 @@ type tasksBuilder struct {
 	tasks    []worker.TaskConfig
 }
 
-func (b *tasksBuilder) addStrategy(strategy StrategyEntry) {
+func (b *workerTasksBuilder) addStrategy(strategy StrategyEntry) {
 	// check strategy is valid
 	_, err := b.newTaskConfig(strategy, taskItem{nicName: "eth0", obsIdx: 0})
 	if err != nil {
@@ -47,7 +47,7 @@ func (b *tasksBuilder) addStrategy(strategy StrategyEntry) {
 	}
 }
 
-func (b *tasksBuilder) addContainerIds(strategy StrategyEntry) {
+func (b *workerTasksBuilder) addContainerIds(strategy StrategyEntry) {
 	var idx int
 	for _, containerId := range strategy.ContainerIds {
 		// 来源旧版本C++实现，支持多个连续的下划线
@@ -79,7 +79,7 @@ func (b *tasksBuilder) addContainerIds(strategy StrategyEntry) {
 	}
 }
 
-func (b *tasksBuilder) addContainerId(strategy StrategyEntry, hostPid int, nic string, obsIdx int) {
+func (b *workerTasksBuilder) addContainerId(strategy StrategyEntry, hostPid int, nic string, obsIdx int) {
 	item := taskItem{
 		nicName:     nic,
 		netns:       fmt.Sprintf("/proc/%d/ns/net", hostPid),
@@ -95,7 +95,7 @@ func (b *tasksBuilder) addContainerId(strategy StrategyEntry, hostPid int, nic s
 	b.tasks = append(b.tasks, *task)
 }
 
-func (b *tasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceName string, obsIdx int) {
+func (b *workerTasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceName string, obsIdx int) {
 	item := taskItem{
 		nicName:     interfaceName,
 		obsIdx:      obsIdx,
@@ -110,7 +110,7 @@ func (b *tasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceName st
 	b.tasks = append(b.tasks, *task)
 }
 
-func (b *tasksBuilder) addInstanceName(strategy StrategyEntry, instanceName string, obsIdx int) {
+func (b *workerTasksBuilder) addInstanceName(strategy StrategyEntry, instanceName string, obsIdx int) {
 	if !slices.Contains(b.activeInstances, instanceName) {
 		b.warnings = append(b.warnings, errors.Errorf("instance name not found: %s", instanceName))
 		return
@@ -140,7 +140,7 @@ func (b *tasksBuilder) addInstanceName(strategy StrategyEntry, instanceName stri
 	b.tasks = append(b.tasks, *task)
 }
 
-func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*worker.TaskConfig, error) {
+func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*worker.TaskConfig, error) {
 	task := worker.TaskConfig{
 		Capturer: worker.CapturerConfig{
 			Type: worker.CapturerType_Libpcap,
@@ -170,13 +170,13 @@ func (b *tasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*wo
 	if strategy.ReqPatternType != nil {
 		switch *strategy.ReqPatternType {
 		case ReqPatternType_AUTO:
-			task.ReqPattern = &worker.ReqPattern{
+			task.ReqPattern = &worker.ReqPatternConfig{
 				Type: worker.ReqPatternType_AUTO,
 			}
 		case ReqPatternType_CUSTOM:
-			task.ReqPattern = &worker.ReqPattern{
+			task.ReqPattern = &worker.ReqPatternConfig{
 				Type:   worker.ReqPatternType_CUSTOM,
-				Custom: &worker.CustomReqPattern{},
+				Custom: &worker.CustomReqPatternConfig{},
 			}
 			if strategy.ReqPattern != nil {
 				task.ReqPattern.Custom.Pattern = *strategy.ReqPattern

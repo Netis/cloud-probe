@@ -16,6 +16,18 @@ var VKey = struct {
 			Port    string `json:"port"`
 		} `json:"http"`
 	} `json:"listen"`
+	Log struct {
+		Level  string `json:"level"`
+		Output struct {
+			Type         string `json:"type"`
+			RotatingFile struct {
+				FileName   string `json:"file_name"`
+				MaxSize    string `json:"max_size"`
+				MaxBackups string `json:"max_backups"`
+				MaxAge     string `json:"max_age"`
+			} `json:"rotating_file"`
+		} `json:"output"`
+	} `json:"log"`
 	Tool struct {
 		GetContainerHostPidScript string `json:"get_container_host_pid_script"`
 		GetKvmInstancesScript     string `json:"get_kvm_instances_script"`
@@ -37,6 +49,11 @@ var VKey = struct {
 			Pkcs12CertFile        string `json:"pkcs12_cert_file"`
 			Pkcs12CertPassword    string `json:"pkcs12_cert_password"`
 		} `json:"client"`
+		Syncer struct {
+			RegRetryInterval     string `json:"reg_retry_interval"`
+			SyncStrategyInterval string `json:"sync_strategy_interval"`
+			SyncMetricInterval   string `json:"sync_metric_interval"`
+		} `json:"syncer"`
 		Reg struct {
 			Name          string `json:"name"`
 			UuidFile      string `json:"uuid_file"`
@@ -61,6 +78,16 @@ var VKey = struct {
 
 func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Listen.Http.Port, 9022)
+
+	vp.SetDefault(VKey.Log.Level, "info")
+	vp.SetDefault(VKey.Log.Output.Type, "stderr")
+	vp.SetDefault(VKey.Log.Output.RotatingFile.MaxSize, 100)
+	vp.SetDefault(VKey.Log.Output.RotatingFile.MaxBackups, 3)
+	vp.SetDefault(VKey.Log.Output.RotatingFile.MaxAge, 30)
+
+	vp.SetDefault(VKey.Cpm.Syncer.RegRetryInterval, 5*time.Second)
+	vp.SetDefault(VKey.Cpm.Syncer.SyncStrategyInterval, 15*time.Second)
+	vp.SetDefault(VKey.Cpm.Syncer.SyncMetricInterval, 15*time.Second)
 
 	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")

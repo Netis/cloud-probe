@@ -1,4 +1,4 @@
-package agent
+package worker
 
 import (
 	"cmp"
@@ -17,7 +17,7 @@ const (
 )
 
 func init() {
-	AgentCmd.AddCommand(statsCmd)
+	WorkerCmd.AddCommand(statsCmd)
 
 	statsCmd.Flags().StringVarP(&statsCfg.socketPath, "unix-socket", "s", "", "unix socket path, example: /var/run/cloud-probe/cpworker.sock")
 	statsCmd.MarkFlagRequired("unix-socket")

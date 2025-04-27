@@ -12,7 +12,7 @@ import (
 func TestWorker(t *testing.T) {
 	require.NoError(t, os.MkdirAll("testdata/tmp", 0o755))
 
-	cfg := RunTimeConfig{
+	cfg := ExecConfig{
 		Executable: "./fakeworker",
 		ConfigFile: "testdata/tmp/test-tasks.json",
 		UnixSocket: "testdata/tmp/test.sock",

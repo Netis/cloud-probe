@@ -2,12 +2,18 @@ package cmd
 
 import (
 	"context"
+	"io"
+	"log/slog"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/Netis/cloud-probe/cpdaemon/cmd/internal/asm"
 )
@@ -25,8 +31,57 @@ var serverCmd = &cobra.Command{
 			return err
 		}
 
+		if err := initServerLogger(vp); err != nil {
+			return err
+		}
+
 		return runSvr(cmd.Context(), vp, nil)
 	},
+}
+
+func initServerLogger(vp *viper.Viper) error {
+	var w io.Writer
+	switch v := vp.GetString(asm.VKey.Log.Output.Type); v {
+	case "stdout":
+		w = os.Stdout
+	case "stderr":
+		w = os.Stderr
+	case "rotating_file":
+		fileName := vp.GetString(asm.VKey.Log.Output.RotatingFile.FileName)
+		if fileName == "" {
+			return errors.New("log.output.rotating_file.file_name is empty")
+		}
+		w = &lumberjack.Logger{
+			Filename:   fileName,
+			MaxSize:    vp.GetInt(asm.VKey.Log.Output.RotatingFile.MaxSize),
+			MaxBackups: vp.GetInt(asm.VKey.Log.Output.RotatingFile.MaxBackups),
+			MaxAge:     vp.GetInt(asm.VKey.Log.Output.RotatingFile.MaxAge),
+		}
+	default:
+		return errors.Errorf("invalid log.output.type: %s", v)
+	}
+
+	var level slog.Leveler
+	switch strings.ToLower(vp.GetString(asm.VKey.Log.Level)) {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	hd := slog.NewTextHandler(w, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     level,
+	})
+	lg := slog.New(hd)
+	slog.SetDefault(lg)
+	return nil
 }
 
 func runSvr(

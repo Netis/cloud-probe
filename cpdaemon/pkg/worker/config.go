@@ -21,20 +21,20 @@ type Config struct {
 }
 
 type TaskConfig struct {
-	Interface  string         `json:"interface"`
-	Snaplen    *int           `json:"snaplen,omitempty"`
-	Netns      *string        `json:"netns,omitempty"`
-	ReqPattern *ReqPattern    `json:"req_pattern,omitempty"`
-	Capturer   CapturerConfig `json:"capturer"`
-	Outputs    []OutputConfig `json:"outputs"`
+	Interface  string            `json:"interface"`
+	Snaplen    *int              `json:"snaplen,omitempty"`
+	Netns      *string           `json:"netns,omitempty"`
+	ReqPattern *ReqPatternConfig `json:"req_pattern,omitempty"`
+	Capturer   CapturerConfig    `json:"capturer"`
+	Outputs    []OutputConfig    `json:"outputs"`
 }
 
-type ReqPattern struct {
-	Type   string            `json:"type"`
-	Custom *CustomReqPattern `json:"custom,omitempty"`
+type ReqPatternConfig struct {
+	Type   string                  `json:"type"`
+	Custom *CustomReqPatternConfig `json:"custom,omitempty"`
 }
 
-type CustomReqPattern struct {
+type CustomReqPatternConfig struct {
 	Pattern string `json:"pattern,omitempty"`
 }
 

@@ -48,7 +48,7 @@ func (h *SyncLogHandler) WithGroup(name string) slog.Handler {
 
 func (h *SyncLogHandler) convert(record *slog.Record) string {
 	attrs := slogcommon.AppendRecordAttrsToAttrs(h.attrs, h.groups, record)
-	parts := []string{"msg=" + record.Message}
+	parts := []string{"msg=" + slogx.ValueToString(slog.StringValue(record.Message))}
 	parts = append(parts, formatSyncLogAttrs("", attrs)...)
 	return strings.Join(parts, " ")
 }

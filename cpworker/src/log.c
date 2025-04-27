@@ -18,7 +18,7 @@ void log_set_level(int level) { L.level = level; }
 static void stderr_callback(log_event_t *ev)
 {
     char buf[64];
-    buf[strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S]", ev->time)] = '\0';
+    buf[strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", ev->time)] = '\0';
     fprintf(stderr, "%s %-5s %s:%d: ", buf, level_strings[ev->level], ev->file, ev->line);
     vfprintf(stderr, ev->fmt, ev->ap);
     fprintf(stderr, "\n");

@@ -39,11 +39,11 @@ func (t testTool) GetKvmInstanceNics(instanceName string) ([]string, error) {
 	return v, nil
 }
 
-func Test_tasksBuilder_1(t *testing.T) {
+func Test_workerTasksBuilder_1(t *testing.T) {
 	var res SyncStrategyResponse
 	require.NoError(t, testutils.LoadResultFromJSON("testdata/syncStrategy1.json", &res))
 
-	tb := &tasksBuilder{
+	tb := &workerTasksBuilder{
 		tool:            testTool{},
 		activeInstances: []string{},
 		daemonUUID:      "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
@@ -78,11 +78,11 @@ func Test_tasksBuilder_1(t *testing.T) {
 	}, tb.tasks)
 }
 
-func Test_tasksBuilder_2(t *testing.T) {
+func Test_workerTasksBuilder_2(t *testing.T) {
 	var res SyncStrategyResponse
 	require.NoError(t, testutils.LoadResultFromJSON("testdata/syncStrategy2.json", &res))
 
-	tb := &tasksBuilder{
+	tb := &workerTasksBuilder{
 		tool:            testTool{},
 		daemonUUID:      "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
 		activeInstances: []string{},
@@ -96,9 +96,9 @@ func Test_tasksBuilder_2(t *testing.T) {
 		{
 			Interface: "eth0",
 			Snaplen:   lo.ToPtr(65535),
-			ReqPattern: &worker.ReqPattern{
+			ReqPattern: &worker.ReqPatternConfig{
 				Type: "custom",
-				Custom: &worker.CustomReqPattern{
+				Custom: &worker.CustomReqPatternConfig{
 					Pattern: "host nic.eth0 and port 22",
 				},
 			},
