@@ -6,8 +6,8 @@
 #include <pcap/pcap.h>
 
 #include "capturer.h"
+#include "config.h"
 #include "req_pattern.h"
-#include "taskconf.h"
 
 typedef struct LibpcapOptions
 {

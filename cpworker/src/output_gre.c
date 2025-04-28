@@ -7,13 +7,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "errorf.h"
 #include "gre.h"
 #include "log.h"
 #include "output_gre.h"
 #include "pkt_dir.h"
 #include "stats.h"
-#include "taskconf.h"
 
 int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {

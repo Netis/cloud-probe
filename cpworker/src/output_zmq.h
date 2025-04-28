@@ -5,9 +5,9 @@
 
 #include <zmq.h>
 
+#include "config.h"
 #include "output.h"
 #include "ratelimit.h"
-#include "taskconf.h"
 
 #define ZMQ_MAX_BATCH_BUF_SIZE 1048576 // 1 * 1024 * 1024;
 #define ZMQ_PKTS_FLUSH_MAX_DUR_SEC 1

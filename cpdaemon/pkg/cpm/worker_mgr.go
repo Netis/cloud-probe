@@ -19,6 +19,9 @@ import (
 )
 
 type WorkerConfig struct {
+	PidFile    string
+	ConfigFile string
+
 	Executable string
 	Env        map[string]string
 	WorkDir    string
@@ -26,13 +29,20 @@ type WorkerConfig struct {
 
 	CpuAffinity int
 	LogLevel    string
-	UnixSocket  string
-	ConfigFile  string
+	Control     worker.ControlConfig
 }
 
 func (c *WorkerConfig) Validate() error {
 	if !slices.Contains([]string{"DEBUG", "INFO", "WARN", "ERROR"}, strings.ToUpper(c.LogLevel)) {
 		return errors.Errorf("invalid logLevel: %s", c.LogLevel)
+	}
+	switch c.Control.Type {
+	case "unix":
+		if c.Control.Unix == nil || c.Control.Unix.Path == "" {
+			return errors.New("require control.unix.path")
+		}
+	default:
+		return errors.Errorf("invalid control.type: %s", c.Control.Type)
 	}
 	return nil
 }
@@ -44,7 +54,7 @@ type WorkerManager struct {
 	lg        *slog.Logger
 
 	mu     sync.Mutex
-	client *cpworker.Client
+	client cpworker.Client
 	worker *worker.Worker
 }
 
@@ -151,8 +161,8 @@ func (m *WorkerManager) Update(ctx context.Context, res *SyncStrategyResponse, d
 		if err := m.worker.Stop(); err != nil {
 			return errors.Wrap(err, "stop worker failed")
 		}
-
 		m.worker = nil
+
 		if m.client != nil {
 			m.client.Close()
 			m.client = nil
@@ -202,6 +212,7 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 	}
 
 	cfg := worker.ExecConfig{
+		PidFile:    m.workerCfg.PidFile,
 		Executable: m.workerCfg.Executable,
 		Env:        m.workerCfg.Env,
 		WorkDir:    m.workerCfg.WorkDir,
@@ -209,7 +220,7 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 
 		CpuAffinity: m.workerCfg.CpuAffinity,
 		LogLevel:    m.workerCfg.LogLevel,
-		UnixSocket:  m.workerCfg.UnixSocket,
+		Control:     m.workerCfg.Control,
 		Tasks:       tb.tasks,
 		ConfigFile:  m.workerCfg.ConfigFile,
 
@@ -217,14 +228,16 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 		MemLimit: res.MemLimit,
 	}
 
-	socketPath := filepath.Clean(cfg.UnixSocket)
-	dir := filepath.Dir(socketPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return errors.Wrapf(err, "create dir %s failed", dir)
+	if cfg.Control.Type == "unix" {
+		socketPath := filepath.Clean(cfg.Control.Unix.Path)
+		socketDir := filepath.Dir(socketPath)
+		if err := os.MkdirAll(socketDir, 0o755); err != nil {
+			return errors.Wrapf(err, "create dir %s failed", socketDir)
+		}
 	}
 
 	var err error
-	m.client, err = cpworker.NewClient(socketPath)
+	m.client, err = cpworker.NewClient(cfg.Control.ConnectString())
 	if err != nil {
 		return errors.Wrap(err, "create worker client failed")
 	}

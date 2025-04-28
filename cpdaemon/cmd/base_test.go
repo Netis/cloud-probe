@@ -58,6 +58,7 @@ func Test_Viper(t *testing.T) {
 	assert.Equal(t, "./bin/cpworker", vp.GetString(asm.VKey.Cpm.Worker.Executable))
 	assert.Equal(t, "INFO", vp.GetString(asm.VKey.Cpm.Worker.LogLevel))
 	assert.Equal(t, "cpm-worker.json", vp.GetString(asm.VKey.Cpm.Worker.ConfigFile))
-	assert.Equal(t, "cpm-worker.sock", vp.GetString(asm.VKey.Cpm.Worker.UnixSocket))
+	assert.Equal(t, "unix", vp.GetString(asm.VKey.Cpm.Worker.Control.Type))
+	assert.Equal(t, "cpm-worker.sock", vp.GetString(asm.VKey.Cpm.Worker.Control.Unix.Path))
 	assert.Equal(t, -1, vp.GetInt(asm.VKey.Cpm.Worker.CpuAffinity))
 }

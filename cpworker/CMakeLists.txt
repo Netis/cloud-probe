@@ -54,7 +54,7 @@ if (NOT DEFINED CPWORKER_VERSION)
     set(CPWORKER_VERSION PROJECT_VERSION)
 endif()
 
-configure_file(config.h.in ${CMAKE_BINARY_DIR}/config.h @ONLY)
+configure_file(build_config.h.in ${CMAKE_BINARY_DIR}/build_config.h @ONLY)
 
 # 库安装的根目录
 if (NOT LIBRARY_ROOT)

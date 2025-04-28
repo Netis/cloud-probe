@@ -6,8 +6,8 @@
 
 #include <pcap/pcap.h>
 
+#include "config.h"
 #include "stats.h"
-#include "taskconf.h"
 
 typedef struct CaptureStats
 {

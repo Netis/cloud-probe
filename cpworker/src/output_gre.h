@@ -4,9 +4,9 @@
 #include <netinet/in.h>
 #include <stdint.h>
 
+#include "config.h"
 #include "output.h"
 #include "ratelimit.h"
-#include "taskconf.h"
 
 #define GRE_OUTPUT_BUFSIZE 65551 // 8(GRE_HEADER_LEN) + 65535
 

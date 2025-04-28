@@ -1,7 +1,7 @@
 #ifndef CPWORKER_AFFINITY_H
 #define CPWORKER_AFFINITY_H
 
-#include "config.h"
+#include "build_config.h"
 
 #if defined(OS_LINUX)
 #define CPU_AFFINITY_LINUX 1

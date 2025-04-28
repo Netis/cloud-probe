@@ -1,7 +1,7 @@
 #ifndef CPWORKER_BYTEORDER_H
 #define CPWORKER_BYTEORDER_H
 
-#include "config.h"
+#include "build_config.h"
 
 // clang-format off
 

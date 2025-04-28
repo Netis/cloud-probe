@@ -2,8 +2,8 @@
 #define CPWORKER_TASK_H
 
 #include "capturer.h"
+#include "config.h"
 #include "output.h"
-#include "taskconf.h"
 
 typedef struct CaptureTask
 {

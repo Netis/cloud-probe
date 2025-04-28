@@ -14,10 +14,31 @@ const (
 )
 
 type Config struct {
-	CpuAffinity *int         `json:"cpu_affinity,omitempty"`
-	LogLevel    string       `json:"log_level"`
-	UnixSocket  string       `json:"unix_socket"`
-	Tasks       []TaskConfig `json:"tasks"`
+	CpuAffinity *int          `json:"cpu_affinity,omitempty"`
+	LogLevel    string        `json:"log_level"`
+	Control     ControlConfig `json:"control"`
+	Tasks       []TaskConfig  `json:"tasks"`
+}
+
+type ControlConfig struct {
+	Type string             `json:"type"`
+	Unix *ControlUnixConfig `json:"unix,omitempty"`
+}
+
+func (c ControlConfig) ConnectString() string {
+	switch c.Type {
+	case "unix":
+		if c.Unix != nil {
+			return "unix://" + c.Unix.Path
+		}
+		return "unix://"
+	default:
+		return ""
+	}
+}
+
+type ControlUnixConfig struct {
+	Path string `json:"path"`
 }
 
 type TaskConfig struct {

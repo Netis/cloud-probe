@@ -7,8 +7,8 @@
 #include <rte_ring.h>
 
 #include "capturer.h"
+#include "config.h"
 #include "req_pattern.h"
-#include "taskconf.h"
 
 typedef struct DpdkPdumpOptions
 {

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "capturer.h"
+#include "config.h"
 #include "errorf.h"
 #include "libpcap.h"
 #include "log.h"
@@ -15,7 +16,6 @@
 #include "queue.h"
 #include "stats.h"
 #include "task.h"
-#include "taskconf.h"
 
 #ifdef ENABLE_DPDK
 #include "dpdk/pdump.h"

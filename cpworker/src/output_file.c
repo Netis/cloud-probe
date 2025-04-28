@@ -6,12 +6,12 @@
 
 #include <pcap/pcap.h>
 
+#include "config.h"
 #include "errorf.h"
 #include "log.h"
 #include "output_file.h"
 #include "pkt_dir.h"
 #include "stats.h"
-#include "taskconf.h"
 
 int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {

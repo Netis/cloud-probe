@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -20,13 +21,14 @@ import (
 )
 
 type ExecConfig struct {
+	PidFile    string
 	Executable string
 	Env        map[string]string
 	WorkDir    string
 
 	CpuAffinity int
 	LogLevel    string
-	UnixSocket  string
+	Control     ControlConfig
 	Tasks       []TaskConfig
 	ConfigFile  string
 
@@ -109,11 +111,13 @@ func (w *Worker) Start(ctx context.Context) error {
 			}
 		}()
 
-		cleanup, err := w.createResLimit()
+		resLimitCleanup, err := w.createResLimit()
 		if err != nil {
 			w.lg.Error("create resource limit failed, stopping worker", slogx.Error(err))
 			w.Stop()
 		}
+
+		pidCleanup := w.createPidFile()
 
 		err = w.cmd.Wait()
 		if err != nil {
@@ -124,12 +128,15 @@ func (w *Worker) Start(ctx context.Context) error {
 		w.waitDone <- err
 		close(w.waitDone)
 
-		if cleanup != nil {
-			if err := cleanup(); err != nil {
+		if resLimitCleanup != nil {
+			if err := resLimitCleanup(); err != nil {
 				w.lg.Error("clean resource limit failed", slogx.Error(err))
 			} else {
 				w.lg.Info("clean resource limit success")
 			}
+		}
+		if pidCleanup != nil {
+			pidCleanup()
 		}
 
 		w.mu.Lock()
@@ -216,14 +223,14 @@ func (w *Worker) Stop() error {
 
 func (w *Worker) createResLimit() (func() error, error) {
 	if w.cfg.CpuLimit == nil || *w.cfg.CpuLimit <= 0 {
-		w.lg.Info("cpu limit is not set, skip cgroup")
+		w.lg.Info("cpu limit is not set, skip create cgroup")
 		return nil, nil
 	}
 
 	cmd := w.cmd
 	if cmd == nil || cmd.Process == nil {
 		// never happen
-		w.lg.Error("worker is not running, skip cgroup")
+		w.lg.Error("worker is not running, skip create cgroup")
 		return nil, nil
 	}
 	return CreateProcessResLimit(
@@ -237,6 +244,31 @@ func (w *Worker) createResLimit() (func() error, error) {
 	)
 }
 
+func (w *Worker) createPidFile() func() error {
+	if w.cfg.PidFile == "" {
+		w.lg.Info("pidFile not set, skip create pid file")
+		return nil
+	}
+	cmd := w.cmd
+	if cmd == nil || cmd.Process == nil {
+		// never happen
+		w.lg.Error("worker is not running, skip create pidFile")
+		return nil
+	}
+	err := os.WriteFile(w.cfg.PidFile, []byte(strconv.Itoa(cmd.Process.Pid)), 0o644)
+	if err != nil {
+		w.lg.Error("create pid file error", slog.String("file", w.cfg.PidFile))
+		return nil
+	}
+	w.lg.Info("create pid file success", slog.String("file", w.cfg.PidFile))
+	return func() error {
+		if err := os.Remove(w.cfg.PidFile); err != nil {
+			w.lg.Error("remove pid file error", slog.String("file", w.cfg.PidFile))
+		}
+		return nil
+	}
+}
+
 func (w *Worker) writeConfig() error {
 	fp, err := os.Create(w.cfg.ConfigFile)
 	if err != nil {
@@ -245,9 +277,9 @@ func (w *Worker) writeConfig() error {
 	defer fp.Close()
 
 	cfg := Config{
-		LogLevel:   w.cfg.LogLevel,
-		UnixSocket: w.cfg.UnixSocket,
-		Tasks:      w.cfg.Tasks,
+		LogLevel: w.cfg.LogLevel,
+		Control:  w.cfg.Control,
+		Tasks:    w.cfg.Tasks,
 	}
 	if w.cfg.CpuAffinity >= 0 {
 		cfg.CpuAffinity = lo.ToPtr(w.cfg.CpuAffinity)
@@ -256,11 +288,11 @@ func (w *Worker) writeConfig() error {
 	enc := json.NewEncoder(fp)
 	enc.SetIndent("", "    ")
 	if err := enc.Encode(cfg); err != nil {
-		return errors.Wrapf(err, "marshal tasks error")
+		return errors.Wrapf(err, "create worker config file: %s", w.cfg.ConfigFile)
 	}
 
 	if err := fp.Close(); err != nil {
-		return errors.Wrapf(err, "close worker config file: %s", w.cfg.ConfigFile)
+		return errors.Wrapf(err, "create worker config file: %s", w.cfg.ConfigFile)
 	}
 	return nil
 }

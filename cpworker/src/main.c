@@ -8,11 +8,11 @@
 #include <unistd.h>
 
 #include "affinity.h"
+#include "build_config.h"
 #include "config.h"
 #include "errorf.h"
 #include "log.h"
 #include "task.h"
-#include "taskconf.h"
 #include "unix-manager.h"
 
 /* command line flags */
@@ -112,16 +112,17 @@ int main(int argc, char **argv)
         }
     }
 
-    bool unix_mgr_enabled = strcmp(config->unix_socket, "") != 0;
-    if (unix_mgr_enabled)
+    bool control_enabled = config->control != NULL;
+    bool control_unix_enabled = control_enabled && strcmp(config->control->type, CONTROL_TYPE_UNIX) == 0;
+    if (control_unix_enabled)
     {
-        if (unix_manager_init(config->unix_socket) != 0)
+        if (unix_manager_init(config->control->config.unix_socket.path) != 0)
         {
             log_fatal("init unix socket failed");
             task_manager_destory();
             exit(EXIT_FAILURE);
         }
-        log_info("listen on unix socket %s", config->unix_socket);
+        log_info("listen on unix socket %s", config->control->config.unix_socket.path);
 
         if (unix_manager_thread_spawn() != 0)
         {
@@ -132,7 +133,7 @@ int main(int argc, char **argv)
     }
 
     task_manager_init(config->tasks_cfg);
-    if (unix_mgr_enabled)
+    if (control_unix_enabled)
     {
         unix_manager_register_command("collect_stats", task_manager_collect_stats_command, NULL);
     }
@@ -149,7 +150,7 @@ int main(int argc, char **argv)
         if (num_pkts == 0)
             usleep(10);
 
-        if (unix_mgr_enabled)
+        if (control_enabled)
         {
             time_t now = time(NULL);
             // every 5 seconds

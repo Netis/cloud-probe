@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "config.h"
+#include "build_config.h"
 
 #if defined(OS_MACOS) || defined(OS_BSD)
 #include <net/if_dl.h>

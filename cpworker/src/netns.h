@@ -1,7 +1,7 @@
 #ifndef CPWORKER_NETNS_H
 #define CPWORKER_NETNS_H
 
-#include "config.h"
+#include "build_config.h"
 
 #if defined(OS_LINUX)
 #define NETNS_LINUX 1

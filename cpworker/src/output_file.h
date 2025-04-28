@@ -5,8 +5,8 @@
 
 #include <pcap/pcap.h>
 
+#include "config.h"
 #include "output.h"
-#include "taskconf.h"
 
 typedef struct FileOptions
 {

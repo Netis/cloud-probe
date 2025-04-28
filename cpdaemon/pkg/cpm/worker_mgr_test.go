@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/testutils"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/worker"
 )
 
 func TestWorkerManager(t *testing.T) {
@@ -16,14 +17,21 @@ func TestWorkerManager(t *testing.T) {
 
 	mgr := NewWorkerManager(
 		WorkerConfig{
+			PidFile:    "testdata/tmp/cpm-worker.pid",
+			ConfigFile: "testdata/tmp/cpm-worker.json",
 			Executable: "../worker/fakeworker",
-			UnixSocket: "testdata/tmp/test.sock",
-			ConfigFile: "testdata/tmp/test-tasks.json",
+			Control: worker.ControlConfig{
+				Type: "unix",
+				Unix: &worker.ControlUnixConfig{
+					Path: "testdata/tmp/cpm-worker.sock",
+				},
+			},
 		},
 		testTool{},
 	)
 	t.Cleanup(func() {
 		mgr.Stop()
+		os.RemoveAll("testdata/tmp")
 	})
 
 	var res SyncStrategyResponse

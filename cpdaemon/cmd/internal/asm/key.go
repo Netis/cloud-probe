@@ -67,11 +67,17 @@ var VKey = struct {
 			NodeName  string `json:"node_name"`
 		} `json:"reg"`
 		Worker struct {
+			PidFile     string `json:"pid_file"`
+			ConfigFile  string `json:"config_file"`
 			Executable  string `json:"executable"`
 			LogLevel    string `json:"log_level"`
-			UnixSocket  string `json:"unix_socket"`
-			ConfigFile  string `json:"config_file"`
 			CpuAffinity string `json:"cpu_affinity"`
+			Control     struct {
+				Type string `json:"type"`
+				Unix struct {
+					Path string `json:"path"`
+				} `json:"unix"`
+			} `json:"control"`
 		} `json:"worker"`
 	} `json:"cpm"`
 }{}
@@ -92,10 +98,12 @@ func SetDefaults(vp *viper.Viper) {
 	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
 
+	vp.SetDefault(VKey.Cpm.Worker.PidFile, "cpm-worker.pid")
+	vp.SetDefault(VKey.Cpm.Worker.ConfigFile, "cpm-worker.json")
 	vp.SetDefault(VKey.Cpm.Worker.Executable, "cpworker")
 	vp.SetDefault(VKey.Cpm.Worker.LogLevel, "INFO")
-	vp.SetDefault(VKey.Cpm.Worker.UnixSocket, "cpm-worker.sock")
-	vp.SetDefault(VKey.Cpm.Worker.ConfigFile, "cpm-worker.json")
+	vp.SetDefault(VKey.Cpm.Worker.Control.Type, "unix")
+	vp.SetDefault(VKey.Cpm.Worker.Control.Unix.Path, "cpm-worker.sock")
 	vp.SetDefault(VKey.Cpm.Worker.CpuAffinity, -1)
 
 	vp.SetDefault(VKey.Cpm.Client.Timeout, 15*time.Second)

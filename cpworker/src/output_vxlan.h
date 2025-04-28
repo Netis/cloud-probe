@@ -6,9 +6,9 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
+#include "config.h"
 #include "output.h"
 #include "ratelimit.h"
-#include "taskconf.h"
 
 #define VXLAN_OUTPUT_BUFSIZE 65551 // 8(VXLAN_HEADER_LEN) + 65535 + 8(capture_time)
 

@@ -5,8 +5,8 @@
 
 #include "cJSON/cJSON.h"
 
+#include "config.h"
 #include "log.h"
-#include "taskconf.h"
 
 #define PARSE_ERROR -1
 
@@ -40,6 +40,23 @@ static void free_output(OutputConfig *output)
     }
 
     free(output->type);
+    free(output);
+    return;
+}
+
+static void free_control(ControlConfig *control)
+{
+    if (!control)
+        return;
+
+    if (control->type)
+    {
+        if (strcmp(control->type, CONTROL_TYPE_UNIX) == 0)
+        {
+            free(control->config.unix_socket.path);
+        }
+    }
+    free(control);
     return;
 }
 
@@ -112,9 +129,7 @@ void free_config(Config *config)
     if (config->tasks_cfg)
         free_tasks_config(config->tasks_cfg);
 
-    if (config->unix_socket)
-        free(config->unix_socket);
-
+    free_control(config->control);
     free(config);
 }
 
@@ -876,6 +891,44 @@ TasksAllConfig *parse_tasks_file(const char *filename, cJSONParseError *err)
     return config;
 }
 
+static int parse_control_config(cJSON *control_obj, ControlConfig *control, cJSONParseError *err)
+{
+    cJSON *type = cJSON_GetObjectItemCaseSensitive(control_obj, "type");
+    if (!cJSON_IsString(type))
+    {
+        cjson_set_parse_error(err, "missing or invalid control type");
+        return PARSE_ERROR;
+    }
+    control->type = strdup(type->valuestring);
+    if (!control->type)
+    {
+        cjson_set_parse_error(err, "memory allocation failed");
+        return PARSE_ERROR;
+    }
+    if (strcmp(control->type, CONTROL_TYPE_UNIX) == 0)
+    {
+        cJSON *unix_obj = cJSON_GetObjectItemCaseSensitive(control_obj, CONTROL_TYPE_UNIX);
+        if (!unix_obj)
+        {
+            cjson_set_parse_error(err, "missing unix config");
+            return PARSE_ERROR;
+        }
+        cJSON *path = cJSON_GetObjectItemCaseSensitive(unix_obj, "path");
+        if (!cJSON_IsString(path))
+        {
+            cjson_set_parse_error(err, "missing or invalid unix.path");
+            return PARSE_ERROR;
+        }
+        control->config.unix_socket.path = strdup(path->valuestring);
+    }
+    else
+    {
+        cjson_set_parse_error(err, "unknown control type: %s", control->type);
+        return PARSE_ERROR;
+    }
+    return 0;
+}
+
 static Config *parse_config_json(cJSON *json, cJSONParseError *err)
 {
     Config *config = (Config *)calloc(1, sizeof(Config));
@@ -918,17 +971,6 @@ static Config *parse_config_json(cJSON *json, cJSONParseError *err)
         goto error;
     }
 
-    cJSON *unix_socket = cJSON_GetObjectItemCaseSensitive(json, "unix_socket");
-    if (!unix_socket)
-        config->unix_socket = strdup("");
-    else if (cJSON_IsString(unix_socket))
-        config->unix_socket = strdup(unix_socket->valuestring);
-    else
-    {
-        cjson_set_parse_error(err, "invalid unix_socket");
-        goto error;
-    }
-
     cJSON *cpu_affinity = cJSON_GetObjectItemCaseSensitive(json, "cpu_affinity");
     if (!cpu_affinity)
         config->cpu_affinity = -1;
@@ -938,6 +980,33 @@ static Config *parse_config_json(cJSON *json, cJSONParseError *err)
     {
         cjson_set_parse_error(err, "invalid cpu_affinity");
         goto error;
+    }
+
+    cJSON *control_obj = cJSON_GetObjectItemCaseSensitive(json, "control");
+    if (control_obj)
+    {
+        if (!cJSON_IsObject(control_obj))
+        {
+            cjson_set_parse_error(err, "invalid control");
+            goto error;
+        }
+        ControlConfig *control = (ControlConfig *)calloc(1, sizeof(ControlConfig));
+        if (!control)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            goto error;
+        }
+        if (parse_control_config(control_obj, control, err) != 0)
+        {
+            free_control(control);
+            cjson_wrap_parse_error(err, "parse control error");
+            goto error;
+        }
+        config->control = control;
+    }
+    else
+    {
+        config->control = NULL;
     }
 
     return config;

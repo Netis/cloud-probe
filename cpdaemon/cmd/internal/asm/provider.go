@@ -21,6 +21,7 @@ import (
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cpm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/tool"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/worker"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
@@ -133,11 +134,17 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 	syncer, err := cpm.NewSyncer(
 		cpmClient,
 		cpm.WorkerConfig{
+			PidFile:     vp.GetString(VKey.Cpm.Worker.PidFile),
+			ConfigFile:  vp.GetString(VKey.Cpm.Worker.ConfigFile),
 			Executable:  vp.GetString(VKey.Cpm.Worker.Executable),
 			CpuAffinity: vp.GetInt(VKey.Cpm.Worker.CpuAffinity),
 			LogLevel:    vp.GetString(VKey.Cpm.Worker.LogLevel),
-			UnixSocket:  filepath.Clean(vp.GetString(VKey.Cpm.Worker.UnixSocket)),
-			ConfigFile:  vp.GetString(VKey.Cpm.Worker.ConfigFile),
+			Control: worker.ControlConfig{
+				Type: vp.GetString(VKey.Cpm.Worker.Control.Type),
+				Unix: &worker.ControlUnixConfig{
+					Path: filepath.Clean(vp.GetString(VKey.Cpm.Worker.Control.Unix.Path)),
+				},
+			},
 			CgroupCfg: cgroup.CgroupCfg{
 				Version:   vp.GetString(VKey.Cgroup.Version),
 				Root:      vp.GetString(VKey.Cgroup.Root),

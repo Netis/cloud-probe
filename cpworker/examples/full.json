@@ -1,7 +1,12 @@
 {
     "cpu_affinity": 1,
     "log_level": "INFO",
-    "unix_socket": "/var/run/cloud-probe/cpworker.sock",
+    "control": {
+        "type": "unix",
+        "unix": {
+            "path": "/var/run/cloud-probe/cpworker.sock"
+        }
+    },
     "tasks": [
         {
             "interface": "eth0",

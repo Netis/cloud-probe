@@ -19,20 +19,20 @@ const (
 func init() {
 	WorkerCmd.AddCommand(statsCmd)
 
-	statsCmd.Flags().StringVarP(&statsCfg.socketPath, "unix-socket", "s", "", "unix socket path, example: /var/run/cloud-probe/cpworker.sock")
-	statsCmd.MarkFlagRequired("unix-socket")
+	statsCmd.Flags().StringVar(&statsCfg.control, "control", "", "cpworker control connection string, example: unix:///var/run/cloud-probe/cpworker.sock")
+	statsCmd.MarkFlagRequired("control")
 }
 
 var statsCfg struct {
-	socketPath string
+	control string
 }
 
 var statsCmd = &cobra.Command{
 	Use:   "stats",
-	Short: "Show agent stats",
+	Short: "Show worker stats",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		client, err := cpworker.NewClient(statsCfg.socketPath)
+		client, err := cpworker.NewClient(statsCfg.control)
 		if err != nil {
 			return err
 		}

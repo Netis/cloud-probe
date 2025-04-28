@@ -8,9 +8,9 @@
 
 #include <pcap/pcap.h>
 
+#include "config.h"
 #include "if_util.h"
 #include "ip.h"
-#include "taskconf.h"
 
 #define REQ_PATTERN_TYPE_NONE 0
 #define REQ_PATTERN_TYPE_AUTO 1

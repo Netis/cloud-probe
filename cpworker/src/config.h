@@ -1,5 +1,5 @@
-#ifndef CPWORKER_TASKCONF_H
-#define CPWORKER_TASKCONF_H
+#ifndef CPWORKER_CONFIG_H
+#define CPWORKER_CONFIG_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -23,6 +23,8 @@
 #define IP_PMTUDISC_WANT 1  /* Use per route hints.  */
 #define IP_PMTUDISC_DO 2    /* Always DF.  */
 #define IP_PMTUDISC_PROBE 3 /* Ignore dst pmtu.  */
+
+#define CONTROL_TYPE_UNIX "unix"
 
 typedef struct
 {
@@ -124,9 +126,21 @@ typedef struct
 
 typedef struct
 {
+    char *type;
+    union
+    {
+        struct
+        {
+            char *path;
+        } unix_socket;
+    } config;
+} ControlConfig;
+
+typedef struct
+{
     int log_level;
     int cpu_affinity;
-    char *unix_socket;
+    ControlConfig *control;
     TasksAllConfig *tasks_cfg;
 } Config;
 
@@ -136,4 +150,4 @@ void free_tasks_config(TasksAllConfig *config);
 Config *parse_config_file(const char *filename, cJSONParseError *err);
 void free_config(Config *config);
 
-#endif /* CPWORKER_TASKCONF_H */
+#endif /* CPWORKER_CONFIG_H */

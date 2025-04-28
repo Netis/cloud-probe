@@ -2,10 +2,12 @@ package cpm
 
 import (
 	"context"
+	"io/fs"
 	"log/slog"
 	"net"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,18 +101,48 @@ type Syncer struct {
 	lg     *slog.Logger
 }
 
-func checkWorkerRunning(unixSocket string) (bool, error) {
-	client, err := cpworker.NewClient(unixSocket)
+func killOrphanWorker(workerCfg WorkerConfig) error {
+	if workerCfg.PidFile == "" {
+		return nil
+	}
+	data, err := os.ReadFile(workerCfg.PidFile)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil
+	case err != nil:
+		return errors.WithStack(err)
+	}
+	pid, err := strconv.Atoi(string(data))
 	if err != nil {
-		return false, errors.Wrap(err, "create worker client")
+		return errors.WithStack(err)
 	}
-	defer client.Close()
+	p, err := process.NewProcess(int32(pid))
+	switch {
+	case errors.Is(err, process.ErrorProcessNotRunning):
+		return nil
+	case err != nil:
+		return errors.WithStack(err)
+	}
+	cmdLineSlice, err := p.CmdlineSlice()
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if len(cmdLineSlice) == 0 {
+		return errors.Errorf("unexpected command line: %s", strings.Join(cmdLineSlice, " "))
+	}
+	if cmdLineSlice[0] != workerCfg.Executable {
+		return errors.Errorf("unexpected command line: %s", strings.Join(cmdLineSlice, " "))
+	}
 
-	err = client.Dial(context.Background())
-	if err == nil {
-		return true, nil
+	slog.Default().Info(
+		"kill orphan worker",
+		slog.Int("pid", pid),
+		slog.String("cmdline", strings.Join(cmdLineSlice, " ")),
+	)
+	if err := p.Kill(); err != nil {
+		return errors.WithStack(err)
 	}
-	return false, nil
+	return nil
 }
 
 func NewSyncer(
@@ -126,13 +158,9 @@ func NewSyncer(
 		return nil, err
 	}
 
-	// 检查 cpworker 是否正在运行，只有在 cpdaemon 被kill时才会出现这种情况
-	running, err := checkWorkerRunning(workerCfg.UnixSocket)
-	if err != nil {
-		return nil, errors.Wrap(err, "check worker running")
-	}
-	if running {
-		return nil, errors.New("worker is running, please stop it first")
+	// 只有在 cpdaemon 被kill时才会出现这种情况
+	if err := killOrphanWorker(workerCfg); err != nil {
+		return nil, errors.Wrap(err, "kill orphan worker error")
 	}
 
 	workerMgr := NewWorkerManager(workerCfg, tool)

@@ -15,7 +15,12 @@ func TestWorker(t *testing.T) {
 	cfg := ExecConfig{
 		Executable: "./fakeworker",
 		ConfigFile: "testdata/tmp/test-tasks.json",
-		UnixSocket: "testdata/tmp/test.sock",
+		Control: ControlConfig{
+			Type: "unix",
+			Unix: &ControlUnixConfig{
+				Path: "testdata/tmp/test.sock",
+			},
+		},
 		Tasks: []TaskConfig{
 			{
 				Interface: "eth0",

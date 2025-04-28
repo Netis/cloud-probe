@@ -6,9 +6,9 @@
 
 #include <pcap/pcap.h>
 
+#include "config.h"
 #include "output.h"
 #include "output_file.h"
-#include "taskconf.h"
 
 typedef struct RotatingFileOptions
 {
