@@ -1,7 +1,6 @@
 
 English  ∙  [简体中文](README-zh-Hans.md)
 
-![packet agent's title](./img/title.jpg)
 # Netis Cloud Probe
 
 [![Stable release](https://img.shields.io/badge/version-0.3.6-green.svg)](https://github.com/Netis/cloud-probe/releases/tag/0.3.6)
