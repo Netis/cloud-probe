@@ -145,12 +145,20 @@ typedef struct TaskStats
     int num_outputs;
 } task_stats_t;
 
-typedef struct TaskManagerStats
+typedef struct TaskManagerStatsDetail
 {
     struct timespec tm;
     task_stats_t tasks[STAT_MAX_TASKS];
     int num_tasks;
-} task_manager_stats_t;
+} task_manager_stats_detail_t;
+
+typedef struct TaskManagerStatsSummary
+{
+    struct timespec tm;
+
+    capture_stats_t capture;
+    output_stats_t output;
+} task_manager_stats_summary_t;
 
 typedef struct Task
 {
@@ -165,8 +173,8 @@ typedef struct TaskManager
     TAILQ_HEAD(, Task) tasks;
 
     pthread_mutex_t stats_lock;
-    bool stats_init;
-    task_manager_stats_t stats;
+    task_manager_stats_summary_t stats_summary;
+    task_manager_stats_detail_t stats_detail;
 } task_manager_t;
 
 static task_manager_t task_mgr;
@@ -176,7 +184,6 @@ static int task_manager_new(task_manager_t *this, TasksAllConfig *config)
     this->config = config;
     TAILQ_INIT(&this->tasks);
 
-    this->stats_init = false;
     pthread_mutex_init(&this->stats_lock, NULL);
 
     int num_tasks = config->num_tasks;
@@ -241,21 +248,21 @@ uint64_t task_manager_poll_packets()
     return num_pkts;
 }
 
-void task_manager_update_stats()
+static void task_manager_update_stats_detail()
 {
     task_manager_t *this = &task_mgr;
-    task_manager_stats_t stats = {0};
+    task_manager_stats_detail_t stats_detail = {0};
 
     task_t *item;
     TAILQ_FOREACH(item, &this->tasks, next)
     {
-        if (stats.num_tasks >= STAT_MAX_TASKS - 1)
+        if (stats_detail.num_tasks >= STAT_MAX_TASKS - 1)
         {
             log_warn("task manager stats only support %d tasks", STAT_MAX_TASKS);
             break;
         }
 
-        task_stats_t *task_stats = &stats.tasks[stats.num_tasks];
+        task_stats_t *task_stats = &stats_detail.tasks[stats_detail.num_tasks];
         task_stats->index = item->index;
         task_stats->capture = item->task->capturer->stats;
         for (int i = 0; i < item->task->num_outputs; ++i)
@@ -269,13 +276,59 @@ void task_manager_update_stats()
             task_stats->outputs[task_stats->num_outputs] = item->task->outputs[i]->stats;
             task_stats->num_outputs++;
         }
-        stats.num_tasks++;
+        stats_detail.num_tasks++;
     }
-    clock_gettime(CLOCK_MONOTONIC, &stats.tm);
+
+    clock_gettime(CLOCK_MONOTONIC, &stats_detail.tm);
 
     pthread_mutex_lock(&this->stats_lock);
-    this->stats = stats;
+    this->stats_detail = stats_detail;
     pthread_mutex_unlock(&this->stats_lock);
+}
+
+static void task_manager_update_stats_summary()
+{
+    task_manager_t *this = &task_mgr;
+    task_manager_stats_summary_t stats_summary;
+    memset(&stats_summary, 0, sizeof(task_manager_stats_summary_t));
+
+    task_t *item;
+    TAILQ_FOREACH(item, &this->tasks, next)
+    {
+        bytes_stats_merge(&stats_summary.capture.cap_bytes, &item->task->capturer->stats.cap_bytes);
+        packets_stats_merge(&stats_summary.capture.cap_packets, &item->task->capturer->stats.cap_packets);
+
+        packets_stats_merge(&stats_summary.capture.drop_packets, &item->task->capturer->stats.drop_packets);
+        packets_stats_merge(&stats_summary.capture.ifdrop_packets, &item->task->capturer->stats.ifdrop_packets);
+
+        for (int i = 0; i < item->task->num_outputs; ++i)
+        {
+            output_stats_t *output_stats = &item->task->outputs[i]->stats;
+            bytes_stats_merge(&stats_summary.output.fwd_bytes, &output_stats->fwd_bytes);
+            packets_stats_merge(&stats_summary.output.fwd_packets, &output_stats->fwd_packets);
+
+            bytes_stats_merge(&stats_summary.output.direction_drop_bytes, &output_stats->direction_drop_bytes);
+            packets_stats_merge(&stats_summary.output.direction_drop_packets, &output_stats->direction_drop_packets);
+
+            bytes_stats_merge(&stats_summary.output.error_drop_bytes, &output_stats->error_drop_bytes);
+            packets_stats_merge(&stats_summary.output.error_drop_packets, &output_stats->error_drop_packets);
+
+            bytes_stats_merge(&stats_summary.output.ratelimit_drop_bytes, &output_stats->ratelimit_drop_bytes);
+            packets_stats_merge(&stats_summary.output.ratelimit_drop_packets, &output_stats->ratelimit_drop_packets);
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &stats_summary.tm);
+
+    pthread_mutex_lock(&this->stats_lock);
+    this->stats_summary = stats_summary;
+    pthread_mutex_unlock(&this->stats_lock);
+}
+
+void task_manager_update_stats()
+{
+    task_manager_update_stats_detail();
+    task_manager_update_stats_summary();
 }
 
 static int bytes_stats_json_dump(bytes_stats_t st, cJSON *obj)
@@ -306,13 +359,150 @@ static int packets_stats_json_dump(packets_stats_t st, cJSON *obj)
     return 0;
 }
 
-int task_manager_collect_stats_command(cJSON *cmd_msg, cJSON *server_msg, void *data)
+static int capture_stats_json_dump(capture_stats_t *stats, cJSON *capture)
+{
+    cJSON *cap_bytes = cJSON_CreateObject();
+    if (!cap_bytes)
+        return -1;
+    cJSON_AddItemToObject(capture, "cap_bytes", cap_bytes);
+    if (bytes_stats_json_dump(stats->cap_bytes, cap_bytes) != 0)
+        return -1;
+
+    cJSON *cap_packets = cJSON_CreateObject();
+    if (!cap_packets)
+        return -1;
+    cJSON_AddItemToObject(capture, "cap_packets", cap_packets);
+    if (packets_stats_json_dump(stats->cap_packets, cap_packets) != 0)
+        return -1;
+
+    cJSON *drop_packets = cJSON_CreateObject();
+    if (!drop_packets)
+        return -1;
+    cJSON_AddItemToObject(capture, "drop_packets", drop_packets);
+    if (packets_stats_json_dump(stats->drop_packets, drop_packets) != 0)
+        return -1;
+
+    cJSON *ifdrop_packets = cJSON_CreateObject();
+    if (!ifdrop_packets)
+        return -1;
+    cJSON_AddItemToObject(capture, "ifdrop_packets", ifdrop_packets);
+    if (packets_stats_json_dump(stats->ifdrop_packets, ifdrop_packets) != 0)
+        return -1;
+
+    return 0;
+}
+
+static int output_stats_json_dump(output_stats_t *output_stats, cJSON *output)
+{
+    cJSON *fwd_bytes = cJSON_CreateObject();
+    if (!fwd_bytes)
+        return -1;
+    cJSON_AddItemToObject(output, "fwd_bytes", fwd_bytes);
+    if (bytes_stats_json_dump(output_stats->fwd_bytes, fwd_bytes) != 0)
+        return -1;
+
+    cJSON *fwd_packets = cJSON_CreateObject();
+    if (!fwd_packets)
+        return -1;
+    cJSON_AddItemToObject(output, "fwd_packets", fwd_packets);
+    if (packets_stats_json_dump(output_stats->fwd_packets, fwd_packets) != 0)
+        return -1;
+
+    cJSON *direction_drop_bytes = cJSON_CreateObject();
+    if (!direction_drop_bytes)
+        return -1;
+    cJSON_AddItemToObject(output, "direction_drop_bytes", direction_drop_bytes);
+    if (bytes_stats_json_dump(output_stats->direction_drop_bytes, direction_drop_bytes) != 0)
+        return -1;
+
+    cJSON *direction_drop_packets = cJSON_CreateObject();
+    if (!direction_drop_packets)
+        return -1;
+    cJSON_AddItemToObject(output, "direction_drop_packets", direction_drop_packets);
+    if (packets_stats_json_dump(output_stats->direction_drop_packets, direction_drop_packets) != 0)
+        return -1;
+
+    cJSON *error_drop_bytes = cJSON_CreateObject();
+    if (!error_drop_bytes)
+        return -1;
+    cJSON_AddItemToObject(output, "error_drop_bytes", error_drop_bytes);
+    if (bytes_stats_json_dump(output_stats->error_drop_bytes, error_drop_bytes) != 0)
+        return -1;
+
+    cJSON *error_drop_packets = cJSON_CreateObject();
+    if (!error_drop_packets)
+        return -1;
+    cJSON_AddItemToObject(output, "error_drop_packets", error_drop_packets);
+    if (packets_stats_json_dump(output_stats->error_drop_packets, error_drop_packets) != 0)
+        return -1;
+
+    cJSON *ratelimit_drop_bytes = cJSON_CreateObject();
+    if (!ratelimit_drop_bytes)
+        return -1;
+    cJSON_AddItemToObject(output, "ratelimit_drop_bytes", ratelimit_drop_bytes);
+    if (bytes_stats_json_dump(output_stats->ratelimit_drop_bytes, ratelimit_drop_bytes) != 0)
+        return -1;
+
+    cJSON *ratelimit_drop_packets = cJSON_CreateObject();
+    if (!ratelimit_drop_packets)
+        return -1;
+    cJSON_AddItemToObject(output, "ratelimit_drop_packets", ratelimit_drop_packets);
+    if (packets_stats_json_dump(output_stats->ratelimit_drop_packets, ratelimit_drop_packets) != 0)
+        return -1;
+
+    return 0;
+}
+
+int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg, void *data)
 {
     struct timeval tm;
     task_manager_t *this = &task_mgr;
 
     pthread_mutex_lock(&this->stats_lock);
-    task_manager_stats_t stats = this->stats;
+    task_manager_stats_summary_t stats = this->stats_summary;
+    pthread_mutex_unlock(&this->stats_lock);
+
+    cJSON *time = cJSON_CreateObject();
+    if (!time)
+        goto error;
+    cJSON_AddItemToObject(server_msg, "time", time);
+
+    cJSON *tv_sec = cJSON_CreateNumber(stats.tm.tv_sec);
+    if (!tv_sec)
+        goto error;
+    cJSON_AddItemToObject(time, "sec", tv_sec);
+
+    cJSON *tv_nsec = cJSON_CreateNumber(stats.tm.tv_nsec);
+    if (!tv_nsec)
+        goto error;
+    cJSON_AddItemToObject(time, "nsec", tv_nsec);
+
+    cJSON *capture = cJSON_CreateObject();
+    if (!capture)
+        goto error;
+    cJSON_AddItemToObject(server_msg, "capture", capture);
+    if (capture_stats_json_dump(&stats.capture, capture) != 0)
+        goto error;
+
+    cJSON *output = cJSON_CreateObject();
+    if (!output)
+        goto error;
+    cJSON_AddItemToObject(server_msg, "output", output);
+    if (output_stats_json_dump(&stats.output, output) != 0)
+        goto error;
+
+    return 0;
+error:
+    return -1;
+}
+
+int task_manager_collect_stats_detail_command(cJSON *cmd_msg, cJSON *server_msg, void *data)
+{
+    struct timeval tm;
+    task_manager_t *this = &task_mgr;
+
+    pthread_mutex_lock(&this->stats_lock);
+    task_manager_stats_detail_t stats = this->stats_detail;
     pthread_mutex_unlock(&this->stats_lock);
 
     cJSON *time = cJSON_CreateObject();
@@ -352,32 +542,7 @@ int task_manager_collect_stats_command(cJSON *cmd_msg, cJSON *server_msg, void *
             goto error;
         cJSON_AddItemToObject(task, "capture", capture);
 
-        cJSON *cap_bytes = cJSON_CreateObject();
-        if (!cap_bytes)
-            goto error;
-        cJSON_AddItemToObject(capture, "cap_bytes", cap_bytes);
-        if (bytes_stats_json_dump(stats.tasks[i].capture.cap_bytes, cap_bytes) != 0)
-            goto error;
-
-        cJSON *cap_packets = cJSON_CreateObject();
-        if (!cap_packets)
-            goto error;
-        cJSON_AddItemToObject(capture, "cap_packets", cap_packets);
-        if (packets_stats_json_dump(stats.tasks[i].capture.cap_packets, cap_packets) != 0)
-            goto error;
-
-        cJSON *drop_packets = cJSON_CreateObject();
-        if (!drop_packets)
-            goto error;
-        cJSON_AddItemToObject(capture, "drop_packets", drop_packets);
-        if (packets_stats_json_dump(stats.tasks[i].capture.drop_packets, drop_packets) != 0)
-            goto error;
-
-        cJSON *ifdrop_packets = cJSON_CreateObject();
-        if (!ifdrop_packets)
-            goto error;
-        cJSON_AddItemToObject(capture, "ifdrop_packets", ifdrop_packets);
-        if (packets_stats_json_dump(stats.tasks[i].capture.ifdrop_packets, ifdrop_packets) != 0)
+        if (capture_stats_json_dump(&stats.tasks[i].capture, capture) != 0)
             goto error;
 
         cJSON *outputs = cJSON_CreateArray();
@@ -394,60 +559,7 @@ int task_manager_collect_stats_command(cJSON *cmd_msg, cJSON *server_msg, void *
                 goto error;
             cJSON_AddItemToArray(outputs, output);
 
-            cJSON *fwd_bytes = cJSON_CreateObject();
-            if (!fwd_bytes)
-                goto error;
-            cJSON_AddItemToObject(output, "fwd_bytes", fwd_bytes);
-            if (bytes_stats_json_dump(output_stats->fwd_bytes, fwd_bytes) != 0)
-                goto error;
-
-            cJSON *fwd_packets = cJSON_CreateObject();
-            if (!fwd_packets)
-                goto error;
-            cJSON_AddItemToObject(output, "fwd_packets", fwd_packets);
-            if (packets_stats_json_dump(output_stats->fwd_packets, fwd_packets) != 0)
-                goto error;
-
-            cJSON *direction_drop_bytes = cJSON_CreateObject();
-            if (!direction_drop_bytes)
-                goto error;
-            cJSON_AddItemToObject(output, "direction_drop_bytes", direction_drop_bytes);
-            if (bytes_stats_json_dump(output_stats->direction_drop_bytes, direction_drop_bytes) != 0)
-                goto error;
-
-            cJSON *direction_drop_packets = cJSON_CreateObject();
-            if (!direction_drop_packets)
-                goto error;
-            cJSON_AddItemToObject(output, "direction_drop_packets", direction_drop_packets);
-            if (packets_stats_json_dump(output_stats->direction_drop_packets, direction_drop_packets) != 0)
-                goto error;
-
-            cJSON *error_drop_bytes = cJSON_CreateObject();
-            if (!error_drop_bytes)
-                goto error;
-            cJSON_AddItemToObject(output, "error_drop_bytes", error_drop_bytes);
-            if (bytes_stats_json_dump(output_stats->error_drop_bytes, error_drop_bytes) != 0)
-                goto error;
-
-            cJSON *error_drop_packets = cJSON_CreateObject();
-            if (!error_drop_packets)
-                goto error;
-            cJSON_AddItemToObject(output, "error_drop_packets", error_drop_packets);
-            if (packets_stats_json_dump(output_stats->error_drop_packets, error_drop_packets) != 0)
-                goto error;
-
-            cJSON *ratelimit_drop_bytes = cJSON_CreateObject();
-            if (!ratelimit_drop_bytes)
-                goto error;
-            cJSON_AddItemToObject(output, "ratelimit_drop_bytes", ratelimit_drop_bytes);
-            if (bytes_stats_json_dump(output_stats->ratelimit_drop_bytes, ratelimit_drop_bytes) != 0)
-                goto error;
-
-            cJSON *ratelimit_drop_packets = cJSON_CreateObject();
-            if (!ratelimit_drop_packets)
-                goto error;
-            cJSON_AddItemToObject(output, "ratelimit_drop_packets", ratelimit_drop_packets);
-            if (packets_stats_json_dump(output_stats->ratelimit_drop_packets, ratelimit_drop_packets) != 0)
+            if (output_stats_json_dump(output_stats, output) != 0)
                 goto error;
         }
     }

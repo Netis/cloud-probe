@@ -112,6 +112,8 @@ int main(int argc, char **argv)
         }
     }
 
+    task_manager_init(config->tasks_cfg);
+
     bool control_enabled = config->control != NULL;
     bool control_unix_enabled = control_enabled && strcmp(config->control->type, CONTROL_TYPE_UNIX) == 0;
     if (control_unix_enabled)
@@ -124,6 +126,9 @@ int main(int argc, char **argv)
         }
         log_info("listen on unix socket %s", config->control->config.unix_socket.path);
 
+        unix_manager_register_command("collect_stats_summary", task_manager_collect_stats_summary_command, NULL);
+        unix_manager_register_command("collect_stats_detail", task_manager_collect_stats_detail_command, NULL);
+
         if (unix_manager_thread_spawn() != 0)
         {
             log_fatal("create unix socket thread failed");
@@ -132,17 +137,13 @@ int main(int argc, char **argv)
         }
     }
 
-    task_manager_init(config->tasks_cfg);
-    if (control_unix_enabled)
-    {
-        unix_manager_register_command("collect_stats", task_manager_collect_stats_command, NULL);
-    }
     // tasks_cfg owned by task_manager
     config->tasks_cfg = NULL;
 
     signal(SIGINT, signal_handler);
     signal(SIGPIPE, SIG_IGN);
 
+    log_info("start poll packets");
     time_t last_tm = time(NULL);
     while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
     {

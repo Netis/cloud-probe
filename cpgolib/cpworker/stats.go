@@ -1,11 +1,20 @@
 package cpworker
 
-type Stats struct {
+type StatsDetail struct {
 	Time struct {
 		Sec  int64 `mapstructure:"sec"`
 		Nsec int64 `mapstructure:"nsec"`
 	} `mapstructure:"time"`
 	Tasks []TaskStats `mapstructure:"tasks"`
+}
+
+type StatsSummary struct {
+	Time struct {
+		Sec  int64 `mapstructure:"sec"`
+		Nsec int64 `mapstructure:"nsec"`
+	} `mapstructure:"time"`
+	Capture CaptureStats `mapstructure:"capture"`
+	Output  OutputStats  `mapstructure:"output"`
 }
 
 type TaskStats struct {

@@ -119,15 +119,15 @@ func (m *WorkerManager) Stop() error {
 	return worker.Stop()
 }
 
-func (m *WorkerManager) CollectStats(ctx context.Context) (cpworker.Stats, error) {
+func (m *WorkerManager) CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error) {
 	m.mu.Lock()
 	client := m.client
 	m.mu.Unlock()
 
 	if client == nil {
-		return cpworker.Stats{}, nil
+		return cpworker.StatsSummary{}, nil
 	}
-	return client.CollectStats(ctx)
+	return client.CollectStatsSummary(ctx)
 }
 
 func (m *WorkerManager) CreateIfDead(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {

@@ -41,36 +41,42 @@ var statsCmd = &cobra.Command{
 		tm := time.NewTimer(0)
 		defer tm.Stop()
 
-		var lastStats *summaryStats
+		var lastStats *cpworker.StatsSummary
 		for {
 			select {
 			case <-ctx.Done():
 				return nil
 			case <-tm.C:
-				stats, err := client.CollectStats(cmd.Context())
+				stats, err := client.CollectStatsSummary(cmd.Context())
 				if err != nil {
 					return err
 				}
-				sStats := newSummaryStats(stats)
-				if lastStats != nil && sStats.Time.After(lastStats.Time) {
-					fmt.Println("-------------------------------")
-					printSummaryStats(sStats, *lastStats)
+
+				if lastStats != nil {
+					t1 := time.Unix(stats.Time.Sec, stats.Time.Nsec)
+					t2 := time.Unix(lastStats.Time.Sec, lastStats.Time.Nsec)
+					if t1.After(t2) {
+						fmt.Println("-------------------------------")
+						printSummaryStats(stats, *lastStats)
+					}
 				}
-				lastStats = &sStats
+				lastStats = &stats
 				tm.Reset(2 * time.Second)
 			}
 		}
 	},
 }
 
-func printSummaryStats(stats summaryStats, lastStats summaryStats) {
+func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSummary) {
 	headers := make([]string, 0, 12)
 	row := make([]string, 0, len(headers))
 
-	secs := stats.Time.Sub(lastStats.Time).Seconds()
+	t1 := time.Unix(stats.Time.Sec, stats.Time.Nsec)
+	t2 := time.Unix(lastStats.Time.Sec, lastStats.Time.Nsec)
+	secs := t1.Sub(t2).Seconds()
 
 	headers = append(headers, "Cap Bytes")
-	diffCapBytes, isLess := diffBytesStats(stats.CapBytes, lastStats.CapBytes)
+	diffCapBytes, isLess := diffBytesStats(stats.Capture.CapBytes, lastStats.Capture.CapBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -78,7 +84,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Cap Packets")
-	diffCapPackets, isLess := diffPacketsStats(stats.CapPackets, lastStats.CapPackets)
+	diffCapPackets, isLess := diffPacketsStats(stats.Capture.CapPackets, lastStats.Capture.CapPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -86,7 +92,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Drop Packets")
-	diffDropPackets, isLess := diffPacketsStats(stats.DropPackets, lastStats.DropPackets)
+	diffDropPackets, isLess := diffPacketsStats(stats.Capture.DropPackets, lastStats.Capture.DropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -94,7 +100,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Ifdrop Packets")
-	diffIfdropPackets, isLess := diffPacketsStats(stats.IfdropPackets, lastStats.IfdropPackets)
+	diffIfdropPackets, isLess := diffPacketsStats(stats.Capture.IfdropPackets, lastStats.Capture.IfdropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -102,7 +108,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Fwd Bytes")
-	diffFwdBytes, isLess := diffBytesStats(stats.FwdBytes, lastStats.FwdBytes)
+	diffFwdBytes, isLess := diffBytesStats(stats.Output.FwdBytes, lastStats.Output.FwdBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -110,7 +116,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Fwd Packets")
-	diffFwdPackets, isLess := diffPacketsStats(stats.FwdPackets, lastStats.FwdPackets)
+	diffFwdPackets, isLess := diffPacketsStats(stats.Output.FwdPackets, lastStats.Output.FwdPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -118,7 +124,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Direction Drop Bytes")
-	diffDirectionDropBytes, isLess := diffBytesStats(stats.DirectionDropBytes, lastStats.DirectionDropBytes)
+	diffDirectionDropBytes, isLess := diffBytesStats(stats.Output.DirectionDropBytes, lastStats.Output.DirectionDropBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -126,7 +132,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Direction Drop Packets")
-	diffDirectionDropPackets, isLess := diffPacketsStats(stats.DirectionDropPackets, lastStats.DirectionDropPackets)
+	diffDirectionDropPackets, isLess := diffPacketsStats(stats.Output.DirectionDropPackets, lastStats.Output.DirectionDropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -134,7 +140,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Error Drop Bytes")
-	diffErrorDropBytes, isLess := diffBytesStats(stats.ErrorDropBytes, lastStats.ErrorDropBytes)
+	diffErrorDropBytes, isLess := diffBytesStats(stats.Output.ErrorDropBytes, lastStats.Output.ErrorDropBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -142,7 +148,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Error Drop Packets")
-	diffErrorDropPackets, isLess := diffPacketsStats(stats.ErrorDropPackets, lastStats.ErrorDropPackets)
+	diffErrorDropPackets, isLess := diffPacketsStats(stats.Output.ErrorDropPackets, lastStats.Output.ErrorDropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -150,7 +156,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Ratelimit Drop Bytes")
-	diffRatelimitDropBytes, isLess := diffBytesStats(stats.RatelimitDropBytes, lastStats.RatelimitDropBytes)
+	diffRatelimitDropBytes, isLess := diffBytesStats(stats.Output.RatelimitDropBytes, lastStats.Output.RatelimitDropBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -158,7 +164,7 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	}
 
 	headers = append(headers, "Ratelimit Drop Packets")
-	diffRatelimitDropPackets, isLess := diffPacketsStats(stats.RatelimitDropPackets, lastStats.RatelimitDropPackets)
+	diffRatelimitDropPackets, isLess := diffPacketsStats(stats.Output.RatelimitDropPackets, lastStats.Output.RatelimitDropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -175,57 +181,6 @@ func printSummaryStats(stats summaryStats, lastStats summaryStats) {
 	for i, h := range headers {
 		fmt.Printf("%-*s : %s\n", maxHeaderLen, h, row[i])
 	}
-}
-
-type summaryStats struct {
-	Time time.Time
-
-	CapBytes   cpworker.BytesStats
-	CapPackets cpworker.PacketsStats
-
-	DropPackets   cpworker.PacketsStats
-	IfdropPackets cpworker.PacketsStats
-
-	FwdBytes   cpworker.BytesStats
-	FwdPackets cpworker.PacketsStats
-
-	DirectionDropBytes   cpworker.BytesStats
-	DirectionDropPackets cpworker.PacketsStats
-
-	ErrorDropBytes   cpworker.BytesStats
-	ErrorDropPackets cpworker.PacketsStats
-
-	RatelimitDropBytes   cpworker.BytesStats
-	RatelimitDropPackets cpworker.PacketsStats
-}
-
-func newSummaryStats(stats cpworker.Stats) summaryStats {
-	var summary summaryStats
-	summary.Time = time.Unix(stats.Time.Sec, stats.Time.Nsec)
-
-	for _, task := range stats.Tasks {
-		summary.CapBytes = addBytesStats(summary.CapBytes, task.Capture.CapBytes)
-		summary.CapPackets = addPacketsStats(summary.CapPackets, task.Capture.CapPackets)
-
-		summary.DropPackets = addPacketsStats(summary.DropPackets, task.Capture.DropPackets)
-		summary.IfdropPackets = addPacketsStats(summary.IfdropPackets, task.Capture.IfdropPackets)
-
-		summary.FwdBytes = addBytesStats(summary.FwdBytes, task.Outputs[0].FwdBytes)
-		summary.FwdPackets = addPacketsStats(summary.FwdPackets, task.Outputs[0].FwdPackets)
-
-		for _, output := range task.Outputs {
-			summary.DirectionDropBytes = addBytesStats(summary.DirectionDropBytes, output.DirectionDropBytes)
-			summary.DirectionDropPackets = addPacketsStats(summary.DirectionDropPackets, output.DirectionDropPackets)
-
-			summary.ErrorDropBytes = addBytesStats(summary.ErrorDropBytes, output.ErrorDropBytes)
-			summary.ErrorDropPackets = addPacketsStats(summary.ErrorDropPackets, output.ErrorDropPackets)
-
-			summary.RatelimitDropBytes = addBytesStats(summary.RatelimitDropBytes, output.RatelimitDropBytes)
-			summary.RatelimitDropPackets = addPacketsStats(summary.RatelimitDropPackets, output.RatelimitDropPackets)
-		}
-	}
-
-	return summary
 }
 
 func comparePacketsStats(stats cpworker.PacketsStats, lastStats cpworker.PacketsStats) int {

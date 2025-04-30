@@ -61,11 +61,11 @@ func (r *testWorkerManagerRecoder) Stop() error {
 	return nil
 }
 
-func (r *testWorkerManagerRecoder) CollectStats(ctx context.Context) (cpworker.Stats, error) {
+func (r *testWorkerManagerRecoder) CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "CollectStats")
-	return cpworker.Stats{}, nil
+	return cpworker.StatsSummary{}, nil
 }
 
 func (r *testWorkerManagerRecoder) IsAlive(ctx context.Context) (bool, error) {

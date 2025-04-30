@@ -70,7 +70,7 @@ type IWorkerManager interface {
 	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
 	Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
 	Stop() error
-	CollectStats(ctx context.Context) (cpworker.Stats, error)
+	CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error)
 	IsAlive(ctx context.Context) (bool, error)
 	StartTime() time.Time
 	Pid() (int, bool)
@@ -499,21 +499,17 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 	}
 
 	err := func() error {
-		stats, err := s.workerMgr.CollectStats(ctx)
+		stats, err := s.workerMgr.CollectStatsSummary(ctx)
 		if err != nil {
 			return err
 		}
 
 		// WARN: 存在溢出问题
-		for _, task := range stats.Tasks {
-			metrics.CapBytes += task.Capture.CapBytes.Bytes
-			metrics.CapPackets += task.Capture.CapPackets.Packets
-			metrics.CapDrop += task.Capture.DropPackets.Packets
-			for _, output := range task.Outputs {
-				metrics.FwdBytes += output.FwdBytes.Bytes
-				metrics.FwdPackets += output.FwdPackets.Packets
-			}
-		}
+		metrics.CapBytes += stats.Capture.CapBytes.Bytes
+		metrics.CapPackets += stats.Capture.CapPackets.Packets
+		metrics.CapDrop += stats.Capture.DropPackets.Packets
+		metrics.FwdBytes += stats.Output.FwdBytes.Bytes
+		metrics.FwdPackets += stats.Output.FwdPackets.Packets
 		return nil
 	}()
 	if err != nil {
@@ -556,6 +552,7 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 		s.lg.Error("collect system metrics failed", slogx.Error(err))
 	}
 
+	s.lg.Info("start sync metrics")
 	return s.client.SyncMetrics(ctx, s.regResp.Id, SyncMetricsRequest{
 		Metrics: metrics,
 		Logs:    s.logBuf.Clear(),

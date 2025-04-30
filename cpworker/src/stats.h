@@ -19,6 +19,8 @@ typedef struct
 } packets_stats_t;
 
 void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes);
+void bytes_stats_merge(bytes_stats_t *dst, bytes_stats_t *src);
 void packets_stats_add(packets_stats_t *stat, uint64_t packets);
+void packets_stats_merge(packets_stats_t *stat, packets_stats_t *src);
 
 #endif /* CPWORKER_STATS_H */

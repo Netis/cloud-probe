@@ -28,5 +28,6 @@ func NewClient(connStr string) (Client, error) {
 type Client interface {
 	Close() error
 	Dial(context.Context) error
-	CollectStats(context.Context) (Stats, error)
+	CollectStatsDetail(context.Context) (StatsDetail, error)
+	CollectStatsSummary(context.Context) (StatsSummary, error)
 }

@@ -15,6 +15,14 @@ void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes)
     stat->eib += new_eib;
 }
 
+void bytes_stats_merge(bytes_stats_t *dst, bytes_stats_t *src)
+{
+    uint64_t total_bytes = dst->bytes + src->bytes;
+    uint64_t carry = total_bytes / EIB_IN_BYTES;
+    dst->bytes = total_bytes % EIB_IN_BYTES;
+    dst->eib += src->eib + carry;
+}
+
 void packets_stats_add(packets_stats_t *stat, uint64_t packets)
 {
     uint64_t new_peta = packets / PETA_IN_PACKETS;
@@ -28,4 +36,12 @@ void packets_stats_add(packets_stats_t *stat, uint64_t packets)
     }
 
     stat->peta += new_peta;
+}
+
+void packets_stats_merge(packets_stats_t *dst, packets_stats_t *src)
+{
+    uint64_t total_packets = dst->packets + src->packets;
+    uint64_t carry = total_packets / PETA_IN_PACKETS;
+    dst->packets = total_packets % PETA_IN_PACKETS;
+    dst->peta += src->peta + carry;
 }
