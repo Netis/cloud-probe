@@ -8,9 +8,9 @@
             "defines": [
                 "_WIN32_WINNT=0x0601"
             ],
-            "compilerPath": "/usr/bin/x86_64-w64-mingw32-gcc",
             "cStandard": "gnu11",
             "cppStandard": "gnu++11",
+            "compilerPath": "/usr/bin/x86_64-w64-mingw32-gcc",
             "intelliSenseMode": "windows-gcc-x64"
         }
     ],

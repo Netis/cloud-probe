@@ -377,9 +377,7 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 			}
 			strategyTimer.Reset(s.cfg.SyncStrategyInterval)
 		case <-metricTimer.C:
-			if err := s.syncMetric(ctx); err != nil {
-				s.lg.Error("sync metric failed", slogx.Error(err))
-			}
+			s.syncMetric(ctx)
 			metricTimer.Reset(s.cfg.SyncMetricInterval)
 		}
 	}
@@ -387,6 +385,7 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 
 func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) error {
 	if !res.Changed {
+		s.lg.Info("strategy unchanged")
 		alive, err := s.workerMgr.IsAlive(ctx)
 		if err != nil {
 			s.lg.Info("worker check alive failed", slogx.Error(err))
@@ -482,14 +481,14 @@ func (s *Syncer) activeInstancesIfRequired(resp *SyncStrategyResponse) ([]string
 	return s.tool.GetKvmInstances()
 }
 
-func (s *Syncer) syncMetric(ctx context.Context) error {
+func (s *Syncer) syncMetric(ctx context.Context) {
 	if s.regResp == nil || s.syncResp == nil {
-		return nil
+		return
 	}
 
 	pid, alive := s.workerMgr.Pid()
 	if !alive {
-		return nil
+		return
 	}
 
 	metrics := MetricsEntry{
@@ -498,6 +497,13 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 		StartTime:              s.workerMgr.StartTime().Unix(),
 	}
 
+	var durStats struct {
+		worker time.Duration
+		system time.Duration
+		cpm    time.Duration
+	}
+
+	workerBegin := time.Now()
 	err := func() error {
 		stats, err := s.workerMgr.CollectStatsSummary(ctx)
 		if err != nil {
@@ -513,9 +519,11 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 		return nil
 	}()
 	if err != nil {
-		s.lg.Error("worker stats error", slogx.Error(err))
+		s.lg.Error("collect cpworker stats error", slogx.Error(err))
 	}
+	durStats.worker = time.Since(workerBegin)
 
+	systemBegin := time.Now()
 	err = func() error {
 		p, err := process.NewProcess(int32(pid))
 		if err != nil {
@@ -551,11 +559,23 @@ func (s *Syncer) syncMetric(ctx context.Context) error {
 	if err != nil {
 		s.lg.Error("collect system metrics failed", slogx.Error(err))
 	}
+	durStats.system = time.Since(systemBegin)
 
-	s.lg.Info("start sync metrics")
-	return s.client.SyncMetrics(ctx, s.regResp.Id, SyncMetricsRequest{
+	cpmBegin := time.Now()
+	err = s.client.SyncMetrics(ctx, s.regResp.Id, SyncMetricsRequest{
 		Metrics: metrics,
 		Logs:    s.logBuf.Clear(),
 		Pid:     int32(pid),
 	})
+	if err != nil {
+		s.lg.Error("send metrics to cpm error", slogx.Error(err))
+	}
+	durStats.cpm = time.Since(cpmBegin)
+
+	s.lg.Info(
+		"sync metrics finished",
+		slog.String("worker_dur", durStats.worker.String()),
+		slog.String("system_dur", durStats.system.String()),
+		slog.String("cpm_dur", durStats.cpm.String()),
+	)
 }
