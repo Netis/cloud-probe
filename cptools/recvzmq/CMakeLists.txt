@@ -9,7 +9,12 @@ if (NOT LIBRARY_ROOT)
     message(FATAL_ERROR "LIBRARY_ROOT is not set")
 endif()
 
-find_library(ZMQ_LIB libzmq.a PATHS ${LIBRARY_ROOT}/lib64 NO_DEFAULT_PATH)
+find_library(
+    ZMQ_LIB
+    libzmq.a
+    PATHS ${LIBRARY_ROOT}/lib64 ${LIBRARY_ROOT}/lib
+    NO_DEFAULT_PATH
+)
 if (NOT ZMQ_LIB)
     message(FATAL_ERROR "libzmq.a not found in ${LIBRARY_ROOT}/lib64")
 endif()

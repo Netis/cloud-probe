@@ -7,7 +7,7 @@
             "deploy_env": "INSTANCE"
         },
         "worker": {
-            "executable": "./bin/cpworker"
+            "executable": "cpworker"
         }
     }
 }

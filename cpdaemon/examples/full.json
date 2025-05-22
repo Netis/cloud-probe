@@ -30,7 +30,7 @@
         "base_url": "https://127.0.0.1:48018",
         "reg": {
             "name": "cpdaemon-test",
-            "uuid_file": "cpm-uuid.txt",
+            "uuid_file": "/usr/local/bin/uuid",
             "platform_id": "george-ali",
             "deploy_env": "INSTANCE",
             "labels": ["daemonset"],
@@ -40,7 +40,7 @@
             "node_name": "test"
         },
         "worker": {
-            "executable": "./bin/cpworker",
+            "executable": "cpworker",
             "log_level": "INFO",
             "config_file": "cpm-worker.json",
             "unix_socket": "cpm-worker.sock",

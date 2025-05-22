@@ -60,10 +60,10 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
                         "service_tag": 3
                     },
                     "file": {
-                        "name": "tmp/test.pcap"
+                        "name": "$PCAP_STORE_PATH/test.pcap"
                     },
                     "rotating_file": {
-                        "file_root": "tmp",
+                        "file_root": "$PCAP_STORE_PATH",
                         "max_file_interval": 60
                     }
                 }

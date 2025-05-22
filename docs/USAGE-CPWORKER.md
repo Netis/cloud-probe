@@ -60,10 +60,10 @@ cpworker is a network packet capture tool built on libpcap, supporting multiple 
                         "service_tag": 3
                     },
                     "file": {
-                        "name": "tmp/test.pcap"
+                        "name": "$PCAP_STORE_PATH/test.pcap"
                     },
                     "rotating_file": {
-                        "file_root": "tmp",
+                        "file_root": "$PCAP_STORE_PATH",
                         "max_file_interval": 60
                     }
                 }

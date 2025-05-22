@@ -135,5 +135,15 @@ install(TARGETS cpworker RUNTIME DESTINATION bin COMPONENT cpworker)
 
 if(NOT ENABLE_LINK_STATIC_LIBPCAP)
     get_filename_component(PCAP_REALPATH ${PCAP_LIB} REALPATH)
+    get_filename_component(PCAP_FILENAME ${PCAP_REALPATH} NAME)
+
     install(FILES ${PCAP_REALPATH} DESTINATION lib COMPONENT cpworker)
+    install(CODE "
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E create_symlink
+            \"${PCAP_FILENAME}\"
+            \"libpcap.so.1\"
+            WORKING_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/lib\"
+        )
+    " COMPONENT cpworker)
 endif()

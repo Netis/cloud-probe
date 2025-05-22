@@ -4,7 +4,7 @@
 wget https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.6.2.tar.gz
 tar xzf libpcap-1.6.2.tar.gz
 cd /path/to/unziped/dir
-./configure --prefix=$CLOUD_PROBE_CXX_LIBS_SDK/linux-amd64
+./configure --enable-dbus=no --prefix=$CLOUD_PROBE_CXX_LIBS_SDK/linux-amd64
 make
 make install
 ```

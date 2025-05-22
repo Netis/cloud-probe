@@ -206,7 +206,7 @@ int handle_zmq_msg(zmq_msg_t *msg, output_base_t *output)
     uint16_t pkts_num = ntohs(batch_hdr->pkts_num);
     bytes_to_uuid(batch_hdr->uuid, uuid_str);
 
-    printf("zmq message: size=%d, packets=%d, uuid=%s\n", msg_size, pkts_num, uuid_str);
+    printf("zmq message: size=%ld, packets=%d, uuid=%s\n", msg_size, pkts_num, uuid_str);
 
     struct pcap_pkthdr header;
     size_t msg_offset = sizeof(zmq_pkt_batch_hdr_t);
@@ -214,7 +214,7 @@ int handle_zmq_msg(zmq_msg_t *msg, output_base_t *output)
     {
         if ((msg_size - msg_offset) < ZMQ_PKT_DATA_LEN_SIZE + sizeof(zmq_pkt_hdr_t))
         {
-            snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: remain_size %d less than 2 + sizeof(zmq_pkt_hdr_t)", i + 1, msg_size - msg_offset);
+            snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: remain_size %ld less than 2 + sizeof(zmq_pkt_hdr_t)", i + 1, msg_size - msg_offset);
             return -1;
         }
         uint16_t pkt_data_len;
@@ -227,7 +227,7 @@ int handle_zmq_msg(zmq_msg_t *msg, output_base_t *output)
 
         if (msg_size - msg_offset < pkt_data_len)
         {
-            snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: remain_size: %d less than pkt_data length", i + 1, msg_size - msg_offset);
+            snprintf(handle_error, HANDLE_ERROR_SIZE, "packet %d: remain_size: %ld less than pkt_data length", i + 1, msg_size - msg_offset);
             return -1;
         }
 

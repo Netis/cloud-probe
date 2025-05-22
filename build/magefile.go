@@ -33,7 +33,6 @@ const (
 )
 
 var allEnvCfg = []string{
-	ENV_CLOUD_PROBE_PACKAGE_FILE,
 	ENV_CLOUD_PROBE_VERSION,
 	ENV_CLOUD_PROBE_PACKAGE_FILE,
 
@@ -122,7 +121,8 @@ func copyCpdaemonExamples(targetDir string) error {
 	return nil
 }
 
-func copyExamples(targetDir string) error {
+func copyExamples(os_ string, arch string) error {
+	targetDir := filepath.Join(packageRoot(os_, arch), "examples")
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("create dir %q error: %w", targetDir, err)
 	}
@@ -137,11 +137,6 @@ func copyExamples(targetDir string) error {
 }
 
 func createPackage(os_ string, arch string, version string) error {
-	examplesPath := filepath.Join(packageRoot(os_, arch), "examples")
-	if err := copyExamples(examplesPath); err != nil {
-		return err
-	}
-
 	if err := sh.RunV(
 		"tar",
 		"-czvf",
@@ -465,6 +460,33 @@ func (Cpctl) DarwinARM64() error {
 	return buildCpctl(newGoBuildConfig("darwin", "arm64"))
 }
 
+type Make mg.Namespace
+
+func (Make) Linux() error {
+	mg.Deps(Cpworker.Linux, Cpdaemon.Linux, Cpctl.Linux)
+	return copyExamples("linux", "amd64")
+}
+
+func (Make) LinuxARM64() error {
+	mg.Deps(Cpworker.LinuxARM64, Cpdaemon.LinuxARM64, Cpctl.LinuxARM64)
+	return copyExamples("linux", "arm64")
+}
+
+func (Make) Windows() error {
+	mg.Deps(Cpworker.Windows, Cpdaemon.Windows, Cpctl.Windows)
+	return copyExamples("windows", "amd64")
+}
+
+func (Make) Darwin() error {
+	mg.Deps(Cpworker.Darwin, Cpdaemon.Darwin, Cpctl.Darwin)
+	return copyExamples("darwin", "amd64")
+}
+
+func (Make) DarwinARM64() error {
+	mg.Deps(Cpworker.DarwinARM64, Cpdaemon.DarwinARM64, Cpctl.DarwinARM64)
+	return copyExamples("darwin", "arm64")
+}
+
 type Build mg.Namespace
 
 func (Build) Linux() error {
@@ -472,7 +494,7 @@ func (Build) Linux() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpworker.Linux, Cpdaemon.Linux, Cpctl.Linux)
+	mg.Deps(Make.Linux)
 	return createPackage("linux", "amd64", version)
 }
 
@@ -481,7 +503,7 @@ func (Build) LinuxARM64() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpworker.LinuxARM64, Cpdaemon.LinuxARM64, Cpctl.LinuxARM64)
+	mg.Deps(Make.LinuxARM64)
 	return createPackage("linux", "arm64", version)
 }
 
@@ -490,7 +512,7 @@ func (Build) Windows() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpworker.Windows, Cpdaemon.Windows, Cpctl.Windows)
+	mg.Deps(Make.Windows)
 	return createPackage("windows", "amd64", version)
 }
 
@@ -499,7 +521,7 @@ func (Build) Darwin() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpworker.Darwin, Cpdaemon.Darwin, Cpctl.Darwin)
+	mg.Deps(Make.Darwin)
 	return createPackage("darwin", "amd64", version)
 }
 
@@ -508,6 +530,6 @@ func (Build) DarwinARM64() error {
 	if err != nil {
 		return err
 	}
-	mg.Deps(Cpworker.DarwinARM64, Cpdaemon.DarwinARM64, Cpctl.DarwinARM64)
+	mg.Deps(Make.DarwinARM64)
 	return createPackage("darwin", "arm64", version)
 }

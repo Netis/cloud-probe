@@ -3,7 +3,8 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${env:CLOUD_PROBE_CXX_LIBS_PATH}/include"
             ],
             "defines": [],
             "cStandard": "gnu11",
