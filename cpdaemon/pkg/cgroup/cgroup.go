@@ -50,7 +50,7 @@ func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (func() error
 		}
 		return clean, nil
 	case VersionV2:
-		cgroupPath, err := CreateV2Cgroup(cfg.Root, cfg.Hierarchy, cgroupName)
+		cgroupPath, err := CreateV2Cgroup(cfg.Root, cfg.Hierarchy, cgroupName, []string{"cpu"})
 		if err != nil {
 			return nil, err
 		}
@@ -95,8 +95,12 @@ func RemoveCgroup(cgroupPath string) error {
 
 func CreateV1CpuCgroup(cgroupRoot string, cgroupHierarchy string, cgroupName string) (string, error) {
 	// check cgroupRoot is exist
-	if _, err := os.Stat(cgroupRoot); err != nil {
+	_, err := os.Stat(cgroupRoot)
+	switch {
+	case os.IsNotExist(err):
 		return "", errors.Wrapf(err, "cgroupRoot %s not exist", cgroupRoot)
+	case err != nil:
+		return "", errors.Wrapf(err, "check cgroupRoot %s failed", cgroupRoot)
 	}
 
 	path := filepath.Join(cgroupRoot, "cpu", cgroupHierarchy, cgroupName)
@@ -130,10 +134,27 @@ func SetV1CpuQuota(cgroupPath string, cpuLimit float64) error {
 	return nil
 }
 
-func CreateV2Cgroup(cgroupRoot string, cgroupHierarchy string, cgroupName string) (string, error) {
+func CreateV2Cgroup(cgroupRoot string, cgroupHierarchy string, cgroupName string, controls []string) (string, error) {
 	// check cgroupRoot is exist
-	if _, err := os.Stat(cgroupRoot); err != nil {
+	_, err := os.Stat(cgroupRoot)
+	switch {
+	case os.IsNotExist(err):
 		return "", errors.Wrapf(err, "cgroupRoot %s not exist", cgroupRoot)
+	case err != nil:
+		return "", errors.Wrapf(err, "check cgroupRoot %s failed", cgroupRoot)
+	}
+
+	if cgroupHierarchy != "" {
+		hierarchyPath := filepath.Join(cgroupRoot, cgroupHierarchy)
+		_, err := os.Stat(hierarchyPath)
+		switch {
+		case os.IsNotExist(err):
+			if err := doCreateV2Cgroup(hierarchyPath, controls); err != nil {
+				return "", err
+			}
+		case err != nil:
+			return "", errors.Wrapf(err, "check cgroupRoot %s failed", cgroupRoot)
+		}
 	}
 
 	path := filepath.Join(cgroupRoot, cgroupHierarchy, cgroupName)
@@ -141,6 +162,20 @@ func CreateV2Cgroup(cgroupRoot string, cgroupHierarchy string, cgroupName string
 		return "", errors.Wrapf(err, "create cgroup %s failed", path)
 	}
 	return path, nil
+}
+
+func doCreateV2Cgroup(path string, controls []string) error {
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return errors.Wrapf(err, "create cgroup hierarchy %s failed", path)
+	}
+
+	controlFile := filepath.Join(path, "cgroup.subtree_control")
+	for _, control := range controls {
+		if err := os.WriteFile(controlFile, []byte(fmt.Sprintf("+%s", control)), 0o644); err != nil {
+			return errors.Wrapf(err, "write +%s for %s failed", control, controlFile)
+		}
+	}
+	return nil
 }
 
 func SetV2CpuQuota(cgroupPath string, cpuLimit float64) error {
