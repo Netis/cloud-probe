@@ -18,6 +18,7 @@
 #define OUTPUT_TYPE_ZMQ "zmq"
 #define OUTPUT_TYPE_FILE "file"
 #define OUTPUT_TYPE_ROTATING_FILE "rotating_file"
+#define OUTPUT_TYPE_NULL "null"
 
 #define IP_PMTUDISC_DONT 0  /* Never send DF frames.  */
 #define IP_PMTUDISC_WANT 1  /* Use per route hints.  */

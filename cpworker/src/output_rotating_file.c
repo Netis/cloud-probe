@@ -169,6 +169,7 @@ rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, c
         return NULL;
     }
     output->base.send_packet = rotating_file_write_packet;
+    output->base.heartbeat = NULL;
     output->base.destory = rotating_file_output_destory;
 
     output->slice = opts.slice;

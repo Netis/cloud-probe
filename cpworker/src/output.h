@@ -28,6 +28,7 @@ typedef struct OutputBase
 {
     int (*send_packet)(struct OutputBase *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
                        int direct);
+    void (*heartbeat)(struct OutputBase *output, uint64_t now_sec, uint64_t now_usec);
     void (*destory)(struct OutputBase *output);
     output_stats_t stats;
 } output_base_t;
@@ -46,6 +47,12 @@ static inline int output_send_packet(output_base_t *output, const struct pcap_pk
     return output->send_packet(output, header, pkt_data, direct);
 }
 
-static void destory_output(output_base_t *output) { output->destory(output); }
+static inline void output_heartbeat(output_base_t *output, uint64_t now_sec, uint64_t now_nsec)
+{
+    if (output->heartbeat)
+        output->heartbeat(output, now_sec, now_nsec);
+}
+
+static inline void destory_output(output_base_t *output) { output->destory(output); }
 
 #endif /* CPWORKER_OUTPUT_H */

@@ -38,7 +38,7 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     {
         if (token_bucket_consume(&output->throttle, GRE_HEADER_LEN + length) != 0)
         {
-            bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, length);
+            bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, GRE_HEADER_LEN + length);
             packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
             return -1;
         }
@@ -48,20 +48,47 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     gre_hdr->keybit = htonl(output->service_tag | (direct << 28));
     memcpy(&(output->buf[GRE_HEADER_LEN]), pkt_data, length);
 
-    ssize_t send_bytes = sendto(output->socket_fd, output->buf, GRE_HEADER_LEN + length, 0,
-                                (struct sockaddr *)&output->remote_addr, sizeof(struct sockaddr_in));
-
-    // TODO: retry if errno == ENOBUFS
-    if (send_bytes == -1)
+    int retry_count = 0;
+    const int max_retries = 10;
+    do
     {
-        bytes_stats_add(&output->base.stats.error_drop_bytes, length);
-        packets_stats_add(&output->base.stats.error_drop_packets, 1);
-        return -1;
-    }
+        ssize_t send_bytes = sendto(output->socket_fd, output->buf, GRE_HEADER_LEN + length, 0,
+                                    (struct sockaddr *)&output->remote_addr, sizeof(struct sockaddr_in));
 
-    bytes_stats_add(&output->base.stats.fwd_bytes, length);
-    packets_stats_add(&output->base.stats.fwd_packets, 1);
-    return 0;
+        if (send_bytes == -1)
+        {
+            // retry if errno == ENOBUFS
+            if (errno == ENOBUFS && retry_count < max_retries)
+            {
+                int duration = 100 + retry_count * 200;
+                if (duration > 1000)
+                {
+                    duration = 1000;
+                }
+                usleep(duration);
+                retry_count++;
+                continue;
+            }
+
+            // TODO: log error
+            bytes_stats_add(&output->base.stats.error_drop_bytes, GRE_HEADER_LEN + length);
+            packets_stats_add(&output->base.stats.error_drop_packets, 1);
+            return -1;
+        }
+
+        if (send_bytes < GRE_HEADER_LEN + length)
+        {
+            // TODO: log warning about partial send
+            bytes_stats_add(&output->base.stats.error_drop_bytes, GRE_HEADER_LEN + length - send_bytes);
+            bytes_stats_add(&output->base.stats.fwd_bytes, send_bytes);
+            packets_stats_add(&output->base.stats.fwd_packets, 1);
+            return -1;
+        }
+
+        bytes_stats_add(&output->base.stats.fwd_bytes, GRE_HEADER_LEN + length);
+        packets_stats_add(&output->base.stats.fwd_packets, 1);
+        return 0;
+    } while (true);
 }
 
 gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
@@ -118,6 +145,7 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
     memcpy(output->buf, &gre_hdr, GRE_HEADER_LEN);
 
     output->base.send_packet = gre_send_packet;
+    output->base.heartbeat = NULL;
     output->base.destory = gre_output_destory;
 
     if (opts.rate_limit_mbps > 0)

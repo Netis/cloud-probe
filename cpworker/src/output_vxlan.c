@@ -131,19 +131,47 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
         vxlan_hdr->vx_vni = htonl(output->vni + direct);
     }
 
-    ssize_t send_bytes = sendto(output->socket_fd, output->buf, VXLAN_HEADER_LEN + length, 0,
-                                (struct sockaddr *)&output->remote_addr, sizeof(struct sockaddr_in));
-
-    // TODO: retry if errno == ENOBUFS
-    if (send_bytes == -1)
+    int retry_count = 0;
+    const int max_retries = 10;
+    do
     {
-        bytes_stats_add(&output->base.stats.error_drop_bytes, length);
-        packets_stats_add(&output->base.stats.error_drop_packets, 1);
-        return -1;
-    }
-    bytes_stats_add(&output->base.stats.fwd_bytes, length);
-    packets_stats_add(&output->base.stats.fwd_packets, 1);
-    return 0;
+        ssize_t send_bytes = sendto(output->socket_fd, output->buf, VXLAN_HEADER_LEN + length, 0,
+                                    (struct sockaddr *)&output->remote_addr, sizeof(struct sockaddr_in));
+
+        if (send_bytes == -1)
+        {
+            // retry if errno == ENOBUFS
+            if (errno == ENOBUFS && retry_count < max_retries)
+            {
+                int duration = 100 + retry_count * 200;
+                if (duration > 1000)
+                {
+                    duration = 1000;
+                }
+                usleep(duration);
+                retry_count++;
+                continue;
+            }
+
+            // TODO: log error
+            bytes_stats_add(&output->base.stats.error_drop_bytes, VXLAN_HEADER_LEN + length);
+            packets_stats_add(&output->base.stats.error_drop_packets, 1);
+            return -1;
+        }
+
+        if (send_bytes < VXLAN_HEADER_LEN + length)
+        {
+            // TODO: log warning about partial send
+            bytes_stats_add(&output->base.stats.error_drop_bytes, VXLAN_HEADER_LEN + length - send_bytes);
+            bytes_stats_add(&output->base.stats.fwd_bytes, send_bytes);
+            packets_stats_add(&output->base.stats.fwd_packets, 1);
+            return -1;
+        }
+
+        bytes_stats_add(&output->base.stats.fwd_bytes, VXLAN_HEADER_LEN + length);
+        packets_stats_add(&output->base.stats.fwd_packets, 1);
+        return 0;
+    } while (true);
 }
 
 vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
@@ -199,6 +227,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
     memcpy(output->buf, &vxlan_hdr, VXLAN_HEADER_LEN);
 
     output->base.send_packet = vxlan_send_packet;
+    output->base.heartbeat = NULL;
     output->base.destory = vxlan_output_destory;
 
     if (opts.rate_limit_mbps > 0)

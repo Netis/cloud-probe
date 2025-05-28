@@ -18,11 +18,14 @@ typedef struct CaptureStats
     packets_stats_t ifdrop_packets;
 } capture_stats_t;
 
-typedef void (*PacketHandler)(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct, void *user);
+typedef void (*capture_packet_handler)(const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct,
+                                       void *user);
+typedef void (*capture_heartbeat_handler)(void *user);
 
 typedef struct CapturerBase
 {
-    uint64_t (*capture)(struct CapturerBase *capturer, PacketHandler handler, void *user);
+    uint64_t (*capture)(struct CapturerBase *capturer, capture_packet_handler pkt_handler,
+                        capture_heartbeat_handler heartbeat_handler, void *user);
     void (*destory)(struct CapturerBase *capturer);
     capture_stats_t stats;
 } capturer_base_t;
@@ -35,11 +38,12 @@ typedef struct CapturerEntry
     CapturerFactory factory;
 } capturer_entry_t;
 
-static uint64_t capture_packets(capturer_base_t *capturer, PacketHandler handler, void *user)
+static inline uint64_t capture_packets(capturer_base_t *capturer, capture_packet_handler pkt_handler,
+                                       capture_heartbeat_handler heartbeat_handler, void *user)
 {
-    return capturer->capture(capturer, handler, user);
+    return capturer->capture(capturer, pkt_handler, heartbeat_handler, user);
 }
 
-static void destory_capturer(capturer_base_t *capturer) { capturer->destory(capturer); }
+static inline void destory_capturer(capturer_base_t *capturer) { capturer->destory(capturer); }
 
 #endif /* CPWORKER_CAPTURER_H */

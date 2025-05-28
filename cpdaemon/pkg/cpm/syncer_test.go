@@ -166,7 +166,7 @@ func TestSyncer(t *testing.T) {
 	syncer, err := newSyncer(client, workerMgr, testTool{}, SyncerConfig{
 		RegCfg: RegConfig{
 			PlatformId: "test",
-			UuidFile:   "testdata/tmp/uuid",
+			UuidFile:   "testdata/uuid",
 		},
 		RegRetryInterval:     100 * time.Millisecond,
 		SyncStrategyInterval: 100 * time.Millisecond,

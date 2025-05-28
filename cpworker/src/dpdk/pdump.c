@@ -252,7 +252,8 @@ static void show_count(uint64_t count)
     bt = fprintf(stderr, "%" PRIu64 " ", count);
 }
 
-uint64_t dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
+uint64_t dpdk_do_capture(capturer_base_t *self, capture_packet_handler pkt_handler,
+                         capture_heartbeat_handler heartbeat_handler, void *user)
 {
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)self;
 
@@ -263,7 +264,10 @@ uint64_t dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *use
 
     n = rte_ring_sc_dequeue_burst(capturer->ring, (void **)pkts, BURST_SIZE, &avail);
     if (n == 0)
+    {
+        heartbeat_handler(user);
         return 0;
+    }
 
     struct pcap_pkthdr header;
     gettimeofday(&header.ts, NULL);
@@ -285,7 +289,7 @@ uint64_t dpdk_do_capture(capturer_base_t *self, PacketHandler handler, void *use
         else
             direction = req_pattern_judge_pkt_direction(capturer->req_pattern, &header, pkt_data);
 
-        handler(&header, pkt_data, PKT_DIR_NONCHECK, user);
+        pkt_handler(&header, pkt_data, PKT_DIR_NONCHECK, user);
     }
     rte_pktmbuf_free_bulk(pkts, n);
     return n;

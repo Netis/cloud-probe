@@ -16,7 +16,8 @@
 #include "req_pattern.h"
 #include "stats.h"
 
-uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *user)
+uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_handler,
+                            capture_heartbeat_handler heartbeat_handler, void *user)
 {
     libpcap_capturer_t *capturer = (libpcap_capturer_t *)self;
 
@@ -36,15 +37,16 @@ uint64_t libpcap_do_capture(capturer_base_t *self, PacketHandler handler, void *
 
         bytes_stats_add(&capturer->base.stats.cap_bytes, hdr->caplen);
         packets_stats_add(&capturer->base.stats.cap_packets, 1);
-        handler(hdr, data, direction, user);
+        pkt_handler(hdr, data, direction, user);
         retval = 1;
         break;
     case 0:
         // timeout
+        heartbeat_handler(user);
         retval = 0;
         break;
     default:
-        // error
+        // TODO: log error
         retval = 0;
         break;
     }

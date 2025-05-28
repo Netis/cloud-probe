@@ -10,6 +10,7 @@
 #include "log.h"
 #include "output_file.h"
 #include "output_gre.h"
+#include "output_null.h"
 #include "output_rotating_file.h"
 #include "output_vxlan.h"
 #include "output_zmq.h"
@@ -31,7 +32,7 @@ static capturer_entry_t capturer_entries[] = {
 static output_entry_t output_entries[] = {
     {OUTPUT_TYPE_FILE, file_output_new_from_cfg},   {OUTPUT_TYPE_ROTATING_FILE, rotating_file_output_new_from_cfg},
     {OUTPUT_TYPE_ZMQ, zmq_output_new_from_cfg},     {OUTPUT_TYPE_GRE, gre_output_new_from_cfg},
-    {OUTPUT_TYPE_VXLAN, vxlan_output_new_from_cfg},
+    {OUTPUT_TYPE_VXLAN, vxlan_output_new_from_cfg}, {OUTPUT_TYPE_NULL, null_output_new_from_cfg},
 };
 
 static CapturerFactory find_capturer_factory(const char *name)
@@ -129,9 +130,20 @@ void task_handle_packet_cb(const struct pcap_pkthdr *header, const uint8_t *pkt_
     }
 }
 
-int capture_task_poll_packets(capture_task_t *task)
+void task_heartbeat_cb(void *user)
 {
-    return task->capturer->capture(task->capturer, task_handle_packet_cb, task);
+    capture_task_t *task = (capture_task_t *)user;
+    struct timespec tm;
+    clock_gettime(CLOCK_MONOTONIC, &tm);
+    for (int i = 0; i < task->num_outputs; ++i)
+    {
+        output_heartbeat(task->outputs[i], tm.tv_sec, tm.tv_nsec);
+    }
+}
+
+uint64_t capture_task_poll_packets(capture_task_t *task)
+{
+    return capture_packets(task->capturer, task_handle_packet_cb, task_heartbeat_cb, task);
 }
 
 #define STAT_MAX_OUTPUT_PER_TASK 5
@@ -455,7 +467,6 @@ static int output_stats_json_dump(output_stats_t *output_stats, cJSON *output)
 
 int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg, void *data)
 {
-    struct timeval tm;
     task_manager_t *this = &task_mgr;
 
     pthread_mutex_lock(&this->stats_lock);
@@ -498,7 +509,6 @@ error:
 
 int task_manager_collect_stats_detail_command(cJSON *cmd_msg, cJSON *server_msg, void *data)
 {
-    struct timeval tm;
     task_manager_t *this = &task_mgr;
 
     pthread_mutex_lock(&this->stats_lock);

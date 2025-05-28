@@ -331,9 +331,7 @@ func (s *Syncer) doRegister(ctx context.Context) error {
 
 		ClientVersion: version.Version,
 		Labels: lo.Map(s.cfg.RegCfg.Labels, func(label string, _ int) LabelEntry {
-			return LabelEntry{
-				Value: label,
-			}
+			return LabelEntry{Value: label}
 		}),
 		NetworkInterfaces: nics,
 	})

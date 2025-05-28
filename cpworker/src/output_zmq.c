@@ -136,7 +136,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         .len = htonl((uint32_t)header->len + sizeof(mpls_header)),
     };
 
-    const bool is_pkt_num_exceeded = (pkts_buf->batch_hdr.pkts_num >= 65535);
+    const bool is_pkt_num_exceeded = (pkts_buf->batch_hdr.pkts_num >= ZMQ_PKTS_FLUSH_MAX_NUM);
 
     const bool is_time_diff_exceeded =
         (pkts_buf->first_pktsec != 0 && header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC);
@@ -146,7 +146,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (is_pkt_num_exceeded || is_time_diff_exceeded || is_buffer_full)
     {
-        log_debug("send zmq message, last packet time: %d, first packet_time: %d", header->ts.tv_sec,
+        log_debug("send zmq message, last packet time: %lu, first packet_time: %lu", header->ts.tv_sec,
                   pkts_buf->first_pktsec);
         zmq_flush_packet(output);
         pkts_buf->first_pktsec = header->ts.tv_sec;
@@ -204,6 +204,19 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     pkts_buf->batch_bufpos = buff_pos;
     pkts_buf->batch_hdr.pkts_num++;
     return 0;
+}
+
+void zmq_heartbeat(output_base_t *self, uint64_t now_sec, uint64_t now_nsec)
+{
+    zmq_output_t *output = (zmq_output_t *)self;
+    zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
+    if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
+        now_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
+    {
+        log_debug("send zmq message by heartbeat, now time: %lu, first packet_time: %lu", now_sec,
+                  pkts_buf->first_pktsec);
+        zmq_flush_packet(output);
+    }
 }
 
 zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
@@ -269,6 +282,7 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
     }
 
     output->base.send_packet = zmq_send_packet;
+    output->base.heartbeat = zmq_heartbeat;
     output->base.destory = zmq_output_destory;
 
     output->context = context;

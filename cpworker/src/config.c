@@ -595,6 +595,9 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
     }
+    else if (strcmp(output->type, OUTPUT_TYPE_NULL) == 0)
+    {
+    }
     else
     {
         cjson_set_parse_error(err, "unknown output type: %s", output->type);

@@ -65,6 +65,7 @@ file_output_t *file_output_new(file_options_t opts, char *errbuf)
     }
 
     output->base.send_packet = file_write_packet;
+    output->base.heartbeat = NULL;
     output->base.destory = file_output_destory;
 
     output->pcap = pcap;
