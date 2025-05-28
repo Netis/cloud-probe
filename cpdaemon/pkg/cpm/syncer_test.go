@@ -85,14 +85,21 @@ func (r *testWorkerManagerRecoder) StartTime() time.Time {
 	return time.Time{}
 }
 
-func (r *testWorkerManagerRecoder) Pid() (int, bool) {
+func (r *testWorkerManagerRecoder) Pid() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "Pid")
 	if r.isAlive {
-		return r.pid, true
+		return r.pid
 	}
-	return 0, false
+	return 0
+}
+
+func (r *testWorkerManagerRecoder) BuffSizePerTask() uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, "BuffSizePerTask")
+	return 256
 }
 
 func (r *testWorkerManagerRecoder) kill() {

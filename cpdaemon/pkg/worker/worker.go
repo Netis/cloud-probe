@@ -66,15 +66,15 @@ func (w *Worker) StartTime() time.Time {
 	return w.startTime
 }
 
-func (w *Worker) Pid() (int, bool) {
+func (w *Worker) Pid() int {
 	w.mu.Lock()
 	cmd := w.cmd
 	w.mu.Unlock()
 
 	if cmd == nil || cmd.Process == nil {
-		return 0, false
+		return 0
 	}
-	return cmd.Process.Pid, true
+	return cmd.Process.Pid
 }
 
 func (w *Worker) IsAlive(ctx context.Context) (bool, error) {

@@ -53,8 +53,7 @@ func TestWorker(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, isAlive)
 
-		pid, ok := w.Pid()
-		require.False(t, ok)
+		pid := w.Pid()
 		require.Zero(t, pid)
 	}
 
@@ -66,8 +65,7 @@ func TestWorker(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, isAlive)
 
-		pid, ok := w.Pid()
-		require.True(t, ok)
+		pid := w.Pid()
 		require.NotZero(t, pid)
 	}
 
@@ -79,8 +77,7 @@ func TestWorker(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, isAlive)
 
-		pid, ok := w.Pid()
-		require.False(t, ok)
+		pid := w.Pid()
 		require.Zero(t, pid)
 	}
 }

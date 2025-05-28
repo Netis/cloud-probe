@@ -53,9 +53,10 @@ type WorkerManager struct {
 	baseLg    *slog.Logger
 	lg        *slog.Logger
 
-	mu     sync.Mutex
-	client cpworker.Client
-	worker *worker.Worker
+	mu              sync.Mutex
+	client          cpworker.Client
+	worker          *worker.Worker
+	buffSizePerTask uint64
 }
 
 func NewWorkerManager(
@@ -86,15 +87,21 @@ func (m *WorkerManager) StartTime() time.Time {
 	return worker.StartTime()
 }
 
-func (m *WorkerManager) Pid() (int, bool) {
+func (m *WorkerManager) Pid() int {
 	m.mu.Lock()
 	worker := m.worker
 	m.mu.Unlock()
 
 	if worker == nil {
-		return 0, false
+		return 0
 	}
 	return worker.Pid()
+}
+
+func (m *WorkerManager) BuffSizePerTask() uint64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.buffSizePerTask
 }
 
 func (m *WorkerManager) IsAlive(ctx context.Context) (bool, error) {
@@ -116,7 +123,18 @@ func (m *WorkerManager) Stop() error {
 	if worker == nil {
 		return nil
 	}
-	return worker.Stop()
+	err := worker.Stop()
+	m.reset()
+	return err
+}
+
+func (m *WorkerManager) reset() {
+	m.worker = nil
+	if m.client != nil {
+		m.client.Close()
+		m.client = nil
+	}
+	m.buffSizePerTask = 0
 }
 
 func (m *WorkerManager) CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error) {
@@ -143,11 +161,7 @@ func (m *WorkerManager) CreateIfDead(ctx context.Context, res *SyncStrategyRespo
 			return errors.New("worker is still running")
 		}
 
-		m.worker = nil
-		if m.client != nil {
-			m.client.Close()
-			m.client = nil
-		}
+		m.reset()
 	}
 
 	return m.createUnsafe(ctx, res, daemonUUID, activeInstances)
@@ -161,12 +175,7 @@ func (m *WorkerManager) Update(ctx context.Context, res *SyncStrategyResponse, d
 		if err := m.worker.Stop(); err != nil {
 			return errors.Wrap(err, "stop worker failed")
 		}
-		m.worker = nil
-
-		if m.client != nil {
-			m.client.Close()
-			m.client = nil
-		}
+		m.reset()
 	}
 	return m.createUnsafe(ctx, res, daemonUUID, activeInstances)
 }
@@ -183,19 +192,19 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 		return nil
 	}
 
-	buffSize := uint64(256)
+	buffSizePerTask := uint64(256)
 	if res.MemLimit != nil && *res.MemLimit > 0 {
 		if *res.MemLimit < int64(numItems) {
 			return errors.New("memory limit small than number of strategy items")
 		}
-		buffSize = uint64(*res.MemLimit) / uint64(numItems)
+		buffSizePerTask = uint64(*res.MemLimit) / uint64(numItems)
 	}
 
 	tb := &workerTasksBuilder{
 		tool:            m.tool,
 		daemonUUID:      daemonUUID,
 		activeInstances: activeInstances,
-		buffSize:        buffSize,
+		buffSize:        buffSizePerTask,
 	}
 
 	for _, strategy := range res.Strategy {
@@ -244,9 +253,12 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 
 	m.worker, err = worker.NewWorker("cpm", cfg)
 	if err != nil {
+		m.client.Close()
+		m.client = nil
 		return errors.Wrap(err, "create worker failed")
 	}
 	m.worker.SetLogger(m.baseLg)
+	m.buffSizePerTask = buffSizePerTask
 
 	return m.worker.Start(ctx)
 }

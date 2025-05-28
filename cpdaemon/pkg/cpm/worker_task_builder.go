@@ -62,12 +62,13 @@ func (b *workerTasksBuilder) addContainerIds(strategy StrategyEntry) {
 
 		nics := parts[1:]
 		if len(nics) == 0 {
+			// 未指定nic，默认使用eth0
 			nics = []string{"eth0"}
 		}
 
 		hostPid, err := b.tool.GetContainerHostPid(containerId)
 		if err != nil {
-			b.warnings = append(b.warnings, errors.Wrapf(err, "get container host process id failed: %s", containerId))
+			b.warnings = append(b.warnings, errors.Wrapf(err, "get container(%s) host process id failed", containerId))
 			idx += len(nics)
 			continue
 		}

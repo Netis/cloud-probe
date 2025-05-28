@@ -70,10 +70,11 @@ type IWorkerManager interface {
 	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
 	Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
 	Stop() error
-	CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error)
 	IsAlive(ctx context.Context) (bool, error)
 	StartTime() time.Time
-	Pid() (int, bool)
+	Pid() int
+	BuffSizePerTask() uint64
+	CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error)
 	SetLogger(lg *slog.Logger)
 }
 
@@ -482,19 +483,8 @@ func (s *Syncer) activeInstancesIfRequired(resp *SyncStrategyResponse) ([]string
 }
 
 func (s *Syncer) syncMetric(ctx context.Context) {
-	if s.regResp == nil || s.syncResp == nil {
+	if s.regResp == nil {
 		return
-	}
-
-	pid, alive := s.workerMgr.Pid()
-	if !alive {
-		return
-	}
-
-	metrics := MetricsEntry{
-		SamplingTimestamp:      time.Now().Unix(),
-		SamplingMicroTimestamp: time.Now().UnixMicro() % 1e6,
-		StartTime:              s.workerMgr.StartTime().Unix(),
 	}
 
 	var durStats struct {
@@ -503,61 +493,81 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 		cpm    time.Duration
 	}
 
-	workerBegin := time.Now()
-	err := func() error {
-		stats, err := s.workerMgr.CollectStatsSummary(ctx)
-		if err != nil {
-			return err
-		}
-
-		// WARN: 存在溢出问题
-		metrics.CapBytes += stats.Capture.CapBytes.Bytes
-		metrics.CapPackets += stats.Capture.CapPackets.Packets
-		metrics.CapDrop += stats.Capture.DropPackets.Packets
-		metrics.FwdBytes += stats.Output.FwdBytes.Bytes
-		metrics.FwdPackets += stats.Output.FwdPackets.Packets
-		return nil
-	}()
+	isAlive, err := s.workerMgr.IsAlive(ctx)
 	if err != nil {
-		s.lg.Error("collect cpworker stats error", slogx.Error(err))
+		s.lg.Error("check worker alive failed", slogx.Error(err))
+	}
+	pid := s.workerMgr.Pid()
+	buffSizePerTask := s.workerMgr.BuffSizePerTask()
+
+	metrics := MetricsEntry{
+		SamplingTimestamp:      time.Now().Unix(),
+		SamplingMicroTimestamp: time.Now().UnixMicro() % 1e6,
+		CapBuff:                buffSizePerTask,
+	}
+
+	workerBegin := time.Now()
+	if isAlive {
+		startTime := s.workerMgr.StartTime()
+		metrics.StartTime = startTime.Unix()
+
+		err = func() error {
+			stats, err := s.workerMgr.CollectStatsSummary(ctx)
+			if err != nil {
+				return err
+			}
+
+			// WARN: 存在溢出问题
+			metrics.CapBytes += stats.Capture.CapBytes.Bytes
+			metrics.CapPackets += stats.Capture.CapPackets.Packets
+			metrics.CapDrop += stats.Capture.DropPackets.Packets
+			metrics.FwdBytes += stats.Output.FwdBytes.Bytes
+			metrics.FwdPackets += stats.Output.FwdPackets.Packets
+			return nil
+		}()
+		if err != nil {
+			s.lg.Error("collect cpworker stats error", slogx.Error(err))
+		}
 	}
 	durStats.worker = time.Since(workerBegin)
 
 	systemBegin := time.Now()
-	err = func() error {
-		p, err := process.NewProcess(int32(pid))
-		if err != nil {
-			return errors.Wrapf(err, "new process")
-		}
+	if isAlive {
+		err = func() error {
+			p, err := process.NewProcess(int32(pid))
+			if err != nil {
+				return errors.Wrapf(err, "new process")
+			}
 
-		cpuPercent, err := p.CPUPercentWithContext(ctx)
-		if err != nil {
-			return errors.Wrapf(err, "get cpu percent")
-		}
-		cpuCnt, err := cpu.Counts(true)
-		if err != nil {
-			return errors.Wrapf(err, "get cpu count")
-		}
-		metrics.CpuLoad = cpuPercent / 100
-		metrics.CpuLoadRate = metrics.CpuLoad / float64(cpuCnt)
+			cpuPercent, err := p.CPUPercentWithContext(ctx)
+			if err != nil {
+				return errors.Wrapf(err, "get cpu percent")
+			}
+			cpuCnt, err := cpu.Counts(true)
+			if err != nil {
+				return errors.Wrapf(err, "get cpu count")
+			}
+			metrics.CpuLoad = cpuPercent / 100
+			metrics.CpuLoadRate = metrics.CpuLoad / float64(cpuCnt)
 
-		processMemory, err := p.MemoryInfoWithContext(ctx)
+			processMemory, err := p.MemoryInfoWithContext(ctx)
+			if err != nil {
+				return errors.Wrapf(err, "get process memory")
+			}
+
+			machineMemory, err := mem.VirtualMemoryWithContext(ctx)
+			if err != nil {
+				return errors.Wrapf(err, "get machine memory")
+			}
+
+			metrics.MemUse = processMemory.RSS
+			metrics.MemUseRate = float64(metrics.MemUse) / float64(machineMemory.Total)
+
+			return nil
+		}()
 		if err != nil {
-			return errors.Wrapf(err, "get process memory")
+			s.lg.Error("collect system metrics failed", slogx.Error(err))
 		}
-
-		machineMemory, err := mem.VirtualMemoryWithContext(ctx)
-		if err != nil {
-			return errors.Wrapf(err, "get machine memory")
-		}
-
-		metrics.MemUse = processMemory.RSS
-		metrics.MemUseRate = float64(metrics.MemUse) / float64(machineMemory.Total)
-
-		return nil
-	}()
-	if err != nil {
-		s.lg.Error("collect system metrics failed", slogx.Error(err))
 	}
 	durStats.system = time.Since(systemBegin)
 

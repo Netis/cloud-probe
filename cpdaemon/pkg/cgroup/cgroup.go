@@ -166,7 +166,7 @@ func CreateV2Cgroup(cgroupRoot string, cgroupHierarchy string, cgroupName string
 
 func doCreateV2Cgroup(path string, controls []string) error {
 	if err := os.MkdirAll(path, 0o755); err != nil {
-		return errors.Wrapf(err, "create cgroup hierarchy %s failed", path)
+		return errors.Wrapf(err, "create cgroup %s failed", path)
 	}
 
 	controlFile := filepath.Join(path, "cgroup.subtree_control")

@@ -42,8 +42,7 @@ func TestWorkerManager(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, isAlive)
 
-		pid, ok := mgr.Pid()
-		require.False(t, ok)
+		pid := mgr.Pid()
 		require.Zero(t, pid)
 	}
 
@@ -55,8 +54,7 @@ func TestWorkerManager(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, isAlive)
 
-		pid, ok := mgr.Pid()
-		require.True(t, ok)
+		pid := mgr.Pid()
 		require.NotZero(t, pid)
 
 		err = mgr.CreateIfDead(context.Background(), &res, "", []string{})
@@ -72,8 +70,7 @@ func TestWorkerManager(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, isAlive)
 
-		pid, ok := mgr.Pid()
-		require.False(t, ok)
+		pid := mgr.Pid()
 		require.Zero(t, pid)
 	}
 
@@ -85,8 +82,7 @@ func TestWorkerManager(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, isAlive)
 
-		pid, ok := mgr.Pid()
-		require.True(t, ok)
+		pid := mgr.Pid()
 		require.NotZero(t, pid)
 	}
 }
