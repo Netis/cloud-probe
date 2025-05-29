@@ -138,7 +138,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
         goto error;
     }
 
-    if (pcap_activate(p) != 0)
+    if (pcap_activate(p) < 0)
     {
         error_format(errbuf, "call pcap_activate error: %s", pcap_geterr(p));
         goto error;

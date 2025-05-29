@@ -50,9 +50,10 @@ var VKey = struct {
 			Pkcs12CertPassword    string `json:"pkcs12_cert_password"`
 		} `json:"client"`
 		Syncer struct {
-			RegRetryInterval     string `json:"reg_retry_interval"`
-			SyncStrategyInterval string `json:"sync_strategy_interval"`
-			SyncMetricInterval   string `json:"sync_metric_interval"`
+			RegRetryInterval       string `json:"reg_retry_interval"`
+			SyncStrategyInterval   string `json:"sync_strategy_interval"`
+			SyncStrategyMaxRetries string `json:"sync_strategy_max_retries"`
+			SyncMetricInterval     string `json:"sync_metric_interval"`
 		} `json:"syncer"`
 		Reg struct {
 			Name          string `json:"name"`
@@ -93,6 +94,7 @@ func SetDefaults(vp *viper.Viper) {
 
 	vp.SetDefault(VKey.Cpm.Syncer.RegRetryInterval, 5*time.Second)
 	vp.SetDefault(VKey.Cpm.Syncer.SyncStrategyInterval, 15*time.Second)
+	vp.SetDefault(VKey.Cpm.Syncer.SyncStrategyMaxRetries, 3)
 	vp.SetDefault(VKey.Cpm.Syncer.SyncMetricInterval, 15*time.Second)
 
 	// 兼容旧的C++版本

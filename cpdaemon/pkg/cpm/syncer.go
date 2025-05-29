@@ -54,10 +54,11 @@ func (c *RegConfig) Validate() error {
 }
 
 type SyncerConfig struct {
-	RegCfg               RegConfig
-	RegRetryInterval     time.Duration
-	SyncStrategyInterval time.Duration
-	SyncMetricInterval   time.Duration
+	RegCfg                 RegConfig
+	RegRetryInterval       time.Duration
+	SyncStrategyInterval   time.Duration
+	SyncStrategyMaxRetries int
+	SyncMetricInterval     time.Duration
 }
 
 type Tool interface {
@@ -244,11 +245,12 @@ func (s *Syncer) initNetworkInterfaces() error {
 
 	for _, intf := range ifs {
 		nic := NicEntry{
-			Index: intf.Index,
-			Name:  intf.Name,
-			Mac:   intf.HardwareAddr.String(),
-			Flags: int(intf.Flags),
-			Mtu:   intf.MTU,
+			Index:         intf.Index,
+			Name:          intf.Name,
+			Mac:           intf.HardwareAddr.String(),
+			Flags:         int(intf.Flags),
+			Mtu:           intf.MTU,
+			InetAddresses: []string{}, // 不能为nil，可以为空数组
 		}
 
 		addrs, err := intf.Addrs()
@@ -274,12 +276,12 @@ func (s *Syncer) Run(ctx context.Context) error {
 			panic(err)
 		}
 
-		err = s.syncStrategyLoop(ctx)
+		err = s.syncLoop(ctx)
 		switch {
 		case errors.Is(err, context.Canceled):
 			return nil
 		case err != nil:
-			s.lg.Error("sync loop error, will retry", slogx.Error(err))
+			s.lg.Error("sync loop error, will re-register", slogx.Error(err))
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -296,11 +298,11 @@ func (s *Syncer) registerLoop(ctx context.Context) error {
 		case <-tm.C:
 			err := s.doRegister(ctx)
 			if err == nil {
-				s.lg.Info("register success")
+				s.lg.Info("register success", slog.Int64("daemonId", s.regResp.Id))
 				return nil
 			}
 
-			s.lg.Error("register failed, will retry", slogx.Error(err))
+			s.lg.Error("register loop error, will retry", slogx.Error(err))
 			tm.Reset(s.cfg.RegRetryInterval)
 		}
 	}
@@ -347,13 +349,14 @@ func (s *Syncer) doRegister(ctx context.Context) error {
 	return nil
 }
 
-func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
+func (s *Syncer) syncLoop(ctx context.Context) error {
 	strategyTimer := time.NewTimer(0)
 	defer strategyTimer.Stop()
 
 	metricTimer := time.NewTimer(s.cfg.SyncMetricInterval)
 	defer metricTimer.Stop()
 
+	syncStrategyFailCount := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -366,14 +369,25 @@ func (s *Syncer) syncStrategyLoop(ctx context.Context) error {
 			if s.syncResp != nil {
 				lastVersion = s.syncResp.Version
 			}
+
 			res, err := s.client.SyncStrategy(ctx, s.regResp.Id, lastVersion)
 			if err != nil {
-				return err
+				if syncStrategyFailCount >= s.cfg.SyncStrategyMaxRetries {
+					return err
+				}
+				syncStrategyFailCount++
+				s.lg.Error(
+					"sync strategy failed, will retry",
+					slog.Int("fail_count", syncStrategyFailCount),
+					slogx.Error(err),
+				)
+			} else {
+				syncStrategyFailCount = 0
+				if err := s.applyStrategy(ctx, res); err != nil {
+					s.lg.Error("apply strategy failed", slogx.Error(err))
+				}
 			}
 
-			if err := s.applyStrategy(ctx, res); err != nil {
-				s.lg.Error("apply strategy failed", slogx.Error(err))
-			}
 			strategyTimer.Reset(s.cfg.SyncStrategyInterval)
 		case <-metricTimer.C:
 			s.syncMetric(ctx)
@@ -488,8 +502,10 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 	var durStats struct {
 		worker time.Duration
 		system time.Duration
-		cpm    time.Duration
+		sync   time.Duration
 	}
+
+	begin := time.Now()
 
 	isAlive, err := s.workerMgr.IsAlive(ctx)
 	if err != nil {
@@ -569,21 +585,27 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 	}
 	durStats.system = time.Since(systemBegin)
 
-	cpmBegin := time.Now()
+	logs := s.logBuf.Clear()
+	if logs == nil {
+		logs = []LogEntry{}
+	}
+
+	syncBegin := time.Now()
 	err = s.client.SyncMetrics(ctx, s.regResp.Id, SyncMetricsRequest{
 		Metrics: metrics,
-		Logs:    s.logBuf.Clear(),
+		Logs:    logs,
 		Pid:     int32(pid),
 	})
 	if err != nil {
 		s.lg.Error("send metrics to cpm error", slogx.Error(err))
 	}
-	durStats.cpm = time.Since(cpmBegin)
+	durStats.sync = time.Since(syncBegin)
 
 	s.lg.Info(
 		"sync metrics finished",
+		slog.String("total_dur", time.Since(begin).String()),
 		slog.String("worker_dur", durStats.worker.String()),
 		slog.String("system_dur", durStats.system.String()),
-		slog.String("cpm_dur", durStats.cpm.String()),
+		slog.String("sync_dur", durStats.sync.String()),
 	)
 }

@@ -100,7 +100,7 @@ func (c *HttpClient) Register(ctx context.Context, req RegisterRequest) (*Regist
 		return nil, errors.Wrapf(err, "read body error")
 	}
 
-	if err := c.checkBodyError(body); err != nil {
+	if err := c.checkBodyError(resp.StatusCode, body); err != nil {
 		return nil, err
 	}
 
@@ -129,7 +129,7 @@ func (c *HttpClient) SyncStrategy(ctx context.Context, daemonId int64, version i
 		if err != nil {
 			return nil, errors.Wrapf(err, "read body error")
 		}
-		if err := c.checkBodyError(body); err != nil {
+		if err := c.checkBodyError(resp.StatusCode, body); err != nil {
 			return nil, err
 		}
 		var res SyncStrategyResponse
@@ -146,7 +146,7 @@ func (c *HttpClient) SyncStrategy(ctx context.Context, daemonId int64, version i
 			Response: nil,
 		}, nil
 	default:
-		return nil, c.makeError(resp)
+		return nil, errors.WithStack(NewHttpRespError(resp))
 	}
 }
 
@@ -166,7 +166,7 @@ func (c *HttpClient) SyncMetrics(ctx context.Context, daemonId int64, req SyncMe
 	if err := c.assert2xx(resp); err != nil {
 		return err
 	}
-	c.discardBody(resp)
+	discardHttpBody(resp)
 	return nil
 }
 
@@ -174,13 +174,20 @@ func (c *HttpClient) getEndpoint(endpoint string) *url.URL {
 	return c.baseUrl.JoinPath(endpoint)
 }
 
-func (c *HttpClient) checkBodyError(body []byte) error {
-	var res BodyError
+func (c *HttpClient) checkBodyError(statusCode int, body []byte) error {
+	var res struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}
 	if err := json.Unmarshal(body, &res); err != nil {
 		return nil
 	}
 	if res.Code >= 400 {
-		return errors.WithStack(res)
+		return errors.WithStack(&HttpBodyError{
+			StatusCode: statusCode,
+			Code:       res.Code,
+			Msg:        res.Msg,
+		})
 	}
 	return nil
 }
@@ -189,18 +196,9 @@ func (c *HttpClient) assert2xx(resp *http.Response) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
-	return c.makeError(resp)
+	return errors.WithStack(NewHttpRespError(resp))
 }
 
-func (c *HttpClient) makeError(resp *http.Response) error {
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Wrapf(err, "read body error")
-	}
-
-	return errors.WithStack(HttpError{StatusCode: resp.StatusCode, Body: body})
-}
-
-func (c *HttpClient) discardBody(resp *http.Response) {
+func discardHttpBody(resp *http.Response) {
 	_, _ = io.Copy(io.Discard, resp.Body)
 }

@@ -2,6 +2,8 @@ package cpm
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"slices"
 )
 
@@ -40,22 +42,32 @@ var (
 	}
 )
 
-type BodyError struct {
-	Code int    `json:"code"`
-	Msg  string `json:"msg"`
+type HttpBodyError struct {
+	StatusCode int
+	Code       int
+	Msg        string
 }
 
-func (e BodyError) Error() string {
-	return fmt.Sprintf("body error: code: %d, msg: %s", e.Code, e.Msg)
+func (e *HttpBodyError) Error() string {
+	return fmt.Sprintf("http body error: status_code: %d, code: %d, msg: %s", e.StatusCode, e.Code, e.Msg)
 }
 
-type HttpError struct {
+type HttpRespError struct {
 	StatusCode int
 	Body       []byte
 }
 
-func (e HttpError) Error() string {
-	return fmt.Sprintf("http error: status_code: %d, body: %s", e.StatusCode, string(e.Body))
+func (e *HttpRespError) Error() string {
+	return fmt.Sprintf("http resp error: status_code: %d, body: %s", e.StatusCode, string(e.Body))
+}
+
+func NewHttpRespError(resp *http.Response) error {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return &HttpRespError{StatusCode: resp.StatusCode, Body: []byte("read body error")}
+	}
+
+	return &HttpRespError{StatusCode: resp.StatusCode, Body: body}
 }
 
 type RegisterRequest struct {
@@ -198,7 +210,7 @@ type NicEntry struct {
 	Mac           string   `json:"mac"`
 	Flags         int      `json:"flags"`
 	Mtu           int      `json:"mtu"`
-	InetAddresses []string `json:"inetAddresses"`
+	InetAddresses []string `json:"inetAddresses"` // 不能为nil，可以为空数组
 }
 
 type LabelEntry struct {
