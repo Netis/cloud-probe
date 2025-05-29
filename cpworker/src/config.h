@@ -149,6 +149,9 @@ TasksAllConfig *parse_tasks_file(const char *filename, cJSONParseError *err);
 void free_tasks_config(TasksAllConfig *config);
 
 Config *parse_config_file(const char *filename, cJSONParseError *err);
+Config *parse_config_data(const char *json_str, cJSONParseError *err);
 void free_config(Config *config);
+
+char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg, char *errbuf);
 
 #endif /* CPWORKER_CONFIG_H */

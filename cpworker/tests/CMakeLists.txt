@@ -27,6 +27,7 @@ set(MAIN_CONFIG_DIR "${CMAKE_BINARY_DIR}")
 set(unity_tests
     req_pattern
     misc
+    config
 )
 
 foreach(unity_test ${unity_tests})

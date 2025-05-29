@@ -132,7 +132,11 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
         pcap_set_timeout(p, opts.timeout_ms);
 
     pcap_set_promisc(p, opts.promisc);
-    pcap_set_buffer_size(p, opts.buffer_size);
+    if (pcap_set_buffer_size(p, opts.buffer_size) != 0)
+    {
+        error_format(errbuf, "call pcap_set_buffer_size to %d error", opts.buffer_size);
+        goto error;
+    }
 
     if (pcap_activate(p) != 0)
     {
@@ -215,20 +219,28 @@ error3:
 
 capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf)
 {
+    char *bpf_filter =
+        bpf_filter_exclude_task_output_hosts(task_cfg->capturer.config.libpcap.bpf_filter, task_cfg, errbuf);
+
+    if (bpf_filter == NULL)
+        return NULL;
+
     libpcap_options_t opts = {
         .interface = task_cfg->interface,
         .snaplen = task_cfg->snaplen,
         .timeout_ms = task_cfg->capturer.config.libpcap.timeout_ms,
         .promisc = 0,
         .buffer_size = task_cfg->capturer.config.libpcap.buffer_size_mb * 1024 * 1024,
-        .bpf_filter = task_cfg->capturer.config.libpcap.bpf_filter,
+        .bpf_filter = bpf_filter,
         .netns = task_cfg->netns,
         .req_pattern = task_cfg->req_pattern,
     };
     log_info("libpcap options: interface=%s, snaplen=%d, timeout_ms=%d, buffer_size=%d, bpf_filter='%s', netns='%s'",
              opts.interface, opts.snaplen, opts.timeout_ms, opts.buffer_size, opts.bpf_filter, opts.netns);
 
-    return (capturer_base_t *)libpcap_capturer_new(opts, errbuf);
+    capturer_base_t *capturer = (capturer_base_t *)libpcap_capturer_new(opts, errbuf);
+    free(bpf_filter);
+    return capturer;
 }
 
 void libpcap_capturer_destory(capturer_base_t *self)

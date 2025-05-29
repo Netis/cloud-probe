@@ -5,7 +5,9 @@
 
 #include "cJSON/cJSON.h"
 
+#include "bpf_util.h"
 #include "config.h"
+#include "errorf.h"
 #include "log.h"
 
 #define PARSE_ERROR -1
@@ -1018,6 +1020,20 @@ error:
     return NULL;
 }
 
+Config *parse_config_data(const char *json_str, cJSONParseError *err)
+{
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json)
+    {
+        cjson_set_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
+        return NULL;
+    }
+
+    Config *config = parse_config_json(json, err);
+    cJSON_Delete(json);
+    return config;
+}
+
 Config *parse_config_file(const char *filename, cJSONParseError *err)
 {
     char *json_str = read_file_contents(filename, err);
@@ -1036,4 +1052,59 @@ Config *parse_config_file(const char *filename, cJSONParseError *err)
     cJSON_Delete(json);
     free(json_str);
     return config;
+}
+
+char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg, char *errbuf)
+{
+    size_t extra_size = strlen(" and not host ");
+    size_t buf_size = strlen(bpf) + 1 + 2; // +1 for null terminator, +2 for brackets
+    for (int i = 0; i < task_cfg->num_outputs; i++)
+    {
+        OutputConfig *output = task_cfg->outputs[i];
+        char *host = NULL;
+        if (strcmp(output->type, OUTPUT_TYPE_VXLAN) == 0)
+            host = output->config.vxlan.host;
+        else if (strcmp(output->type, OUTPUT_TYPE_GRE) == 0)
+            host = output->config.gre.host;
+        else if (strcmp(output->type, OUTPUT_TYPE_ZMQ) == 0)
+            host = output->config.zmq.host;
+
+        if (host)
+            buf_size += strlen(host) + extra_size;
+    }
+
+    char *output = (char *)malloc(buf_size);
+    if (!output)
+    {
+        error_format(errbuf, "failed to allocate memory");
+        return NULL;
+    }
+    char *out_ptr = output;
+
+    bool is_first = true;
+    if (strcmp(bpf, "") != 0)
+    {
+        out_ptr += sprintf(out_ptr, "(%s)", bpf);
+        is_first = false;
+    }
+
+    for (int i = 0; i < task_cfg->num_outputs; i++)
+    {
+        OutputConfig *output = task_cfg->outputs[i];
+        char *host = NULL;
+        if (strcmp(output->type, OUTPUT_TYPE_VXLAN) == 0)
+            host = output->config.vxlan.host;
+        else if (strcmp(output->type, OUTPUT_TYPE_GRE) == 0)
+            host = output->config.gre.host;
+        else if (strcmp(output->type, OUTPUT_TYPE_ZMQ) == 0)
+            host = output->config.zmq.host;
+
+        if (host)
+        {
+            out_ptr += sprintf(out_ptr, "%snot host %s", is_first ? "" : " and ", host);
+            is_first = false;
+        }
+    }
+    *out_ptr = '\0';
+    return output;
 }
