@@ -114,6 +114,8 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
         error_wrap_format(errbuf, "create req_pattern_t error");
         goto error2;
     }
+    const char *version = pcap_lib_version();
+    log_info("libpcap version: %s", version);
 
     char pcap_errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *p = pcap_create(opts.interface, pcap_errbuf);
@@ -124,19 +126,10 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
     }
 
     pcap_set_snaplen(p, opts.snaplen);
-
-    // since 1.9.1:  Boost the TPACKET_V3 timeout to the maximum if a timeout of 0 was specified
-    if (opts.timeout_ms == 0)
-        pcap_set_timeout(p, 100);
-    else
-        pcap_set_timeout(p, opts.timeout_ms);
-
+    // see: https://github.com/the-tcpdump-group/libpcap/issues/572#issuecomment-576039197
+    pcap_set_timeout(p, opts.timeout_ms);
     pcap_set_promisc(p, opts.promisc);
-    if (pcap_set_buffer_size(p, opts.buffer_size) != 0)
-    {
-        error_format(errbuf, "call pcap_set_buffer_size to %d error", opts.buffer_size);
-        goto error;
-    }
+    pcap_set_buffer_size(p, opts.buffer_size);
 
     if (pcap_activate(p) < 0)
     {

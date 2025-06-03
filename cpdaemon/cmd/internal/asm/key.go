@@ -46,8 +46,10 @@ var VKey = struct {
 			ResponseHeaderTimeout string `json:"response_header_timeout"`
 			MaxIdleConns          string `json:"max_idle_conns"`
 			MaxIdleConnsPerHost   string `json:"max_idle_conns_per_host"`
-			Pkcs12CertFile        string `json:"pkcs12_cert_file"`
-			Pkcs12CertPassword    string `json:"pkcs12_cert_password"`
+			TLS                   struct {
+				Pkcs12CertFile     string `json:"pkcs12_cert_file"`
+				Pkcs12CertPassword string `json:"pkcs12_cert_password"`
+			} `json:"tls"`
 		} `json:"client"`
 		Syncer struct {
 			RegRetryInterval       string `json:"reg_retry_interval"`
@@ -57,7 +59,6 @@ var VKey = struct {
 		} `json:"syncer"`
 		Reg struct {
 			Name          string `json:"name"`
-			UuidFile      string `json:"uuid_file"`
 			PlatformId    string `json:"platform_id"`
 			DeployEnv     string `json:"deploy_env"`
 			Labels        string `json:"labels"`
@@ -66,6 +67,14 @@ var VKey = struct {
 			PodName   string `json:"pod_name"`
 			Namespace string `json:"namespace"`
 			NodeName  string `json:"node_name"`
+
+			UuidFile string `json:"uuid_file"`
+			UuidGen  struct {
+				Type string `json:"type"`
+				Env  struct {
+					Keys string `json:"keys"`
+				} `json:"env"`
+			} `json:"uuid_gen"`
 		} `json:"reg"`
 		Worker struct {
 			PidFile     string `json:"pid_file"`
@@ -99,6 +108,7 @@ func SetDefaults(vp *viper.Viper) {
 
 	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
+	vp.SetDefault(VKey.Cpm.Reg.UuidGen.Type, "random")
 
 	vp.SetDefault(VKey.Cpm.Worker.PidFile, "cpm-worker.pid")
 	vp.SetDefault(VKey.Cpm.Worker.ConfigFile, "cpm-worker.json")

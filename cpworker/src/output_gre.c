@@ -44,7 +44,7 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         }
     }
 
-    struct grehdr *gre_hdr = (struct grehdr *)output->buf;
+    struct gre_header *gre_hdr = (struct gre_header *)output->buf;
     gre_hdr->keybit = htonl(output->service_tag | (direct << 28));
     memcpy(&(output->buf[GRE_HEADER_LEN]), pkt_data, length);
 
@@ -138,7 +138,7 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
         return NULL;
     }
 
-    struct grehdr gre_hdr;
+    struct gre_header gre_hdr;
     gre_hdr.flags = htons(0x2000);    // K = 1
     gre_hdr.protocol = htons(0x6558); // Ethernet over GRE
     gre_hdr.keybit = htonl(opts.service_tag);

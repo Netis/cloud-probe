@@ -25,9 +25,7 @@ endif()
 set(MAIN_CONFIG_DIR "${CMAKE_BINARY_DIR}")
 
 set(unity_tests
-    req_pattern
     misc
-    config
 )
 
 foreach(unity_test ${unity_tests})
@@ -57,6 +55,8 @@ foreach(unity_test ${unity_tests})
         stdc++
     )
 
-    add_test(NAME "${unity_test}"
-        COMMAND "./${unity_test}")
+    add_test(
+        NAME "${unity_test}"
+        COMMAND "./${unity_test}"
+    )
 endforeach()

@@ -110,6 +110,7 @@ int main(int argc, char **argv)
             log_fatal("set cpu affinity fail");
             exit(EXIT_FAILURE);
         }
+        log_info("set cpu affinity to %d", config->cpu_affinity);
     }
 
     task_manager_init(config->tasks_cfg);

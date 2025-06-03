@@ -1054,6 +1054,7 @@ Config *parse_config_file(const char *filename, cJSONParseError *err)
     return config;
 }
 
+/* caller is responsible for freeing the returned string */
 char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg, char *errbuf)
 {
     size_t extra_size = strlen(" and not host ");

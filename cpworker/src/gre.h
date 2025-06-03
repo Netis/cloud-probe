@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-struct grehdr
+struct gre_header
 {
     uint16_t flags;
     uint16_t protocol;

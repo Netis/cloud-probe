@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_parseLogLine(t *testing.T) {
@@ -46,4 +48,28 @@ func Test_parseLogLine(t *testing.T) {
 			}
 		})
 	}
+}
+
+type testLineOutput struct {
+	lines []string
+}
+
+func (o *testLineOutput) Write(line string) {
+	o.lines = append(o.lines, line)
+}
+
+func Test_stdWriter_Write(t *testing.T) {
+	o := testLineOutput{}
+	w := newPipeWriter(&o)
+	w.Write([]byte("2025-04-27T17:52:40  IN"))
+	w.Write([]byte("FO  /root/code/myself/cloud-probe/cpworker/src/main.c:124: listen on unix socket\n"))
+	w.Write([]byte("use activate_mmap\n"))
+	w.Write([]byte("2025-04-27T17:52:41  INFO /home/timmy/code/netis/cloud-probe/cloud-probe/cpworker/src/main.c:113: set cpu affinity to 1\n2025-04-27T17:52:42"))
+	w.Write([]byte("  WARN test\n"))
+	assert.Equal(t, []string{
+		"2025-04-27T17:52:40  INFO  /root/code/myself/cloud-probe/cpworker/src/main.c:124: listen on unix socket",
+		"use activate_mmap",
+		"2025-04-27T17:52:41  INFO /home/timmy/code/netis/cloud-probe/cloud-probe/cpworker/src/main.c:113: set cpu affinity to 1",
+		"2025-04-27T17:52:42  WARN test",
+	}, o.lines)
 }

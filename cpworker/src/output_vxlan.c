@@ -99,7 +99,7 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
         }
     }
 
-    struct vxlanhdr *vxlan_hdr = (struct vxlanhdr *)output->buf;
+    struct vxlan_header *vxlan_hdr = (struct vxlan_header *)output->buf;
     memcpy(&(output->buf[VXLAN_HEADER_LEN]), pkt_data, length);
 
     uint32_t tv_sec = htonl(header->ts.tv_sec);
@@ -124,7 +124,7 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
         }
         // CheckSum
         ((pa_tag_t *)&vxlan_hdr->vx_vni)->check = (uint8_t)rte_raw_cksum(
-            vxlan_hdr, sizeof(struct vxlanhdr) + sizeof(struct ether_header) + sizeof(struct ipv4_hdr));
+            vxlan_hdr, sizeof(struct vxlan_header) + sizeof(struct ether_header) + sizeof(struct ipv4_hdr));
     }
     else
     {
@@ -221,7 +221,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
         return NULL;
     }
 
-    struct vxlanhdr vxlan_hdr;
+    struct vxlan_header vxlan_hdr;
     vxlan_hdr.vx_flags = htonl(0x08000000);
     vxlan_hdr.vx_vni = (htonl(opts.vni << 8));
     memcpy(output->buf, &vxlan_hdr, VXLAN_HEADER_LEN);

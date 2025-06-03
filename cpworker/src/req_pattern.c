@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include <pcap/pcap.h>
-#include <pcap/vlan.h>
 
 #include "errorf.h"
 #include "ether.h"
@@ -372,12 +371,12 @@ static int extract_ipport_from_ether_layer(const struct pcap_pkthdr *header, con
     size_t ip_hdr_offset = data_offset + eth_hdr_len;
     if (eth_type == ETHERTYPE_VLAN)
     {
-        if (header->caplen < data_offset + eth_hdr_len + sizeof(struct vlanhdr))
+        if (header->caplen < data_offset + eth_hdr_len + sizeof(struct vlan_header))
             return 0;
 
-        struct vlanhdr *vlan_hdr = (struct vlanhdr *)(pkt_data + data_offset + eth_hdr_len);
-        eth_type = ntohs(vlan_hdr->h_proto);
-        ip_hdr_offset += sizeof(struct vlanhdr);
+        struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + data_offset + eth_hdr_len);
+        eth_type = ntohs(vlan_hdr->ether_type);
+        ip_hdr_offset += sizeof(struct vlan_header);
     }
 
     if (eth_type == ETHERTYPE_IP)
@@ -493,10 +492,11 @@ static int extract_ipport_from_maybe_vxlan_layer(const struct pcap_pkthdr *heade
                                                  size_t data_offset, int encap_level, ip_addr_t *sip, uint16_t *sport,
                                                  ip_addr_t *dip, uint16_t *dport)
 {
-    if (header->caplen < data_offset + sizeof(struct vxlanhdr) + sizeof(struct ether_header) + sizeof(struct ipv4_hdr))
+    if (header->caplen <
+        data_offset + sizeof(struct vxlan_header) + sizeof(struct ether_header) + sizeof(struct ipv4_hdr))
         return 0;
 
-    return extract_ipport_from_ether_layer(header, pkt_data, data_offset + sizeof(struct vxlanhdr), encap_level + 1,
+    return extract_ipport_from_ether_layer(header, pkt_data, data_offset + sizeof(struct vxlan_header), encap_level + 1,
                                            sip, sport, dip, dport);
 }
 

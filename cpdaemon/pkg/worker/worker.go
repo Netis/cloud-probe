@@ -166,9 +166,10 @@ func (w *Worker) startProcess() error {
 	for k, v := range w.cfg.Env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
+
 	cmd.Dir = w.cfg.WorkDir
-	cmd.Stderr = newSlogWriter(w.lg)
-	cmd.Stdout = newSlogWriter(w.lg)
+	cmd.Stderr = newPipeWriter(newSlogOutput(w.lg))
+	cmd.Stdout = newPipeWriter(newSlogOutput(w.lg))
 
 	if err := cmd.Start(); err != nil {
 		return errors.Wrapf(err, "start worker %s failed", w.name)

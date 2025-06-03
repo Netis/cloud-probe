@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"log/slog"
@@ -9,65 +8,81 @@ import (
 	"time"
 )
 
-type slogWriter struct {
-	logger    *slog.Logger
-	remainder []byte
+type lineOutput interface {
+	Write(line string)
 }
 
-func newSlogWriter(logger *slog.Logger) *slogWriter {
-	return &slogWriter{logger: logger}
+type slogOutput struct {
+	logger *slog.Logger
 }
 
-func (w *slogWriter) Write(p []byte) (n int, err error) {
-	data := p
-	if len(w.remainder) > 0 {
-		data = append(w.remainder, p...)
+func newSlogOutput(logger *slog.Logger) *slogOutput {
+	return &slogOutput{logger: logger}
+}
+
+func (o *slogOutput) Write(line string) {
+	_, level, msg, ok := parseLogLine(line)
+	if ok {
+		o.logger.LogAttrs(
+			context.Background(),
+			level,
+			msg,
+		)
+	} else {
+		o.logger.Info("invalid cpworker log", slog.String("content", line))
 	}
-	w.remainder = nil
+}
 
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	scanner.Split(scanLines)
+const maxLineLength = 1024
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		_, level, msg, ok := parseLogLine(line)
-		if ok {
-			w.logger.LogAttrs(
-				context.Background(),
-				level,
-				msg,
-			)
-		} else {
-			w.logger.Info("invalid cpworker log", slog.String("content", line))
+type pipeWriter struct {
+	rem []byte
+	out lineOutput
+}
+
+func newPipeWriter(out lineOutput) *pipeWriter {
+	return &pipeWriter{
+		out: out,
+		rem: make([]byte, 0, 256),
+	}
+}
+
+func (w *pipeWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
+	for {
+		i := bytes.IndexByte(p, '\n')
+		if i < 0 {
+			w.addToRem(p)
+			return n, nil
 		}
-	}
 
-	if scanner.Err() != nil {
-		w.remainder = scanner.Bytes()
+		if i == 0 && len(w.rem) > 0 && w.rem[len(w.rem)-1] == '\r' {
+			w.rem = w.rem[:len(w.rem)-1]
+			w.addToRem(p[0:i])
+		} else if i > 0 && p[i-1] == '\r' {
+			w.addToRem(p[0 : i-1])
+		} else {
+			w.addToRem(p[0:i])
+		}
+		if len(w.rem) > 0 {
+			w.out.Write(string(w.rem))
+			w.rem = w.rem[:0]
+		}
+		p = p[i+1:]
 	}
-	return len(p), nil
 }
 
-func dropCR(data []byte) []byte {
-	if len(data) > 0 && data[len(data)-1] == '\r' {
-		return data[0 : len(data)-1]
+func (w *pipeWriter) addToRem(p []byte) {
+	maxLen := max(cap(w.rem), maxLineLength)
+	room := maxLen - len(w.rem)
+	if room == 0 {
+		return
 	}
-	return data
-}
-
-func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
+	if room < len(p) {
+		p = p[:room]
 	}
-	if i := bytes.IndexByte(data, '\n'); i >= 0 {
-		// We have a full newline-terminated line.
-		return i + 1, dropCR(data[0:i]), nil
-	}
-	if atEOF {
-		return 0, data, bufio.ErrFinalToken
-	}
-	// Request more data.
-	return 0, nil, nil
+	w.rem = append(w.rem, p...)
+	return
 }
 
 func parseLogLine(line string) (time.Time, slog.Level, string, bool) {

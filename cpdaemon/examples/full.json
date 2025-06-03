@@ -7,7 +7,7 @@
     "log": {
         "level": "info",
         "output": {
-            "type": "stderr",
+            "type": "rotating_file",
             "rotating_file": {
                 "file_name": "log/cpdaemon.log",
                 "max_size": 100,
@@ -28,6 +28,12 @@
     },
     "cpm": {
         "base_url": "https://127.0.0.1:48018",
+        "client": {
+            "tls": {
+                "pkcs12_cert_file": "",
+                "pkcs12_cert_password": ""
+            }
+        },
         "reg": {
             "name": "cpdaemon-test",
             "uuid_file": "/usr/local/bin/uuid",

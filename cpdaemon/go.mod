@@ -16,6 +16,7 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.0
 	github.com/stretchr/testify v1.10.0
+	golang.org/x/crypto v0.32.0
 	golang.org/x/sync v0.12.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )

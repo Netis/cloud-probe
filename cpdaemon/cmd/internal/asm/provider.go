@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/pkcs12"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cgroup"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cpm"
@@ -107,17 +108,37 @@ func (ins *Instance) ListenHTTP(
 func NewCpmClient(vp *viper.Viper) (*cpm.HttpClient, error) {
 	baseUrl := vp.GetString(VKey.Cpm.BaseUrl)
 	if baseUrl == "" {
-		return nil, errors.New("cpm.baseUrl is missing")
+		return nil, errors.New("cpm.base_url is missing")
 	}
+
+	ck := VKey.Cpm.Client
+	tlsCfg := tls.Config{
+		InsecureSkipVerify: true,
+	}
+	if vp.GetString(ck.TLS.Pkcs12CertFile) != "" {
+		p12Data, err := os.ReadFile(vp.GetString(ck.TLS.Pkcs12CertFile))
+		if err != nil {
+			return nil, errors.Wrapf(err, "read file: %s error", vp.GetString(ck.TLS.Pkcs12CertFile))
+		}
+		privKey, cert, err := pkcs12.Decode(p12Data, vp.GetString(ck.TLS.Pkcs12CertPassword))
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		tlsCert := tls.Certificate{
+			Certificate: [][]byte{cert.Raw},
+			PrivateKey:  privKey,
+			Leaf:        cert,
+		}
+		tlsCfg.Certificates = []tls.Certificate{tlsCert}
+	}
+
 	return cpm.NewHttpClient(baseUrl, cpm.ClientConfig{
-		Timeout:               vp.GetDuration(VKey.Cpm.Client.Timeout),
-		DialTimeout:           vp.GetDuration(VKey.Cpm.Client.DialTimeout),
-		ResponseHeaderTimeout: vp.GetDuration(VKey.Cpm.Client.ResponseHeaderTimeout),
-		MaxIdleConns:          vp.GetInt(VKey.Cpm.Client.MaxIdleConns),
-		MaxIdleConnsPerHost:   vp.GetInt(VKey.Cpm.Client.MaxIdleConnsPerHost),
-		TLSConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
+		Timeout:               vp.GetDuration(ck.Timeout),
+		DialTimeout:           vp.GetDuration(ck.DialTimeout),
+		ResponseHeaderTimeout: vp.GetDuration(ck.ResponseHeaderTimeout),
+		MaxIdleConns:          vp.GetInt(ck.MaxIdleConns),
+		MaxIdleConnsPerHost:   vp.GetInt(ck.MaxIdleConnsPerHost),
+		TLSConfig:             &tlsCfg,
 	})
 }
 
@@ -159,7 +180,6 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 		cpm.SyncerConfig{
 			RegCfg: cpm.RegConfig{
 				Name:          regName,
-				UuidFile:      vp.GetString(VKey.Cpm.Reg.UuidFile),
 				NodeName:      vp.GetString(VKey.Cpm.Reg.NodeName),
 				PlatformId:    vp.GetString(VKey.Cpm.Reg.PlatformId),
 				DeployEnv:     vp.GetString(VKey.Cpm.Reg.DeployEnv),
@@ -168,6 +188,14 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 
 				PodName:   vp.GetString(VKey.Cpm.Reg.PodName),
 				Namespace: vp.GetString(VKey.Cpm.Reg.Namespace),
+
+				UuidFile: vp.GetString(VKey.Cpm.Reg.UuidFile),
+				UuidGen: cpm.UuidGenConfig{
+					Type: vp.GetString(VKey.Cpm.Reg.UuidGen.Type),
+					Env: cpm.UuidGenEnvConfig{
+						Keys: vp.GetStringSlice(VKey.Cpm.Reg.UuidGen.Env.Keys),
+					},
+				},
 			},
 			RegRetryInterval:       vp.GetDuration(VKey.Cpm.Syncer.RegRetryInterval),
 			SyncStrategyInterval:   vp.GetDuration(VKey.Cpm.Syncer.SyncStrategyInterval),

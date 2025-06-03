@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -26,7 +25,6 @@ import (
 
 type RegConfig struct {
 	Name          string
-	UuidFile      string
 	NodeName      string
 	PlatformId    string
 	DeployEnv     string
@@ -35,6 +33,9 @@ type RegConfig struct {
 
 	PodName   string
 	Namespace string
+
+	UuidFile string
+	UuidGen  UuidGenConfig
 }
 
 func (c *RegConfig) Validate() error {
@@ -42,13 +43,13 @@ func (c *RegConfig) Validate() error {
 		return errors.New("name is required")
 	}
 	if c.UuidFile == "" {
-		return errors.New("uuidFile is required")
+		return errors.New("uuid_file is required")
 	}
 	if c.PlatformId == "" {
-		return errors.New("platformId is required")
+		return errors.New("platform_id is required")
 	}
 	if !slices.Contains([]string{DeployEnv_INSTANCE, DeployEnv_HOST}, c.DeployEnv) {
-		return errors.Errorf("deployEnv must be %s or %s", DeployEnv_INSTANCE, DeployEnv_HOST)
+		return errors.Errorf("deploy_env must be %s or %s", DeployEnv_INSTANCE, DeployEnv_HOST)
 	}
 	return nil
 }
@@ -211,7 +212,10 @@ func (s *Syncer) init() error {
 
 func (s *Syncer) initUuid() error {
 	if _, err := os.Stat(s.cfg.RegCfg.UuidFile); os.IsNotExist(err) {
-		uuidVal := uuid.New().String()
+		uuidVal, err := s.cfg.RegCfg.UuidGen.Generate()
+		if err != nil {
+			return err
+		}
 		if err := os.WriteFile(s.cfg.RegCfg.UuidFile, []byte(uuidVal), 0o644); err != nil {
 			return errors.Wrapf(err, "write uuid file %s", s.cfg.RegCfg.UuidFile)
 		}
@@ -229,7 +233,10 @@ func (s *Syncer) initUuid() error {
 		return nil
 	}
 
-	uuidVal = uuid.New().String()
+	uuidVal, err = s.cfg.RegCfg.UuidGen.Generate()
+	if err != nil {
+		return err
+	}
 	if err := os.WriteFile(s.cfg.RegCfg.UuidFile, []byte(uuidVal), 0o644); err != nil {
 		return errors.Wrapf(err, "write uuid file %s", s.cfg.RegCfg.UuidFile)
 	}
@@ -296,13 +303,21 @@ func (s *Syncer) registerLoop(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-tm.C:
+			lg := s.lg.With(
+				slog.String("pa_uuid", s.daemonUUID),
+				slog.String("name", s.cfg.RegCfg.Name),
+				slog.String("node_name", s.cfg.RegCfg.NodeName),
+				slog.String("pod_name", s.cfg.RegCfg.PodName),
+				slog.String("platform_id", s.cfg.RegCfg.PlatformId),
+			)
+
 			err := s.doRegister(ctx)
 			if err == nil {
-				s.lg.Info("register success", slog.Int64("daemonId", s.regResp.Id))
+				lg.Info("register success", slog.Int64("daemonId", s.regResp.Id))
 				return nil
 			}
 
-			s.lg.Error("register loop error, will retry", slogx.Error(err))
+			lg.Error("register loop error, will retry", slogx.Error(err))
 			tm.Reset(s.cfg.RegRetryInterval)
 		}
 	}

@@ -101,19 +101,19 @@ func (r *RegisterRequest) FixZero() error {
 }
 
 type RegisterResponse struct {
-	Id                       int64      `json:"id"`
-	PaUUID                   string     `json:"paUUID"`
-	Name                     string     `json:"name"`
-	RegisterRequestIpAddress string     `json:"registerRequestIpAddress"`
-	NodeName                 string     `json:"nodeName"`
-	PlatformId               string     `json:"platformId"`
-	StartTimestamp           int64      `json:"startTimestamp"`
-	StartMicroTimestamp      int64      `json:"startMicroTimestamp"`
-	SyncInterval             int32      `json:"syncInterval"`
-	ClientVersion            string     `json:"clientVersion"`
-	CreateTime               int64      `json:"createTime"`
-	NetworkInterfaces        []NicEntry `json:"networkInterfaces"`
-	Status                   string     `json:"status"`
+	Id                       int64  `json:"id"`
+	PaUUID                   string `json:"paUUID"`
+	Name                     string `json:"name"`
+	RegisterRequestIpAddress string `json:"registerRequestIpAddress"`
+	NodeName                 string `json:"nodeName"`
+	PlatformId               string `json:"platformId"`
+	StartTimestamp           int64  `json:"startTimestamp"`
+	StartMicroTimestamp      int64  `json:"startMicroTimestamp"`
+	SyncInterval             int32  `json:"syncInterval"`
+	ClientVersion            string `json:"clientVersion"`
+	// CreateTime               int64      `json:"createTime"` // ERROR: 有版本返回int64，有版本返回string
+	NetworkInterfaces []NicEntry `json:"networkInterfaces"`
+	Status            string     `json:"status"`
 }
 
 type SyncStrategyResult struct {

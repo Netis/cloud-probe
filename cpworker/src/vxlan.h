@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-struct vxlanhdr
+struct vxlan_header
 {
     uint32_t vx_flags;
     uint32_t vx_vni;

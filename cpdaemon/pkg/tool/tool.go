@@ -9,20 +9,20 @@ type Tool struct {
 }
 
 func (t Tool) GetContainerHostPid(containerId string) (int, error) {
-	if t.GetContainerHostPidScript != "" {
-		output, err := RunShellScript(t.GetContainerHostPidScript, containerId)
-		if err != nil {
-			return 0, err
-		}
-		return parsePID(output)
-	}
-
 	if pid, err := GetContainerHostPidByDocker(containerId); err == nil {
 		return pid, nil
 	}
 
 	if pid, err := GetContainerHostPidByCrictl(containerId); err == nil {
 		return pid, nil
+	}
+
+	if t.GetContainerHostPidScript != "" {
+		output, err := RunShellScript(t.GetContainerHostPidScript, containerId)
+		if err != nil {
+			return 0, err
+		}
+		return parsePID(output)
 	}
 
 	return 0, errors.Errorf("failed to get host pid for container %s", containerId)
