@@ -69,6 +69,24 @@ static bool uuid_to_bytes(const char *uuid, uint8_t uuid_bytes[16])
     return true;
 }
 
+#define ERROR_INFO_FLUSH_MAX_DUR_SEC 5
+
+static void flush_error_info(zmq_output_t *output)
+{
+    output->error_info.first_pktsec = 0;
+
+    if (output->error_info.nb_drop_batches > 0 || output->error_info.nb_drop_packets > 0)
+    {
+        log_error("zmq output error: nb_drop_batches=%lu, nb_drop_packets=%lu, detail: %s",
+                  output->error_info.nb_drop_batches, output->error_info.nb_drop_packets,
+                  output->error_info.send_error);
+
+        output->error_info.nb_drop_batches = 0;
+        output->error_info.nb_drop_packets = 0;
+        output->error_info.send_error[0] = '\0';
+    }
+}
+
 int zmq_flush_packet(zmq_output_t *output)
 {
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
@@ -76,6 +94,15 @@ int zmq_flush_packet(zmq_output_t *output)
     uint64_t send_num = pkts_buf->batch_hdr.pkts_num;
     pkts_buf->batch_hdr.pkts_num = htons(send_num);
     memcpy((&(pkts_buf->buf[0])), &pkts_buf->batch_hdr, sizeof(pkts_buf->batch_hdr));
+
+    // check error_info
+    if (output->error_info.first_pktsec == 0)
+        output->error_info.first_pktsec = pkts_buf->first_pktsec;
+    else if (pkts_buf->first_pktsec > output->error_info.first_pktsec + ERROR_INFO_FLUSH_MAX_DUR_SEC)
+    {
+        flush_error_info(output);
+        output->error_info.first_pktsec = pkts_buf->first_pktsec;
+    }
 
     int rc = zmq_send(output->pusher, &(pkts_buf->buf[0]), pkts_buf->batch_bufpos, ZMQ_DONTWAIT);
     if (rc != -1)
@@ -85,9 +112,14 @@ int zmq_flush_packet(zmq_output_t *output)
     }
     else
     {
+        if (output->error_info.nb_drop_batches == 0)
+            snprintf(output->error_info.send_error, ERROR_BUFFER_SIZE, "zmq_send failed: %s", zmq_strerror(errno));
+
+        output->error_info.nb_drop_batches++;
+        output->error_info.nb_drop_packets += send_num;
+
         bytes_stats_add(&output->base.stats.error_drop_bytes, pkts_buf->batch_bufpos);
         packets_stats_add(&output->base.stats.error_drop_packets, send_num);
-        // TODO: log error
     }
 
     pkts_buf->first_pktsec = 0;
@@ -146,8 +178,6 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (is_pkt_num_exceeded || is_time_diff_exceeded || is_buffer_full)
     {
-        log_debug("send zmq message, last packet time: %lu, first packet_time: %lu", header->ts.tv_sec,
-                  pkts_buf->first_pktsec);
         zmq_flush_packet(output);
         pkts_buf->first_pktsec = header->ts.tv_sec;
     }
@@ -213,8 +243,6 @@ void zmq_heartbeat(output_base_t *self, uint64_t now_sec, uint64_t now_nsec)
     if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
         now_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
     {
-        log_debug("send zmq message by heartbeat, now time: %lu, first packet_time: %lu", now_sec,
-                  pkts_buf->first_pktsec);
         zmq_flush_packet(output);
     }
 }
@@ -304,6 +332,8 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
     output->pkts_buf.batch_hdr.keybit = htonl(opts.service_tag);
 
     memcpy(output->pkts_buf.batch_hdr.uuid, uuid, sizeof(uuid));
+
+    output->error_info.send_error[0] = '\0';
     return output;
 }
 

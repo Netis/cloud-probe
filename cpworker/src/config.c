@@ -320,7 +320,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         if (!port)
             output->config.vxlan.port = 4789;
         else if (cJSON_IsNumber(port))
-            output->config.vxlan.port = port->valueint;
+            output->config.vxlan.port = port->valuedouble;
         else
         {
             cjson_set_parse_error(err, "invalid vxlan.port");
@@ -352,7 +352,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             if (cJSON_IsNumber(vni1))
             {
                 output->config.vxlan.vni_version = 1;
-                output->config.vxlan.vni = vni1->valueint;
+                output->config.vxlan.vni = vni1->valuedouble;
             }
             else
             {
@@ -365,7 +365,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             if (cJSON_IsNumber(vni2))
             {
                 output->config.vxlan.vni_version = 2;
-                output->config.vxlan.vni = vni2->valueint;
+                output->config.vxlan.vni = vni2->valuedouble;
             }
             else
             {
@@ -438,7 +438,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         if (!service_tag)
             output->config.gre.service_tag = 0xffffffff;
         else if (cJSON_IsNumber(service_tag))
-            output->config.gre.service_tag = service_tag->valueint;
+            output->config.gre.service_tag = service_tag->valuedouble;
         else
         {
             cjson_set_parse_error(err, "invalid gre.service_tag");
@@ -508,7 +508,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
         else if (cJSON_IsNumber(port))
-            output->config.zmq.port = port->valueint;
+            output->config.zmq.port = port->valuedouble;
         else
         {
             cjson_set_parse_error(err, "invalid zmq.port");
@@ -532,7 +532,7 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         if (!service_tag)
             output->config.zmq.service_tag = 0xffffffff;
         else if (cJSON_IsNumber(service_tag))
-            output->config.zmq.service_tag = service_tag->valueint;
+            output->config.zmq.service_tag = service_tag->valuedouble;
         else
         {
             cjson_set_parse_error(err, "invalid zmq.service_tag");

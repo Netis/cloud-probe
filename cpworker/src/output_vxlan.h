@@ -15,7 +15,7 @@
 typedef struct VxlanOptions
 {
     char *host;
-    int port;
+    uint16_t port;
     bool capture_time;
     uint8_t vni_version;
     uint32_t vni;
@@ -41,6 +41,15 @@ typedef struct VxlanOutput
 
     int socket_fd;
     char buf[VXLAN_OUTPUT_BUFSIZE];
+
+    struct
+    {
+        long int first_pktsec;
+        uint64_t nb_nobufs_drops;
+        uint64_t nb_partial_sends;
+        uint64_t nb_other_send_error_drops;
+        char other_send_error[ERROR_BUFFER_SIZE];
+    } error_info;
 } vxlan_output_t;
 
 output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);

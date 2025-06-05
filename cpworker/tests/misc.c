@@ -24,8 +24,18 @@ const char *config_libpcap_gre_vxlan =
     "{\"tasks\": [{\"interface\": \"eth0\", \"snaplen\": 2048, \"req_pattern\": {\"type\": \"auto\"}, \"capturer\": "
     "{\"type\": \"libpcap\", \"libpcap\": {\"buffer_size_mb\": 256}}, \"outputs\": [{\"type\": \"gre\", "
     "\"rate_limit_mbps\": 10, \"gre\": {\"host\": \"172.16.1.201\", \"bind_device\": \"eth1\"}}, {\"type\": \"vxlan\", "
-    "\"rate_limit_mbps\": 10, \"vxlan\": {\"host\": \"172.16.1.202\", \"port\": 4789, \"vni1\": 1, \"bind_device\": "
-    "\"eth1\"}}]}]}";
+    "\"rate_limit_mbps\": 10, \"vxlan\": {\"host\": \"172.16.1.202\", \"port\": 4789, \"vni1\": 2147483648, "
+    "\"bind_device\": \"eth1\"}}]}]}";
+
+void test_parse_config_data_for_libpcap_gre_vxlan(void)
+{
+    cJSONParseError err;
+    Config *config = parse_config_data(config_libpcap_gre_vxlan, &err);
+    TEST_ASSERT_NOT_NULL(config);
+
+    OutputConfig *vxlan_output = config->tasks_cfg->tasks[0]->outputs[1];
+    TEST_ASSERT_EQUAL_UINT32(2147483648, vxlan_output->config.vxlan.vni);
+}
 
 void test_bpf_filter_exclude_task_output_hosts_1(void)
 {
@@ -208,6 +218,8 @@ void test_req_pattern_custom_host_ifname(void)
 int main(void)
 {
     UNITY_BEGIN();
+
+    RUN_TEST(test_parse_config_data_for_libpcap_gre_vxlan);
 
     RUN_TEST(test_bpf_filter_replace_nic);
 

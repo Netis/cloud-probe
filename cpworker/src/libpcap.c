@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -15,6 +16,8 @@
 #include "pkt_dir.h"
 #include "req_pattern.h"
 #include "stats.h"
+
+#define DROP_STAT_DUR_SEC 5
 
 uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_handler,
                             capture_heartbeat_handler heartbeat_handler, void *user)
@@ -46,7 +49,14 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
         retval = 0;
         break;
     default:
-        // TODO: log error
+        if (capturer->pcap_next_error[0] == '\0')
+        {
+            if (ret == PCAP_ERROR)
+                snprintf(capturer->pcap_next_error, ERROR_BUFFER_SIZE, "pcap_next_ex error: %s",
+                         pcap_geterr(capturer->p));
+            else
+                snprintf(capturer->pcap_next_error, ERROR_BUFFER_SIZE, "pcap_next_ex error_code: %d", ret);
+        }
         retval = 0;
         break;
     }
@@ -68,8 +78,7 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
     }
 
     time_t now = time(NULL);
-    // every 5 seconds
-    if (difftime(now, capturer->drop_stat_prev_time) < 5)
+    if (difftime(now, capturer->drop_stat_prev_time) < DROP_STAT_DUR_SEC)
         return retval;
 
     struct pcap_stat stat;
@@ -84,6 +93,12 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
         capturer->drop_prev_packets = stat.ps_drop;
         capturer->ifdrop_prev_packets = stat.ps_ifdrop;
         capturer->drop_stat_prev_time = now;
+    }
+
+    if (capturer->pcap_next_error[0] != '\0')
+    {
+        log_error(capturer->pcap_next_error);
+        capturer->pcap_next_error[0] = '\0';
     }
     return retval;
 }
@@ -187,6 +202,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
     capturer->base.destory = libpcap_capturer_destory;
     capturer->req_pattern = req_pattern;
     capturer->p = p;
+    capturer->pcap_next_error[0] = '\0';
 
     return capturer;
 
@@ -218,12 +234,24 @@ capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf
     if (bpf_filter == NULL)
         return NULL;
 
+    int buffer_size;
+    int buffer_size_mb = task_cfg->capturer.config.libpcap.buffer_size_mb;
+    if (buffer_size_mb > INT_MAX / 1024 / 1024)
+    {
+        log_warn("buffer_size is too large, set to %d", INT_MAX);
+        buffer_size = INT_MAX;
+    }
+    else
+    {
+        buffer_size = buffer_size_mb * 1024 * 1024;
+    }
+
     libpcap_options_t opts = {
         .interface = task_cfg->interface,
         .snaplen = task_cfg->snaplen,
         .timeout_ms = task_cfg->capturer.config.libpcap.timeout_ms,
         .promisc = 0,
-        .buffer_size = task_cfg->capturer.config.libpcap.buffer_size_mb * 1024 * 1024,
+        .buffer_size = buffer_size,
         .bpf_filter = bpf_filter,
         .netns = task_cfg->netns,
         .req_pattern = task_cfg->req_pattern,

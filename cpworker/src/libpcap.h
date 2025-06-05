@@ -7,6 +7,7 @@
 
 #include "capturer.h"
 #include "config.h"
+#include "errorf.h"
 #include "req_pattern.h"
 
 typedef struct LibpcapOptions
@@ -33,6 +34,8 @@ typedef struct LibpcapCapturer
     time_t drop_stat_prev_time;
     uint64_t drop_prev_packets;
     uint64_t ifdrop_prev_packets;
+
+    char pcap_next_error[ERROR_BUFFER_SIZE];
 
 } libpcap_capturer_t;
 

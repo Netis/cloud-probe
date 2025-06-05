@@ -6,6 +6,7 @@
 #include <zmq.h>
 
 #include "config.h"
+#include "errorf.h"
 #include "output.h"
 #include "ratelimit.h"
 
@@ -45,7 +46,7 @@ typedef struct
 typedef struct ZmqOptions
 {
     char *host;
-    int port;
+    uint16_t port;
     int hwm;
     uint32_t service_tag;
     char *uuid;
@@ -61,10 +62,18 @@ typedef struct ZmqOutput
     token_bucket_t throttle;
     int slice;
 
-    void *context; // zmq_ctx_new
+    void *context; // zmq_ctx_new();
     void *pusher;  // zmq_socket(context, ZMQ_PUSH);
     uint16_t service_tag;
     zmq_pkts_buf_t pkts_buf;
+
+    struct
+    {
+        long int first_pktsec;
+        uint64_t nb_drop_packets;
+        uint64_t nb_drop_batches;
+        char send_error[ERROR_BUFFER_SIZE];
+    } error_info;
 } zmq_output_t;
 
 output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);

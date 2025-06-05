@@ -15,6 +15,28 @@
 #include "pkt_dir.h"
 #include "stats.h"
 
+#define ERROR_INFO_FLUSH_MAX_DUR_SEC 5
+
+static void flush_error_info(gre_output_t *output)
+{
+    output->error_info.first_pktsec = 0;
+
+    if (output->error_info.nb_nobufs_drops > 0 || output->error_info.nb_partial_sends > 0 ||
+        output->error_info.nb_other_send_error_drops > 0)
+    {
+        log_error("gre output error: nb_nobufs_drops=%lu, nb_partial_sends=%lu, nb_other_send_error_drops=%lu, "
+                  "detail: %s",
+                  output->error_info.nb_nobufs_drops, output->error_info.nb_partial_sends,
+                  output->error_info.nb_other_send_error_drops, output->error_info.other_send_error);
+
+        output->error_info.nb_nobufs_drops = 0;
+        output->error_info.nb_partial_sends = 0;
+        output->error_info.nb_other_send_error_drops = 0;
+
+        output->error_info.other_send_error[0] = '\0';
+    }
+}
+
 int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
     gre_output_t *output = (gre_output_t *)self;
@@ -48,6 +70,15 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     gre_hdr->keybit = htonl(output->service_tag | (direct << 28));
     memcpy(&(output->buf[GRE_HEADER_LEN]), pkt_data, length);
 
+    // check error_info
+    if (output->error_info.first_pktsec == 0)
+        output->error_info.first_pktsec = header->ts.tv_sec;
+    else if (header->ts.tv_sec > output->error_info.first_pktsec + ERROR_INFO_FLUSH_MAX_DUR_SEC)
+    {
+        flush_error_info(output);
+        output->error_info.first_pktsec = header->ts.tv_sec;
+    }
+
     int retry_count = 0;
     const int max_retries = 10;
     do
@@ -70,7 +101,16 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
                 continue;
             }
 
-            // TODO: log error
+            if (errno == ENOBUFS)
+                output->error_info.nb_nobufs_drops++;
+            else
+            {
+                if (output->error_info.nb_other_send_error_drops == 0)
+                    snprintf(output->error_info.other_send_error, ERROR_BUFFER_SIZE, "%s", strerror(errno));
+
+                output->error_info.nb_other_send_error_drops++;
+            }
+
             bytes_stats_add(&output->base.stats.error_drop_bytes, GRE_HEADER_LEN + length);
             packets_stats_add(&output->base.stats.error_drop_packets, 1);
             return -1;
@@ -78,7 +118,8 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
         if (send_bytes < GRE_HEADER_LEN + length)
         {
-            // TODO: log warning about partial send
+            output->error_info.nb_partial_sends++;
+
             bytes_stats_add(&output->base.stats.error_drop_bytes, GRE_HEADER_LEN + length - send_bytes);
             bytes_stats_add(&output->base.stats.fwd_bytes, send_bytes);
             packets_stats_add(&output->base.stats.fwd_packets, 1);
@@ -158,6 +199,7 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
     output->service_tag = opts.service_tag;
     output->remote_addr = remote_addr;
     output->socket_fd = socket_fd;
+    output->error_info.other_send_error[0] = '\0';
 
     return output;
 }

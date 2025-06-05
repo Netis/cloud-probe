@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "config.h"
+#include "errorf.h"
 #include "output.h"
 #include "ratelimit.h"
 
@@ -34,6 +35,15 @@ typedef struct GreOutput
 
     int socket_fd;
     char buf[GRE_OUTPUT_BUFSIZE];
+
+    struct
+    {
+        long int first_pktsec;
+        uint64_t nb_nobufs_drops;
+        uint64_t nb_partial_sends;
+        uint64_t nb_other_send_error_drops;
+        char other_send_error[ERROR_BUFFER_SIZE];
+    } error_info;
 } gre_output_t;
 
 output_base_t *gre_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);

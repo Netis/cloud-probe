@@ -113,7 +113,11 @@ int main(int argc, char **argv)
         log_info("set cpu affinity to %d", config->cpu_affinity);
     }
 
-    task_manager_init(config->tasks_cfg);
+    if (task_manager_init(config->tasks_cfg) <= 0)
+    {
+        log_fatal("no task was successfully initialized");
+        exit(EXIT_FAILURE);
+    }
 
     bool control_enabled = config->control != NULL;
     bool control_unix_enabled = control_enabled && strcmp(config->control->type, CONTROL_TYPE_UNIX) == 0;

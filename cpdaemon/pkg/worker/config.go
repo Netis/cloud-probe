@@ -100,7 +100,7 @@ type GreOutputConfig struct {
 
 type ZmqOutputConfig struct {
 	Host       string  `json:"host"`
-	Port       int     `json:"port"`
+	Port       int32   `json:"port"`
 	Hwm        *int    `json:"hwm,omitempty"`
 	ServiceTag *uint32 `json:"service_tag,omitempty"`
 	Uuid       string  `json:"uuid"`

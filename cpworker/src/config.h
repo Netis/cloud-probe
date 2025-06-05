@@ -37,7 +37,7 @@ typedef struct
         struct
         {
             char *host;
-            int port;
+            uint16_t port;
             bool capture_time;
             uint8_t vni_version;
             uint32_t vni;
@@ -56,7 +56,7 @@ typedef struct
         struct
         {
             char *host;
-            int port;
+            uint16_t port;
             int hwm;
             uint32_t service_tag;
             char *uuid;

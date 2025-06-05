@@ -259,7 +259,7 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 			Uuid: b.daemonUUID,
 		}
 		if strategy.Port != nil {
-			output.Zmq.Port = int(*strategy.Port)
+			output.Zmq.Port = *strategy.Port
 		} else {
 			return nil, errors.New("missing zmq.port")
 		}

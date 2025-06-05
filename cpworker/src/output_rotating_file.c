@@ -60,9 +60,7 @@ static int create_dumper(rotating_file_output_t *output)
     struct tm *ptm = localtime_r(&output->file_time, &tm_buf);
     char filepath[PATH_MAX];
     if (generate_path(output->file_root, ptm, filepath) != 0)
-    {
         return -1;
-    }
 
     FILE *fp = fopen(filepath, "w+");
     if (!fp)
@@ -108,7 +106,8 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
             return -1;
         }
     }
-    else if (output->dumper == NULL)
+
+    if (output->dumper == NULL)
     {
         time(&output->file_time);
         if (create_dumper(output) != 0)
