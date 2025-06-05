@@ -123,9 +123,11 @@ func (m *WorkerManager) Stop() error {
 	if worker == nil {
 		return nil
 	}
-	err := worker.Stop()
+	if err := worker.Stop(); err != nil {
+		return err
+	}
 	m.reset()
-	return err
+	return nil
 }
 
 func (m *WorkerManager) reset() {

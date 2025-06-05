@@ -197,10 +197,11 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 					},
 				},
 			},
-			RegRetryInterval:       vp.GetDuration(VKey.Cpm.Syncer.RegRetryInterval),
-			SyncStrategyInterval:   vp.GetDuration(VKey.Cpm.Syncer.SyncStrategyInterval),
-			SyncStrategyMaxRetries: vp.GetInt(VKey.Cpm.Syncer.SyncStrategyMaxRetries),
-			SyncMetricInterval:     vp.GetDuration(VKey.Cpm.Syncer.SyncMetricInterval),
+			RegRetryInterval:               vp.GetDuration(VKey.Cpm.Syncer.RegRetryInterval),
+			SyncStrategyInterval:           vp.GetDuration(VKey.Cpm.Syncer.SyncStrategyInterval),
+			SyncStrategyMaxRetries:         vp.GetInt(VKey.Cpm.Syncer.SyncStrategyMaxRetries),
+			SyncMetricInterval:             vp.GetDuration(VKey.Cpm.Syncer.SyncMetricInterval),
+			StopWorkerAfterRegFailMuinutes: vp.GetInt(VKey.Cpm.Syncer.StopWorkerAfterRegFailMuinutes),
 		})
 	if err != nil {
 		return nil, err

@@ -56,8 +56,10 @@ func TestWorkerManager(t *testing.T) {
 
 		pid := mgr.Pid()
 		require.NotZero(t, pid)
+	}
 
-		err = mgr.CreateIfDead(context.Background(), &res, "", []string{})
+	{
+		err := mgr.CreateIfDead(context.Background(), &res, "", []string{})
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "worker is still running")
 	}

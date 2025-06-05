@@ -55,11 +55,12 @@ func (c *RegConfig) Validate() error {
 }
 
 type SyncerConfig struct {
-	RegCfg                 RegConfig
-	RegRetryInterval       time.Duration
-	SyncStrategyInterval   time.Duration
-	SyncStrategyMaxRetries int
-	SyncMetricInterval     time.Duration
+	RegCfg                         RegConfig
+	RegRetryInterval               time.Duration
+	SyncStrategyInterval           time.Duration
+	SyncStrategyMaxRetries         int
+	SyncMetricInterval             time.Duration
+	StopWorkerAfterRegFailMuinutes int
 }
 
 type Tool interface {
@@ -280,6 +281,7 @@ func (s *Syncer) Run(ctx context.Context) error {
 		case errors.Is(err, context.Canceled):
 			return nil
 		case err != nil:
+			// unreachable
 			panic(err)
 		}
 
@@ -289,7 +291,6 @@ func (s *Syncer) Run(ctx context.Context) error {
 			return nil
 		case err != nil:
 			s.lg.Error("sync loop error, will re-register", slogx.Error(err))
-			time.Sleep(2 * time.Second)
 		}
 	}
 }
@@ -298,6 +299,8 @@ func (s *Syncer) registerLoop(ctx context.Context) error {
 	tm := time.NewTimer(0)
 	defer tm.Stop()
 
+	mins := s.cfg.StopWorkerAfterRegFailMuinutes
+	startTime := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
@@ -315,6 +318,15 @@ func (s *Syncer) registerLoop(ctx context.Context) error {
 			if err == nil {
 				lg.Info("register success", slog.Int64("daemonId", s.regResp.Id))
 				return nil
+			}
+
+			if s.syncResp != nil && mins >= 0 && time.Since(startTime) > time.Duration(mins)*time.Minute {
+				lg.Info("stop worker after register failed for a long time")
+				if err := s.workerMgr.Stop(); err != nil {
+					s.lg.Error("stop worker failed", slogx.Error(err))
+				} else {
+					s.syncResp = nil
+				}
 			}
 
 			lg.Error("register loop error, will retry", slogx.Error(err))
@@ -442,7 +454,7 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 			return nil
 		}
 
-		return s.UpdateIfInstanceChanged(ctx)
+		return s.updateIfInstanceChanged(ctx)
 	}
 
 	activeInstances, err := s.activeInstancesIfRequired(res.Response)
@@ -464,7 +476,7 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 	return nil
 }
 
-func (s *Syncer) UpdateIfInstanceChanged(ctx context.Context) error {
+func (s *Syncer) updateIfInstanceChanged(ctx context.Context) error {
 	if s.syncResp == nil || !s.syncResp.HasInstances() {
 		return nil
 	}
@@ -546,7 +558,7 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 				return err
 			}
 
-			// WARN: 存在溢出问题
+			// WARN: 存在溢出问题，需要CPM端配合处理
 			metrics.CapBytes += stats.Capture.CapBytes.Bytes
 			metrics.CapPackets += stats.Capture.CapPackets.Packets
 			metrics.CapDrop += stats.Capture.DropPackets.Packets

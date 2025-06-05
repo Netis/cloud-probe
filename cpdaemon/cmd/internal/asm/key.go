@@ -52,10 +52,11 @@ var VKey = struct {
 			} `json:"tls"`
 		} `json:"client"`
 		Syncer struct {
-			RegRetryInterval       string `json:"reg_retry_interval"`
-			SyncStrategyInterval   string `json:"sync_strategy_interval"`
-			SyncStrategyMaxRetries string `json:"sync_strategy_max_retries"`
-			SyncMetricInterval     string `json:"sync_metric_interval"`
+			RegRetryInterval               string `json:"reg_retry_interval"`
+			SyncStrategyInterval           string `json:"sync_strategy_interval"`
+			SyncStrategyMaxRetries         string `json:"sync_strategy_max_retries"`
+			SyncMetricInterval             string `json:"sync_metric_interval"`
+			StopWorkerAfterRegFailMuinutes string `json:"stop_worker_after_reg_fail_minutes"`
 		} `json:"syncer"`
 		Reg struct {
 			Name          string `json:"name"`
@@ -105,6 +106,7 @@ func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Cpm.Syncer.SyncStrategyInterval, 15*time.Second)
 	vp.SetDefault(VKey.Cpm.Syncer.SyncStrategyMaxRetries, 3)
 	vp.SetDefault(VKey.Cpm.Syncer.SyncMetricInterval, 15*time.Second)
+	vp.SetDefault(VKey.Cpm.Syncer.StopWorkerAfterRegFailMuinutes, 30)
 
 	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")
