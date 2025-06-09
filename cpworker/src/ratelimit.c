@@ -15,8 +15,8 @@ static double timeval_diff(const struct timeval *a, const struct timeval *b)
 void token_bucket_init(token_bucket_t *tb, uint64_t rate_bps)
 {
     tb->rate_bps = rate_bps;
-    tb->capacity = rate_bps / 10; // 允许0.1秒的突发
-    tb->tokens = tb->capacity;
+    tb->capacity = rate_bps;
+    tb->tokens = rate_bps;
     tb->last_ts.tv_sec = 0;
     tb->last_ts.tv_usec = 0;
 }
@@ -30,7 +30,7 @@ bool token_bucket_consume(token_bucket_t *tb, size_t bytes, struct timeval ts)
         if (elapsed > 1)
             // 防止 elapsed * tb->rate_bps 乘法溢出
             tb->tokens += tb->rate_bps;
-        else
+        else if (elapsed > 0)
             tb->tokens += (uint64_t)(elapsed * tb->rate_bps);
 
         if (tb->tokens > tb->capacity)

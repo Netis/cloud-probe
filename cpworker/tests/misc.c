@@ -121,8 +121,9 @@ void test_bpf_filter_replace_nic(void)
 void test_req_pattern_custom_multi_host_and_one_port(void)
 {
     req_pattern_custom_matcher_t matcher;
-    req_pattern_custom_matcher_init(&matcher, "(host 172.16.1.1 or host 172.16.1.2) and port 8011",
-                                    mock_get_if_ip_addr);
+    int ret = req_pattern_custom_matcher_init(&matcher, "(host 172.16.1.1 or host 172.16.1.2) and port 8011",
+                                              mock_get_if_ip_addr);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     ip_addr_t ip1;
     ip1.type = IP_TYPE_IPv4;
@@ -148,7 +149,9 @@ void test_req_pattern_custom_multi_host_and_one_port(void)
 void test_req_pattern_custom_one_host_and_multi_port(void)
 {
     req_pattern_custom_matcher_t matcher;
-    req_pattern_custom_matcher_init(&matcher, "host 172.16.1.1 and (port 8011 or port 8012)", mock_get_if_ip_addr);
+    int ret =
+        req_pattern_custom_matcher_init(&matcher, "host 172.16.1.1 and (port 8011 or port 8012)", mock_get_if_ip_addr);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     ip_addr_t ip1;
     ip1.type = IP_TYPE_IPv4;
@@ -170,8 +173,9 @@ void test_req_pattern_custom_one_host_and_multi_port(void)
 void test_req_pattern_custom_multi_host_and_multi_port(void)
 {
     req_pattern_custom_matcher_t matcher;
-    req_pattern_custom_matcher_init(&matcher, "(host 172.16.1.1 or host 172.16.1.2) and port 8011",
-                                    mock_get_if_ip_addr);
+    int ret = req_pattern_custom_matcher_init(&matcher, "(host 172.16.1.1 or host 172.16.1.2) and port 8011",
+                                              mock_get_if_ip_addr);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     ip_addr_t ip1;
     ip1.type = IP_TYPE_IPv4;
@@ -197,7 +201,8 @@ void test_req_pattern_custom_multi_host_and_multi_port(void)
 void test_req_pattern_custom_host_ifname(void)
 {
     req_pattern_custom_matcher_t matcher;
-    req_pattern_custom_matcher_init(&matcher, " host nic.eth0 and port 8011", mock_get_if_ip_addr);
+    int ret = req_pattern_custom_matcher_init(&matcher, " host nic.eth0 and port 8011", mock_get_if_ip_addr);
+    TEST_ASSERT_EQUAL_INT(0, ret);
 
     ip_addr_t ip1;
     ip1.type = IP_TYPE_IPv4;
@@ -213,6 +218,14 @@ void test_req_pattern_custom_host_ifname(void)
     TEST_ASSERT_FALSE(req_pattern_custom_match_by_ipport(&matcher, &ip2, 8012));
 
     req_pattern_custom_matcher_destroy(&matcher);
+}
+
+void test_req_pattern_invalid(void)
+{
+    req_pattern_custom_matcher_t matcher;
+    int ret = req_pattern_custom_matcher_init(&matcher, "not host nic.eth0", mock_get_if_ip_addr);
+
+    TEST_ASSERT_EQUAL_INT(-1, ret);
 }
 
 int main(void)
@@ -231,6 +244,8 @@ int main(void)
     RUN_TEST(test_req_pattern_custom_multi_host_and_one_port);
     RUN_TEST(test_req_pattern_custom_one_host_and_multi_port);
     RUN_TEST(test_req_pattern_custom_multi_host_and_multi_port);
+    RUN_TEST(test_req_pattern_custom_host_ifname);
+    RUN_TEST(test_req_pattern_invalid);
 
     return UNITY_END();
 }
