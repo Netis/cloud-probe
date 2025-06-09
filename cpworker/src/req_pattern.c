@@ -341,6 +341,9 @@ static bool evaluate(Node *node, const ip_addr_t *ip, uint16_t port)
 #define IPPORT_FLAGS_IP 0x01
 #define IPPORT_FLAGS_PORT 0x02
 
+static int extract_ipport_from_vlan_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
+                                          int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
+                                          uint16_t *dport);
 static int extract_ipport_from_ipv4_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
                                           int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
                                           uint16_t *dport);
@@ -368,7 +371,7 @@ static int extract_ipport_from_ether_layer(const struct pcap_pkthdr *header, con
     struct ether_header *eth_hdr = (struct ether_header *)(pkt_data + data_offset);
     uint16_t eth_type = ntohs(eth_hdr->ether_type);
 
-    size_t ip_hdr_offset = data_offset + eth_hdr_len;
+    size_t next_data_offset = data_offset + eth_hdr_len;
     if (eth_type == ETHERTYPE_VLAN)
     {
         if (header->caplen < data_offset + eth_hdr_len + sizeof(struct vlan_header))
@@ -376,13 +379,37 @@ static int extract_ipport_from_ether_layer(const struct pcap_pkthdr *header, con
 
         struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + data_offset + eth_hdr_len);
         eth_type = ntohs(vlan_hdr->ether_type);
-        ip_hdr_offset += sizeof(struct vlan_header);
+        next_data_offset += sizeof(struct vlan_header);
     }
 
     if (eth_type == ETHERTYPE_IP)
-        return extract_ipport_from_ipv4_layer(header, pkt_data, ip_hdr_offset, encap_level, sip, sport, dip, dport);
+        return extract_ipport_from_ipv4_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
     else if (eth_type == ETHERTYPE_IPV6)
-        return extract_ipport_from_ipv6_layer(header, pkt_data, ip_hdr_offset, encap_level, sip, sport, dip, dport);
+        return extract_ipport_from_ipv6_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+    else if (eth_type == ETHERTYPE_VLAN)
+        return extract_ipport_from_vlan_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+
+    return 0;
+}
+
+static int extract_ipport_from_vlan_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
+                                          int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
+                                          uint16_t *dport)
+{
+    size_t vlan_hdr_len = sizeof(struct vlan_header);
+    if (header->caplen < data_offset + vlan_hdr_len)
+        return 0;
+
+    struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + data_offset);
+    uint16_t eth_type = ntohs(vlan_hdr->ether_type);
+    size_t next_data_offset = data_offset + vlan_hdr_len;
+
+    if (eth_type == ETHERTYPE_IP)
+        return extract_ipport_from_ipv4_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+    else if (eth_type == ETHERTYPE_IPV6)
+        return extract_ipport_from_ipv6_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+    else if (eth_type == ETHERTYPE_VLAN)
+        return extract_ipport_from_vlan_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
 
     return 0;
 }
@@ -478,7 +505,7 @@ static int extract_ipport_from_udp_layer(const struct pcap_pkthdr *header, const
     flags |= IPPORT_FLAGS_PORT;
 
     // check vxlan
-    if (udp_hdr->dest >= 4700 && udp_hdr->dest < 4800)
+    if (*dport >= 4700 && *dport < 4800)
     {
         // Determine the port range of VXLAN: UDP 4700-4799
         // see: VTAP-108

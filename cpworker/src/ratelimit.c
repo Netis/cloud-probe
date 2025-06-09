@@ -27,7 +27,7 @@ bool token_bucket_consume(token_bucket_t *tb, size_t bytes, struct timeval ts)
     if (tb->last_ts.tv_sec > 0)
     {
         double elapsed = timeval_diff(&ts, &tb->last_ts);
-        if (elapsed > 1)
+        if (elapsed >= 1)
             // 防止 elapsed * tb->rate_bps 乘法溢出
             tb->tokens += tb->rate_bps;
         else if (elapsed > 0)
