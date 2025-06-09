@@ -1,44 +1,50 @@
 #include <ratelimit.h>
 
-static double timespec_diff(const struct timespec *a, const struct timespec *b)
+static double timeval_diff(const struct timeval *a, const struct timeval *b)
 {
     long sec = a->tv_sec - b->tv_sec;
-    long nsec = a->tv_nsec - b->tv_nsec;
-    if (nsec < 0)
+    long usec = a->tv_usec - b->tv_usec;
+    if (usec < 0)
     {
         sec -= 1;
-        nsec += 1e9;
+        usec += 1e6;
     }
-    return (double)sec + (double)nsec / 1e9;
+    return (double)sec + (double)usec / 1e6;
 }
 
 void token_bucket_init(token_bucket_t *tb, uint64_t rate_bps)
 {
     tb->rate_bps = rate_bps;
-    tb->capacity = rate_bps;
-    tb->tokens = rate_bps;
-    clock_gettime(CLOCK_MONOTONIC, &tb->last_update);
+    tb->capacity = rate_bps / 10; // 允许0.1秒的突发
+    tb->tokens = tb->capacity;
+    tb->last_ts.tv_sec = 0;
+    tb->last_ts.tv_usec = 0;
 }
 
-int token_bucket_consume(token_bucket_t *tb, size_t bytes)
+bool token_bucket_consume(token_bucket_t *tb, size_t bytes, struct timeval ts)
 {
+    // 判断是否为第一次调用
+    if (tb->last_ts.tv_sec > 0)
+    {
+        double elapsed = timeval_diff(&ts, &tb->last_ts);
+        if (elapsed > 1)
+            // 防止 elapsed * tb->rate_bps 乘法溢出
+            tb->tokens += tb->rate_bps;
+        else
+            tb->tokens += (uint64_t)(elapsed * tb->rate_bps);
+
+        if (tb->tokens > tb->capacity)
+            tb->tokens = tb->capacity;
+    }
+
+    tb->last_ts = ts;
+
     uint64_t required = bytes * 8;
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-
-    double elapsed = timespec_diff(&now, &tb->last_update);
-    uint64_t new_tokens = (uint64_t)(elapsed * tb->rate_bps);
-    tb->tokens += new_tokens;
-    if (tb->tokens > tb->capacity)
-        tb->tokens = tb->capacity;
-
-    tb->last_update = now;
-
     if (tb->tokens >= required)
     {
         tb->tokens -= required;
-        return 0;
+        return true;
     }
 
-    return -1;
+    return false;
 }

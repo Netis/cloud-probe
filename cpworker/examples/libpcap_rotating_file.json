@@ -17,7 +17,7 @@
                     "type": "rotating_file",
                     "rate_limit_mbps": 10,
                     "rotating_file": {
-                        "file_root": "tmp/rotating_file",
+                        "file_root": "rotating_file",
                         "max_file_interval": 5
                     }
                 }

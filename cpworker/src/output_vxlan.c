@@ -113,7 +113,7 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
 
     if (output->rate_limit_mbps > 0)
     {
-        if (token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length) != 0)
+        if (!token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length, header->ts))
         {
             bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
             packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);

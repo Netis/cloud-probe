@@ -133,11 +133,10 @@ void task_handle_packet_cb(const struct pcap_pkthdr *header, const uint8_t *pkt_
 void task_heartbeat_cb(void *user)
 {
     capture_task_t *task = (capture_task_t *)user;
-    struct timespec tm;
-    clock_gettime(CLOCK_MONOTONIC, &tm);
+    time_t now = time(NULL);
     for (int i = 0; i < task->num_outputs; ++i)
     {
-        output_heartbeat(task->outputs[i], tm.tv_sec, tm.tv_nsec);
+        output_heartbeat(task->outputs[i], now);
     }
 }
 

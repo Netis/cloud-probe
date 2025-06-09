@@ -149,7 +149,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (output->rate_limit_mbps > 0)
     {
-        if (token_bucket_consume(&output->throttle, length) != 0)
+        if (!token_bucket_consume(&output->throttle, length, header->ts))
         {
             bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, length);
             packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
@@ -236,12 +236,12 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     return 0;
 }
 
-void zmq_heartbeat(output_base_t *self, uint64_t now_sec, uint64_t now_nsec)
+void zmq_heartbeat(output_base_t *self, time_t now)
 {
     zmq_output_t *output = (zmq_output_t *)self;
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
     if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
-        now_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
+        now > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
     {
         zmq_flush_packet(output);
     }

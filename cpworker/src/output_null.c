@@ -25,7 +25,7 @@ int null_send_packet(output_base_t *self, const struct pcap_pkthdr *header, cons
 
     if (output->rate_limit_mbps > 0)
     {
-        if (token_bucket_consume(&output->throttle, length) != 0)
+        if (!token_bucket_consume(&output->throttle, length, header->ts))
         {
             bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, length);
             packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);

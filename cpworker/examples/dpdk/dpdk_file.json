@@ -14,7 +14,7 @@
                     "type": "file",
                     "rate_limit_mbps": 10,
                     "file": {
-                        "name": "tmp/test_dpdk.pcap"
+                        "name": "test_dpdk.pcap"
                     }
                 }
             ]

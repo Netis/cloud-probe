@@ -17,7 +17,7 @@
                     "type": "gre",
                     "rate_limit_mbps": 10,
                     "gre": {
-                        "host": "172.16.1.201",
+                        "host": "2.2.2.2",
                         "bind_device": "eth1"
                     }
                 }

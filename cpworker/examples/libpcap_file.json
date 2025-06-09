@@ -17,7 +17,7 @@
                     "type": "file",
                     "rate_limit_mbps": 10,
                     "file": {
-                        "name": "tmp/test_libpcap.pcap"
+                        "name": "test_libpcap.pcap"
                     }
                 }
             ]

@@ -538,6 +538,12 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 	if err != nil {
 		s.lg.Error("check worker alive failed", slogx.Error(err))
 	}
+	if !isAlive {
+		// 表示当前捕获状态为: 未捕获
+		// 无法单独上报同步日志，因为仅上报日志也会导致捕获状态设置为: 捕获中
+		return
+	}
+
 	pid := s.workerMgr.Pid()
 	buffSizePerTask := s.workerMgr.BuffSizePerTask()
 
@@ -548,67 +554,14 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 	}
 
 	workerBegin := time.Now()
-	if isAlive {
-		startTime := s.workerMgr.StartTime()
-		metrics.StartTime = startTime.Unix()
-
-		err = func() error {
-			stats, err := s.workerMgr.CollectStatsSummary(ctx)
-			if err != nil {
-				return err
-			}
-
-			// WARN: 存在溢出问题，需要CPM端配合处理
-			metrics.CapBytes += stats.Capture.CapBytes.Bytes
-			metrics.CapPackets += stats.Capture.CapPackets.Packets
-			metrics.CapDrop += stats.Capture.DropPackets.Packets
-			metrics.FwdBytes += stats.Output.FwdBytes.Bytes
-			metrics.FwdPackets += stats.Output.FwdPackets.Packets
-			return nil
-		}()
-		if err != nil {
-			s.lg.Error("collect cpworker stats error", slogx.Error(err))
-		}
+	if err := s.collectTaskStats(ctx, &metrics); err != nil {
+		s.lg.Error("collect cpworker stats error", slogx.Error(err))
 	}
 	durStats.worker = time.Since(workerBegin)
 
 	systemBegin := time.Now()
-	if isAlive {
-		err = func() error {
-			p, err := process.NewProcess(int32(pid))
-			if err != nil {
-				return errors.Wrapf(err, "new process")
-			}
-
-			cpuPercent, err := p.CPUPercentWithContext(ctx)
-			if err != nil {
-				return errors.Wrapf(err, "get cpu percent")
-			}
-			cpuCnt, err := cpu.Counts(true)
-			if err != nil {
-				return errors.Wrapf(err, "get cpu count")
-			}
-			metrics.CpuLoad = cpuPercent / 100
-			metrics.CpuLoadRate = metrics.CpuLoad / float64(cpuCnt)
-
-			processMemory, err := p.MemoryInfoWithContext(ctx)
-			if err != nil {
-				return errors.Wrapf(err, "get process memory")
-			}
-
-			machineMemory, err := mem.VirtualMemoryWithContext(ctx)
-			if err != nil {
-				return errors.Wrapf(err, "get machine memory")
-			}
-
-			metrics.MemUse = processMemory.RSS
-			metrics.MemUseRate = float64(metrics.MemUse) / float64(machineMemory.Total)
-
-			return nil
-		}()
-		if err != nil {
-			s.lg.Error("collect system metrics failed", slogx.Error(err))
-		}
+	if err := s.collectSysStats(ctx, int32(pid), &metrics); err != nil {
+		s.lg.Error("collect system metrics failed", slogx.Error(err))
 	}
 	durStats.system = time.Since(systemBegin)
 
@@ -635,4 +588,54 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 		slog.String("system_dur", durStats.system.String()),
 		slog.String("sync_dur", durStats.sync.String()),
 	)
+}
+
+func (s *Syncer) collectTaskStats(ctx context.Context, metrics *MetricsEntry) error {
+	metrics.StartTime = s.workerMgr.StartTime().Unix()
+
+	stats, err := s.workerMgr.CollectStatsSummary(ctx)
+	if err != nil {
+		return err
+	}
+
+	// WARN: 存在溢出问题，需要CPM端配合处理
+	metrics.CapBytes += stats.Capture.CapBytes.Bytes
+	metrics.CapPackets += stats.Capture.CapPackets.Packets
+	metrics.CapDrop += stats.Capture.DropPackets.Packets
+	metrics.FwdBytes += stats.Output.FwdBytes.Bytes
+	metrics.FwdPackets += stats.Output.FwdPackets.Packets
+	return nil
+}
+
+func (s *Syncer) collectSysStats(ctx context.Context, pid int32, metrics *MetricsEntry) error {
+	p, err := process.NewProcess(pid)
+	if err != nil {
+		return errors.Wrapf(err, "new process")
+	}
+
+	cpuPercent, err := p.CPUPercentWithContext(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "get cpu percent")
+	}
+	cpuCnt, err := cpu.Counts(true)
+	if err != nil {
+		return errors.Wrapf(err, "get cpu count")
+	}
+	metrics.CpuLoad = cpuPercent / 100
+	metrics.CpuLoadRate = metrics.CpuLoad / float64(cpuCnt)
+
+	processMemory, err := p.MemoryInfoWithContext(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "get process memory")
+	}
+
+	machineMemory, err := mem.VirtualMemoryWithContext(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "get machine memory")
+	}
+
+	metrics.MemUse = processMemory.RSS
+	metrics.MemUseRate = float64(metrics.MemUse) / float64(machineMemory.Total)
+
+	return nil
 }

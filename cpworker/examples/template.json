@@ -4,7 +4,7 @@
     "control": {
         "type": "unix",
         "unix": {
-            "path": "/var/run/cloud-probe/cpworker.sock"
+            "path": "cpworker.sock"
         }
     },
     "tasks": [
@@ -32,7 +32,7 @@
                     "rate_limit_mbps": 10,
                     "slice": 2048,
                     "vxlan": {
-                        "host": "10.1.2.3",
+                        "host": "2.2.2.2",
                         "port": 4789,
                         "capture_time": false,
                         "vni1": 1,
@@ -41,19 +41,19 @@
                         "pmtudisc": "want"
                     },
                     "gre": {
-                        "host": "10.1.2.3",
+                        "host": "2.2.2.2",
                         "service_tag": 34,
                         "bind_device": "eth3",
                         "pmtudisc": "want"
                     },
                     "zmq": {
-                        "host": "10.1.2.3",
+                        "host": "2.2.2.2",
                         "port": 1234,
                         "hwm": 1000,
                         "service_tag": 3
                     },
                     "file": {
-                        "name": "tmp/test.pcap"
+                        "name": "test.pcap"
                     },
                     "rotating_file": {
                         "file_root": "tmp",

@@ -26,7 +26,7 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
 
     struct pcap_pkthdr *hdr;
     const u_char *data;
-    uint64_t retval;
+    uint64_t num_pkts = 0;
 
     int direction;
     int ret = pcap_next_ex(capturer->p, &hdr, &data);
@@ -41,12 +41,11 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
         bytes_stats_add(&capturer->base.stats.cap_bytes, hdr->caplen);
         packets_stats_add(&capturer->base.stats.cap_packets, 1);
         pkt_handler(hdr, data, direction, user);
-        retval = 1;
+        num_pkts = 1;
         break;
     case 0:
         // timeout
         heartbeat_handler(user);
-        retval = 0;
         break;
     default:
         if (capturer->pcap_next_error[0] == '\0')
@@ -57,14 +56,18 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
             else
                 snprintf(capturer->pcap_next_error, ERROR_BUFFER_SIZE, "pcap_next_ex error_code: %d", ret);
         }
-        retval = 0;
         break;
     }
+
+    time_t now;
+    if (ret == 1)
+        now = hdr->ts.tv_sec;
+    else
+        now = time(NULL);
 
     // drop stat
     if (!capturer->drop_stat_started)
     {
-        time_t now = time(NULL);
         struct pcap_stat stat;
         if (pcap_stats(capturer->p, &stat) == 0)
         {
@@ -74,12 +77,11 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
             capturer->drop_stat_prev_time = now;
         }
 
-        return retval;
+        return num_pkts;
     }
 
-    time_t now = time(NULL);
     if (difftime(now, capturer->drop_stat_prev_time) < DROP_STAT_DUR_SEC)
-        return retval;
+        return num_pkts;
 
     struct pcap_stat stat;
     if (pcap_stats(capturer->p, &stat) == 0)
@@ -100,7 +102,7 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
         log_error(capturer->pcap_next_error);
         capturer->pcap_next_error[0] = '\0';
     }
-    return retval;
+    return num_pkts;
 }
 
 libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)

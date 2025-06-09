@@ -17,7 +17,7 @@
                     "type": "vxlan",
                     "rate_limit_mbps": 10,
                     "vxlan": {
-                        "host": "172.16.1.201",
+                        "host": "2.2.2.2",
                         "port": 4789,
                         "capture_time": false,
                         "vni1": 1,
