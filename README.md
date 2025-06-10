@@ -37,14 +37,14 @@ Create a new configuration file, for example: `libpcap_gre.json`
     },
     "tasks": [
         {
-            "interface": "eth0",
-            "snaplen": 2048,
             "req_pattern": {
                 "type": "auto"
             },
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
+                    "interface": "eth0",
+                    "snaplen": 2048,
                     "buffer_size_mb": 256
                 }
             },

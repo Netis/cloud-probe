@@ -9,9 +9,6 @@
     },
     "tasks": [
         {
-            "interface": "eth0",
-            "snaplen": 2048,
-            "netns": "/proc/1432897/ns/net",
             "req_pattern": {
                 "type": "custom",
                 "custom": {
@@ -21,6 +18,9 @@
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
+                    "interface": "eth0",
+                    "snaplen": 2048,
+                    "netns": "/proc/1432897/ns/net",
                     "bpf": "host nic.eth0",
                     "buffer_size_mb": 256,
                     "timeout_ms": 3

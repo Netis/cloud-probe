@@ -1,11 +1,11 @@
 {
     "tasks": [
         {
-            "interface": "0000:00:08.0",
-            "snaplen": 2048,
             "capturer": {
                 "type": "dpdk_pdump",
                 "dpdk_pdump": {
+                    "interface": "0000:00:08.0",
+                    "snaplen": 2048,
                     "ring_size": 2048
                 }
             },

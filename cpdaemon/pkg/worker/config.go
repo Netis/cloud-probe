@@ -42,9 +42,6 @@ type ControlUnixConfig struct {
 }
 
 type TaskConfig struct {
-	Interface  string            `json:"interface"`
-	Snaplen    *int              `json:"snaplen,omitempty"`
-	Netns      *string           `json:"netns,omitempty"`
 	ReqPattern *ReqPatternConfig `json:"req_pattern,omitempty"`
 	Capturer   CapturerConfig    `json:"capturer"`
 	Outputs    []OutputConfig    `json:"outputs"`
@@ -65,6 +62,9 @@ type CapturerConfig struct {
 }
 
 type LibpcapConfig struct {
+	Interface    string  `json:"interface"`
+	Snaplen      *int    `json:"snaplen,omitempty"`
+	Netns        *string `json:"netns,omitempty"`
 	Bpf          *string `json:"bpf,omitempty"`
 	BufferSizeMB *uint64 `json:"buffer_size_mb,omitempty"`
 	TimeoutMs    *int    `json:"timeout_ms,omitempty"`

@@ -342,27 +342,22 @@ static bool evaluate(Node *node, const ip_addr_t *ip, uint16_t port)
 #define IPPORT_FLAGS_PORT 0x02
 
 static int extract_ipport_from_vlan_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                          int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                          uint16_t *dport);
+                                          ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport);
 static int extract_ipport_from_ipv4_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                          int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                          uint16_t *dport);
+                                          ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport);
 static int extract_ipport_from_ipv6_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                          int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                          uint16_t *dport);
+                                          ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport);
 static int extract_ipport_from_tcp_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                         int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                         uint16_t *dport);
+                                         ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport);
 static int extract_ipport_from_udp_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                         int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                         uint16_t *dport);
+                                         ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport);
 static int extract_ipport_from_maybe_vxlan_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data,
-                                                 size_t data_offset, int encap_level, ip_addr_t *sip, uint16_t *sport,
-                                                 ip_addr_t *dip, uint16_t *dport);
+                                                 size_t data_offset, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
+                                                 uint16_t *dport);
 
 static int extract_ipport_from_ether_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data,
-                                           size_t data_offset, int encap_level, ip_addr_t *sip, uint16_t *sport,
-                                           ip_addr_t *dip, uint16_t *dport)
+                                           size_t data_offset, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
+                                           uint16_t *dport)
 {
     size_t eth_hdr_len = sizeof(struct ether_header);
     if (header->caplen < data_offset + eth_hdr_len)
@@ -370,31 +365,20 @@ static int extract_ipport_from_ether_layer(const struct pcap_pkthdr *header, con
 
     struct ether_header *eth_hdr = (struct ether_header *)(pkt_data + data_offset);
     uint16_t eth_type = ntohs(eth_hdr->ether_type);
-
     size_t next_data_offset = data_offset + eth_hdr_len;
-    if (eth_type == ETHERTYPE_VLAN)
-    {
-        if (header->caplen < data_offset + eth_hdr_len + sizeof(struct vlan_header))
-            return 0;
-
-        struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + data_offset + eth_hdr_len);
-        eth_type = ntohs(vlan_hdr->ether_type);
-        next_data_offset += sizeof(struct vlan_header);
-    }
 
     if (eth_type == ETHERTYPE_IP)
-        return extract_ipport_from_ipv4_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+        return extract_ipport_from_ipv4_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
     else if (eth_type == ETHERTYPE_IPV6)
-        return extract_ipport_from_ipv6_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+        return extract_ipport_from_ipv6_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
     else if (eth_type == ETHERTYPE_VLAN)
-        return extract_ipport_from_vlan_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+        return extract_ipport_from_vlan_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
 
     return 0;
 }
 
 static int extract_ipport_from_vlan_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                          int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                          uint16_t *dport)
+                                          ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport)
 {
     size_t vlan_hdr_len = sizeof(struct vlan_header);
     if (header->caplen < data_offset + vlan_hdr_len)
@@ -405,18 +389,17 @@ static int extract_ipport_from_vlan_layer(const struct pcap_pkthdr *header, cons
     size_t next_data_offset = data_offset + vlan_hdr_len;
 
     if (eth_type == ETHERTYPE_IP)
-        return extract_ipport_from_ipv4_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+        return extract_ipport_from_ipv4_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
     else if (eth_type == ETHERTYPE_IPV6)
-        return extract_ipport_from_ipv6_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+        return extract_ipport_from_ipv6_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
     else if (eth_type == ETHERTYPE_VLAN)
-        return extract_ipport_from_vlan_layer(header, pkt_data, next_data_offset, encap_level, sip, sport, dip, dport);
+        return extract_ipport_from_vlan_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
 
     return 0;
 }
 
 static int extract_ipport_from_ipv4_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                          int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                          uint16_t *dport)
+                                          ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport)
 {
     if (header->caplen < data_offset + sizeof(struct ipv4_hdr))
         return 0;
@@ -435,20 +418,17 @@ static int extract_ipport_from_ipv4_layer(const struct pcap_pkthdr *header, cons
 
     if (ip_hdr->protocol == IPPROTO_TCP)
     {
-        flags |= extract_ipport_from_tcp_layer(header, pkt_data, data_offset + ip_hdr_len, encap_level, sip, sport, dip,
-                                               dport);
+        flags |= extract_ipport_from_tcp_layer(header, pkt_data, data_offset + ip_hdr_len, sip, sport, dip, dport);
     }
     else if (ip_hdr->protocol == IPPROTO_UDP)
     {
-        flags |= extract_ipport_from_udp_layer(header, pkt_data, data_offset + ip_hdr_len, encap_level, sip, sport, dip,
-                                               dport);
+        flags |= extract_ipport_from_udp_layer(header, pkt_data, data_offset + ip_hdr_len, sip, sport, dip, dport);
     }
     return flags;
 }
 
 static int extract_ipport_from_ipv6_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                          int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                          uint16_t *dport)
+                                          ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport)
 {
     if (header->caplen < data_offset + sizeof(struct ipv6_hdr))
         return 0;
@@ -467,20 +447,17 @@ static int extract_ipport_from_ipv6_layer(const struct pcap_pkthdr *header, cons
 
     if (ip_hdr->nexthdr == IPPROTO_TCP)
     {
-        flags |= extract_ipport_from_tcp_layer(header, pkt_data, data_offset + ip_hdr_len, encap_level, sip, sport, dip,
-                                               dport);
+        flags |= extract_ipport_from_tcp_layer(header, pkt_data, data_offset + ip_hdr_len, sip, sport, dip, dport);
     }
     else if (ip_hdr->nexthdr == IPPROTO_UDP)
     {
-        flags |= extract_ipport_from_udp_layer(header, pkt_data, data_offset + ip_hdr_len, encap_level, sip, sport, dip,
-                                               dport);
+        flags |= extract_ipport_from_udp_layer(header, pkt_data, data_offset + ip_hdr_len, sip, sport, dip, dport);
     }
     return flags;
 }
 
 static int extract_ipport_from_tcp_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                         int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                         uint16_t *dport)
+                                         ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport)
 {
     if (header->caplen < data_offset + sizeof(struct tcphdr))
         return 0;
@@ -492,8 +469,7 @@ static int extract_ipport_from_tcp_layer(const struct pcap_pkthdr *header, const
 }
 
 static int extract_ipport_from_udp_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                         int encap_level, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
-                                         uint16_t *dport)
+                                         ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport)
 {
     if (header->caplen < data_offset + sizeof(struct udphdr))
         return 0;
@@ -509,22 +485,22 @@ static int extract_ipport_from_udp_layer(const struct pcap_pkthdr *header, const
     {
         // Determine the port range of VXLAN: UDP 4700-4799
         // see: VTAP-108
-        flags |= extract_ipport_from_maybe_vxlan_layer(header, pkt_data, data_offset + sizeof(struct udphdr),
-                                                       encap_level, sip, sport, dip, dport);
+        flags |= extract_ipport_from_maybe_vxlan_layer(header, pkt_data, data_offset + sizeof(struct udphdr), sip,
+                                                       sport, dip, dport);
     }
     return flags;
 }
 
 static int extract_ipport_from_maybe_vxlan_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data,
-                                                 size_t data_offset, int encap_level, ip_addr_t *sip, uint16_t *sport,
-                                                 ip_addr_t *dip, uint16_t *dport)
+                                                 size_t data_offset, ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip,
+                                                 uint16_t *dport)
 {
     if (header->caplen <
         data_offset + sizeof(struct vxlan_header) + sizeof(struct ether_header) + sizeof(struct ipv4_hdr))
         return 0;
 
-    return extract_ipport_from_ether_layer(header, pkt_data, data_offset + sizeof(struct vxlan_header), encap_level + 1,
-                                           sip, sport, dip, dport);
+    return extract_ipport_from_ether_layer(header, pkt_data, data_offset + sizeof(struct vxlan_header), sip, sport, dip,
+                                           dport);
 }
 
 void req_pattern_destory(req_pattern_t *req_pattern)
@@ -641,7 +617,7 @@ int req_pattern_judge_pkt_direction(req_pattern_t *req_pattern, const struct pca
         uint16_t sport = 0;
         ip_addr_t dip;
         uint16_t dport = 0;
-        int flags = extract_ipport_from_ether_layer(header, pkt_data, 0, 0, &sip, &sport, &dip, &dport);
+        int flags = extract_ipport_from_ether_layer(header, pkt_data, 0, &sip, &sport, &dip, &dport);
         if (flags & IPPORT_FLAGS_IP)
         {
             if (req_pattern_custom_match_by_ipport(&req_pattern->matcher.custom, &sip, sport))

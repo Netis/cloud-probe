@@ -23,11 +23,11 @@ func TestWorker(t *testing.T) {
 		},
 		Tasks: []TaskConfig{
 			{
-				Interface: "eth0",
-				Snaplen:   lo.ToPtr(65535),
 				Capturer: CapturerConfig{
 					Type: "libpcap",
 					Libpcap: &LibpcapConfig{
+						Interface:    "eth0",
+						Snaplen:      lo.ToPtr(65535),
 						BufferSizeMB: lo.ToPtr[uint64](256),
 						TimeoutMs:    lo.ToPtr(0),
 					},

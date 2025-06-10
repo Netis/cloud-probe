@@ -37,14 +37,14 @@ https://lartc.org/howto/lartc.tunnel.gre.html 提供验证是否允许向目标�
     },
     "tasks": [
         {
-            "interface": "eth0",
-            "snaplen": 2048,
             "req_pattern": {
                 "type": "auto"
             },
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
+                    "interface": "eth0",
+                    "snaplen": 2048,
                     "buffer_size_mb": 256
                 }
             },

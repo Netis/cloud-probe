@@ -249,16 +249,17 @@ capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf
     }
 
     libpcap_options_t opts = {
-        .interface = task_cfg->interface,
-        .snaplen = task_cfg->snaplen,
+        .interface = task_cfg->capturer.config.libpcap.interface,
+        .snaplen = task_cfg->capturer.config.libpcap.snaplen,
         .timeout_ms = task_cfg->capturer.config.libpcap.timeout_ms,
         .promisc = 0,
         .buffer_size = buffer_size,
         .bpf_filter = bpf_filter,
-        .netns = task_cfg->netns,
+        .netns = task_cfg->capturer.config.libpcap.netns,
         .req_pattern = task_cfg->req_pattern,
     };
-    log_info("libpcap options: interface=%s, snaplen=%d, timeout_ms=%d, buffer_size=%d, bpf_filter='%s', netns='%s'",
+    log_info("libpcap capturer options: interface=%s, snaplen=%d, timeout_ms=%d, buffer_size=%d, bpf_filter='%s', "
+             "netns='%s'",
              opts.interface, opts.snaplen, opts.timeout_ms, opts.buffer_size, opts.bpf_filter, opts.netns);
 
     capturer_base_t *capturer = (capturer_base_t *)libpcap_capturer_new(opts, errbuf);

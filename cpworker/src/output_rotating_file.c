@@ -183,7 +183,7 @@ output_base_t *rotating_file_output_new_from_cfg(TaskConfig *task_cfg, OutputCon
     rotating_file_options_t opts = {
         .file_root = output_cfg->config.rotating_file.file_root,
         .max_file_interval = output_cfg->config.rotating_file.max_file_interval,
-        .snaplen = task_cfg->snaplen,
+        .snaplen = task_capturer_snaplen(task_cfg),
         .slice = output_cfg->slice,
     };
     log_info("rotating_file output options: file_root=%s, max_file_interval=%d, snaplen=%d, slice=%d", opts.file_root,

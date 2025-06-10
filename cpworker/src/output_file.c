@@ -78,7 +78,7 @@ output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outp
 {
     file_options_t opts = {
         .name = output_cfg->config.file.name,
-        .snaplen = task_cfg->snaplen,
+        .snaplen = task_capturer_snaplen(task_cfg),
         .slice = output_cfg->slice,
     };
     log_info("file output options: name=%s, snaplen=%d, slice=%d", opts.name, opts.snaplen, output_cfg->slice);

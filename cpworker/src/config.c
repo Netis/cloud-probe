@@ -88,10 +88,18 @@ static void free_task(TaskConfig *task)
     {
         if (strcmp(task->capturer.type, CAPTURER_TYPE_LIBPCAP) == 0)
         {
+            free(task->capturer.config.libpcap.interface);
             free(task->capturer.config.libpcap.bpf_filter);
+            free(task->capturer.config.libpcap.netns);
+        }
+        else if (strcmp(task->capturer.type, CAPTURER_TYPE_PCAP_FILE) == 0)
+        {
+            free(task->capturer.config.pcap_file.file_name);
+            free(task->capturer.config.pcap_file.bpf_filter);
         }
         else if (strcmp(task->capturer.type, CAPTURER_TYPE_DPDK_PDUMP) == 0)
         {
+            free(task->capturer.config.dpdk_pdump.interface);
             free(task->capturer.config.dpdk_pdump.bpf_filter);
         }
     }
@@ -105,9 +113,6 @@ static void free_task(TaskConfig *task)
     // free req_pattern
     req_pattern_destory(&task->req_pattern);
 
-    // free commons
-    free(task->interface);
-    free(task->netns);
     free(task);
 }
 
@@ -160,6 +165,51 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             return PARSE_ERROR;
         }
 
+        // interface
+        cJSON *interface = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "interface");
+        if (!cJSON_IsString(interface))
+        {
+            cjson_set_parse_error(err, "missing or invalid libpcap.interface");
+            return PARSE_ERROR;
+        }
+        capturer->config.libpcap.interface = strdup(interface->valuestring);
+        if (!capturer->config.libpcap.interface)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
+
+        // netns
+        cJSON *netns = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "netns");
+        if (!netns)
+            capturer->config.libpcap.netns = strdup("");
+        else if (cJSON_IsString(netns))
+        {
+            capturer->config.libpcap.netns = strdup(netns->valuestring);
+            if (!capturer->config.libpcap.netns)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
+        else
+        {
+            cjson_set_parse_error(err, "invalid netns");
+            return PARSE_ERROR;
+        }
+
+        // snaplen
+        cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "snaplen");
+        if (!snaplen)
+            capturer->config.libpcap.snaplen = 2048;
+        else if (cJSON_IsNumber(snaplen))
+            capturer->config.libpcap.snaplen = snaplen->valueint;
+        else
+        {
+            cjson_set_parse_error(err, "invalid libpcap.snaplen");
+            return PARSE_ERROR;
+        }
+
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "bpf");
         if (!bpf_filter)
@@ -203,12 +253,92 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             return PARSE_ERROR;
         }
     }
+    else if (strcmp(capturer->type, CAPTURER_TYPE_PCAP_FILE) == 0)
+    {
+        cJSON *pcap_file_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_TYPE_PCAP_FILE);
+        if (!pcap_file_obj)
+        {
+            cjson_set_parse_error(err, "missing pcap_file config");
+            return PARSE_ERROR;
+        }
+
+        // file_name
+        cJSON *file_name = cJSON_GetObjectItemCaseSensitive(pcap_file_obj, "file_name");
+        if (!cJSON_IsString(file_name))
+        {
+            cjson_set_parse_error(err, "missing or invalid pcap_file.file_name");
+            return PARSE_ERROR;
+        }
+        capturer->config.pcap_file.file_name = strdup(file_name->valuestring);
+        if (!capturer->config.pcap_file.file_name)
+        {
+            cjson_set_parse_error(err, "Memory allocation failed");
+            return PARSE_ERROR;
+        }
+
+        // snaplen
+        cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(pcap_file_obj, "snaplen");
+        if (!snaplen)
+            capturer->config.pcap_file.snaplen = 2048;
+        else if (cJSON_IsNumber(snaplen))
+            capturer->config.pcap_file.snaplen = snaplen->valueint;
+        else
+        {
+            cjson_set_parse_error(err, "invalid pcap_file.snaplen");
+            return PARSE_ERROR;
+        }
+
+        // BPF Filter
+        cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(pcap_file_obj, "bpf");
+        if (!bpf_filter)
+            capturer->config.pcap_file.bpf_filter = strdup("");
+        else if (cJSON_IsString(bpf_filter))
+        {
+            capturer->config.pcap_file.bpf_filter = strdup(bpf_filter->valuestring);
+            if (!capturer->config.pcap_file.bpf_filter)
+            {
+                cjson_set_parse_error(err, "Memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
+        else
+        {
+            cjson_set_parse_error(err, "invalid pcap_file.bpf");
+            return PARSE_ERROR;
+        }
+    }
     else if (strcmp(capturer->type, CAPTURER_TYPE_DPDK_PDUMP) == 0)
     {
         cJSON *dpdk_obj = cJSON_GetObjectItemCaseSensitive(engine_obj, CAPTURER_TYPE_DPDK_PDUMP);
         if (!dpdk_obj)
         {
             cjson_set_parse_error(err, "missing dpdk_pdump config");
+            return PARSE_ERROR;
+        }
+
+        // interface
+        cJSON *interface = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "interface");
+        if (!cJSON_IsString(interface))
+        {
+            cjson_set_parse_error(err, "missing or invalid dpdk_pdump.interface");
+            return PARSE_ERROR;
+        }
+        capturer->config.dpdk_pdump.interface = strdup(interface->valuestring);
+        if (!capturer->config.dpdk_pdump.interface)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
+
+        // snaplen
+        cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "snaplen");
+        if (!snaplen)
+            capturer->config.dpdk_pdump.snaplen = 2048;
+        else if (cJSON_IsNumber(snaplen))
+            capturer->config.dpdk_pdump.snaplen = snaplen->valueint;
+        else
+        {
+            cjson_set_parse_error(err, "invalid dpdk_pdump.snaplen");
             return PARSE_ERROR;
         }
 
@@ -661,50 +791,6 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
 
 static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError *err)
 {
-    // Parse interface
-    cJSON *interface = cJSON_GetObjectItemCaseSensitive(task_obj, "interface");
-    if (!cJSON_IsString(interface))
-    {
-        cjson_set_parse_error(err, "missing or invalid interface");
-        return PARSE_ERROR;
-    }
-    task->interface = strdup(interface->valuestring);
-    if (!task->interface)
-    {
-        cjson_set_parse_error(err, "memory allocation failed");
-        return PARSE_ERROR;
-    }
-
-    cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(task_obj, "snaplen");
-    if (!snaplen)
-        task->snaplen = 2048;
-    else if (cJSON_IsNumber(snaplen))
-        task->snaplen = snaplen->valueint;
-    else
-    {
-        cjson_set_parse_error(err, "invalid snaplen");
-        return PARSE_ERROR;
-    }
-
-    // Parse netns
-    cJSON *netns = cJSON_GetObjectItemCaseSensitive(task_obj, "netns");
-    if (!netns)
-        task->netns = strdup("");
-    else if (cJSON_IsString(netns))
-    {
-        task->netns = strdup(netns->valuestring);
-        if (!task->netns)
-        {
-            cjson_set_parse_error(err, "memory allocation failed");
-            return PARSE_ERROR;
-        }
-    }
-    else
-    {
-        cjson_set_parse_error(err, "invalid netns");
-        return PARSE_ERROR;
-    }
-
     // Parse req_pattern
     cJSON *req_pattern = cJSON_GetObjectItemCaseSensitive(task_obj, "req_pattern");
     if (!req_pattern)
@@ -1108,4 +1194,16 @@ char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg
     }
     *out_ptr = '\0';
     return output;
+}
+
+int task_capturer_snaplen(TaskConfig *task)
+{
+    if (strcmp(task->capturer.type, CAPTURER_TYPE_LIBPCAP) == 0)
+        return task->capturer.config.libpcap.snaplen;
+    else if (strcmp(task->capturer.type, CAPTURER_TYPE_PCAP_FILE) == 0)
+        return task->capturer.config.pcap_file.snaplen;
+    else if (strcmp(task->capturer.type, CAPTURER_TYPE_DPDK_PDUMP) == 0)
+        return task->capturer.config.dpdk_pdump.snaplen;
+
+    return -1;
 }

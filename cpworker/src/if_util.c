@@ -79,7 +79,7 @@ int get_if_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
 
     if (!found)
     {
-        error_format(errbuf, "Failed to find MAC address for interface %s", ifname);
+        error_format(errbuf, "Failed to find MAC address for interface '%s'", ifname);
         return -1;
     }
 

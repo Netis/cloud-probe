@@ -14,6 +14,7 @@
 #include "output_rotating_file.h"
 #include "output_vxlan.h"
 #include "output_zmq.h"
+#include "pcap_file.h"
 #include "queue.h"
 #include "stats.h"
 #include "task.h"
@@ -24,6 +25,7 @@
 
 static capturer_entry_t capturer_entries[] = {
     {CAPTURER_TYPE_LIBPCAP, libpcap_capture_new_from_cfg},
+    {CAPTURER_TYPE_PCAP_FILE, pcap_file_capture_new_from_cfg},
 #ifdef ENABLE_DPDK
     {CAPTURER_TYPE_DPDK_PDUMP, dpdk_capture_new_from_cfg},
 #endif

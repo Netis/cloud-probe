@@ -161,7 +161,7 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 			return nil, errors.Wrapf(err, "parse startup failed: %s", *strategy.Startup)
 		}
 		if startupArgs.Snaplen != nil {
-			task.Snaplen = lo.ToPtr(*startupArgs.Snaplen)
+			task.Capturer.Libpcap.Snaplen = lo.ToPtr(*startupArgs.Snaplen)
 		}
 		if startupArgs.Timeout != nil {
 			task.Capturer.Libpcap.TimeoutMs = lo.ToPtr(int(*startupArgs.Timeout))
@@ -288,9 +288,9 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 	}
 
 	task.Outputs = append(task.Outputs, output)
-	task.Interface = item.nicName
+	task.Capturer.Libpcap.Interface = item.nicName
 	if item.netns != "" {
-		task.Netns = lo.ToPtr(item.netns)
+		task.Capturer.Libpcap.Netns = lo.ToPtr(item.netns)
 	}
 	return &task, nil
 }

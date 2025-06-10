@@ -16,16 +16,16 @@ void setUp(void) {}
 void tearDown(void) {}
 
 const char *config_libpcap_gre =
-    "{\"tasks\": [{\"interface\": \"eth0\", \"snaplen\": 2048, \"req_pattern\": {\"type\": \"auto\"}, \"capturer\": "
-    "{\"type\": \"libpcap\", \"libpcap\": {\"buffer_size_mb\": 256}}, \"outputs\": [{\"type\": \"gre\", "
+    "{\"tasks\": [{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, \"outputs\": [{\"type\": \"gre\", "
     "\"rate_limit_mbps\": 10, \"gre\": {\"host\": \"172.16.1.201\", \"bind_device\": \"eth1\"}}]}]}";
 
 const char *config_libpcap_gre_vxlan =
-    "{\"tasks\": [{\"interface\": \"eth0\", \"snaplen\": 2048, \"req_pattern\": {\"type\": \"auto\"}, \"capturer\": "
-    "{\"type\": \"libpcap\", \"libpcap\": {\"buffer_size_mb\": 256}}, \"outputs\": [{\"type\": \"gre\", "
-    "\"rate_limit_mbps\": 10, \"gre\": {\"host\": \"172.16.1.201\", \"bind_device\": \"eth1\"}}, {\"type\": \"vxlan\", "
-    "\"rate_limit_mbps\": 10, \"vxlan\": {\"host\": \"172.16.1.202\", \"port\": 4789, \"vni1\": 2147483648, "
-    "\"bind_device\": \"eth1\"}}]}]}";
+    "{\"tasks\": [{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, "
+    "\"outputs\": [{\"type\": \"gre\", \"rate_limit_mbps\": 10, \"gre\": {\"host\": \"172.16.1.201\", \"bind_device\": "
+    "\"eth1\"}}, {\"type\": \"vxlan\", \"rate_limit_mbps\": 10, \"vxlan\": {\"host\": \"172.16.1.202\", \"port\": "
+    "4789, \"vni1\": 2147483648, \"bind_device\": \"eth1\"}}]}]}";
 
 void test_parse_config_data_for_libpcap_gre_vxlan(void)
 {

@@ -8,6 +8,7 @@
 
 #define CAPTURER_TYPE_DPDK_PDUMP "dpdk_pdump"
 #define CAPTURER_TYPE_LIBPCAP "libpcap"
+#define CAPTURER_TYPE_PCAP_FILE "pcap_file"
 
 #define REQ_PATTERN_TYPE_AUTO_STR "auto"
 #define REQ_PATTERN_TYPE_CUSTOM_STR "custom"
@@ -83,6 +84,9 @@ typedef struct
     {
         struct
         {
+            char *interface;
+            int snaplen;
+            char *netns;
             char *bpf_filter;
             int buffer_size_mb;
             int timeout_ms;
@@ -90,6 +94,15 @@ typedef struct
 
         struct
         {
+            char *file_name;
+            int snaplen;
+            char *bpf_filter;
+        } pcap_file;
+
+        struct
+        {
+            char *interface;
+            int snaplen;
             char *bpf_filter;
             int ring_size;
         } dpdk_pdump;
@@ -107,12 +120,7 @@ typedef struct
 
 typedef struct
 {
-    char *interface;
-    int snaplen;
-    char *netns;
-
     ReqPatternConfig req_pattern;
-
     CapturerConfig capturer;
 
     OutputConfig **outputs;
@@ -153,5 +161,6 @@ Config *parse_config_data(const char *json_str, cJSONParseError *err);
 void free_config(Config *config);
 
 char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg, char *errbuf);
+int task_capturer_snaplen(TaskConfig *task_cfg);
 
 #endif /* CPWORKER_CONFIG_H */

@@ -55,11 +55,11 @@ func Test_workerTasksBuilder_1(t *testing.T) {
 	assert.Len(t, tb.warnings, 0)
 	assert.Equal(t, []worker.TaskConfig{
 		{
-			Interface: "eth0",
-			Snaplen:   lo.ToPtr(65535),
 			Capturer: worker.CapturerConfig{
 				Type: "libpcap",
 				Libpcap: &worker.LibpcapConfig{
+					Interface:    "eth0",
+					Snaplen:      lo.ToPtr(65535),
 					BufferSizeMB: lo.ToPtr[uint64](256),
 					TimeoutMs:    lo.ToPtr(0),
 				},
@@ -94,8 +94,6 @@ func Test_workerTasksBuilder_2(t *testing.T) {
 	assert.Len(t, tb.warnings, 0)
 	assert.Equal(t, []worker.TaskConfig{
 		{
-			Interface: "eth0",
-			Snaplen:   lo.ToPtr(65535),
 			ReqPattern: &worker.ReqPatternConfig{
 				Type: "custom",
 				Custom: &worker.CustomReqPatternConfig{
@@ -105,6 +103,8 @@ func Test_workerTasksBuilder_2(t *testing.T) {
 			Capturer: worker.CapturerConfig{
 				Type: "libpcap",
 				Libpcap: &worker.LibpcapConfig{
+					Interface:    "eth0",
+					Snaplen:      lo.ToPtr(65535),
 					Bpf:          lo.ToPtr("host 10.1.1.1"),
 					BufferSizeMB: lo.ToPtr[uint64](256),
 					TimeoutMs:    lo.ToPtr(0),

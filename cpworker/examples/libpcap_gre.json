@@ -1,14 +1,14 @@
 {
     "tasks": [
         {
-            "interface": "eth0",
-            "snaplen": 2048,
             "req_pattern": {
                 "type": "auto"
             },
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
+                    "interface": "eth0",
+                    "snaplen": 2048,
                     "buffer_size_mb": 256
                 }
             },

@@ -16,9 +16,6 @@ cpworker is a network packet capture tool built on libpcap, supporting multiple 
     },
     "tasks": [
         {
-            "interface": "eth0",
-            "snaplen": 2048,
-            "netns": "/proc/1432897/ns/net",
             "req_pattern": {
                 "type": "custom",
                 "custom": {
@@ -28,6 +25,9 @@ cpworker is a network packet capture tool built on libpcap, supporting multiple 
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
+                    "interface": "eth0",
+                    "snaplen": 2048,
+                    "netns": "/proc/1432897/ns/net",
                     "bpf": "host nic.eth0",
                     "buffer_size_mb": 256,
                     "timeout_ms": 3
@@ -88,9 +88,6 @@ For more configuration examples, see: [examples](../cpworker/examples)
 ## Task Parameters
 | Parameter                     | Type     | Default | Description |
 |-------------------------------|----------|---------|-------------|
-| interface                     | string   | -       | Capture NIC name (required) |
-| snaplen                       | int      | 2048    | Packet truncation length |
-| netns                         | string   | -       | Network namespace of the NIC |
 | req_pattern                   | object   | -       | Packet direction detection |
 | req_pattern.type              | string   | -       | Direction mode (auto/custom). NONCHECK if unconfigured |
 | req_pattern.custom.pattern    | string   | -       | Pattern where `nic.eth0` will be replaced with eth0's IP |
@@ -100,6 +97,9 @@ For more configuration examples, see: [examples](../cpworker/examples)
 ## capturer.libpcap Parameters
 | Parameter        | Type     | Default | Description |
 |------------------|----------|---------|-------------|
+| interface        | string   | -       | Capture NIC name (required) |
+| snaplen          | int      | 2048    | Packet truncation length |
+| netns            | string   | -       | Network namespace of the NIC |
 | bpf              | string   | -       | BPF filter |
 | buffer_size_mb   | int      | -       | Buffer size (MB) |
 | timeout_ms       | int      | -       | Timeout (milliseconds) |

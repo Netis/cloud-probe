@@ -378,10 +378,9 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
 
 capturer_base_t *dpdk_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf)
 {
-
     dpdk_pdump_options_t opts = {
-        .interface = task_cfg->interface,
-        .snaplen = task_cfg->snaplen,
+        .interface = task_cfg->capturer.config.dpdk_pdump.interface,
+        .snaplen = task_cfg->capturer.config.dpdk_pdump.snaplen,
         .promiscuous_mode = true,
         .bpf_filter = task_cfg->capturer.config.dpdk_pdump.bpf_filter,
         .pool_name = "cpworker_capture_mbufs",

@@ -16,9 +16,6 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
     },
     "tasks": [
         {
-            "interface": "eth0",
-            "snaplen": 2048,
-            "netns": "/proc/1432897/ns/net",
             "req_pattern": {
                 "type": "custom",
                 "custom": {
@@ -28,6 +25,9 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
             "capturer": {
                 "type": "libpcap",
                 "libpcap": {
+                    "interface": "eth0",
+                    "snaplen": 2048,
+                    "netns": "/proc/1432897/ns/net",
                     "bpf": "host nic.eth0",
                     "buffer_size_mb": 256,
                     "timeout_ms": 3
@@ -89,9 +89,6 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 
 | 参数	                       | 类型    | 默认值    | 说明  |
 |-----------------------------|---------|----------|-------|
-| interface	                  | string  | -	       | 抓包网卡名称 (必填) |
-| snaplen                     | int     | 2048     | 抓包是裁切的长度 |
-| netns                       | string  | -        | 网卡所属的网络命名空间 |
 | req_pattern                 | object  | -        | 数据包方向判断 |
 | req_pattern.type	          | string  | -        | 数据包方向识别模式 (auto/custom)，未配置时方向为 NONCHECK |
 | req_pattern.custom.pattern  | string	| -	       | 使用 nic.eth0 是会被替换为 eth0 的IP |
@@ -101,6 +98,9 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 ## capturer.libpcap 参数列表
 | 参数	             | 类型	   | 默认值	  | 说明  |
 |-------------------|---------|---------|-----|
+| interface	        | string  | -	    | 抓包网卡名称 (必填) |
+| snaplen           | int     | 2048    | 抓包是裁切的长度 |
+| netns             | string  | -       | 网卡所属的网络命名空间 |
 | bpf               | string  | -       | bpf 过滤条件 |
 | buffer_size_mb    | int     | -       | buffer_size 大小，单位为: mb |
 | timeout_ms        | int     | -       | 超时时间，单位为: ms |
