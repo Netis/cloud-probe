@@ -7,7 +7,6 @@
 typedef struct PcapFileOptions
 {
     char *file_name;
-    int snaplen;
     char *bpf_filter;
 
     ReqPatternConfig req_pattern;

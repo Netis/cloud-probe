@@ -1,7 +1,6 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <pcap/pcap.h>
@@ -17,7 +16,7 @@
 #include "req_pattern.h"
 #include "stats.h"
 
-#define DROP_STAT_DUR_SEC 5
+#define DROP_STAT_DUR_SEC 2
 
 uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_handler,
                             capture_heartbeat_handler heartbeat_handler, void *user)
@@ -72,8 +71,8 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
         if (pcap_stats(capturer->p, &stat) == 0)
         {
             capturer->drop_stat_started = true;
-            capturer->drop_prev_packets = stat.ps_drop;
-            capturer->ifdrop_prev_packets = stat.ps_ifdrop;
+            capturer->prev_ps_drop = stat.ps_drop;
+            capturer->prev_ps_ifdrop = stat.ps_ifdrop;
             capturer->drop_stat_prev_time = now;
         }
 
@@ -86,14 +85,14 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
     struct pcap_stat stat;
     if (pcap_stats(capturer->p, &stat) == 0)
     {
-        uint32_t drop_diff = stat.ps_drop - capturer->drop_prev_packets;
+        __u_int drop_diff = stat.ps_drop - capturer->prev_ps_drop;
         packets_stats_add(&capturer->base.stats.drop_packets, drop_diff);
 
-        uint32_t ifdrop_diff = stat.ps_ifdrop - capturer->ifdrop_prev_packets;
+        __u_int ifdrop_diff = stat.ps_ifdrop - capturer->prev_ps_ifdrop;
         packets_stats_add(&capturer->base.stats.ifdrop_packets, ifdrop_diff);
 
-        capturer->drop_prev_packets = stat.ps_drop;
-        capturer->ifdrop_prev_packets = stat.ps_ifdrop;
+        capturer->prev_ps_drop = stat.ps_drop;
+        capturer->prev_ps_ifdrop = stat.ps_ifdrop;
         capturer->drop_stat_prev_time = now;
     }
 

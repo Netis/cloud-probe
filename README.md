@@ -68,6 +68,14 @@ run command:
 cpworker -c libpcap_gre.json
 ```
 
+## Forwarding rate comparison test
+| Version | Output Type | Forwarding BPS | Forwarding PPS | CPU Utilization | Version | Forwarding BPS | Forwarding PPS | CPU Utilization | Forwarding BPS Increase% | Forwarding PPS Increase% | CPU Utilization Increase% |
+| ------- | ----------- | -------------- | -------------- | --------------- | ------- | -------------- | -------------- | --------------- | ------------------------- | ------------------------- | ------------------------- |
+| 0.8.7   | ZMQ         | 1560Mbps       | 241K           | 110%            | 0.9.0   | 2680Mbps       | 409K           | 49%             | +71.8%                    | +69.7%                    | -55.4%                    |
+|         | GRE         | 786Mbps        | 120K           | 90%             |         | 883Mbps        | 135K           | 58%             | +12.3%                    | +12.5%                    | -35.5%                    |
+|         | VXLAN       | 820Mbps        | 125K           | 96%             |         | 883Mbps        | 135K           | 52%             | +7.7%                     | +8%                       | -45.8%                    |
+
+
 ## Documentation / Useful link
 * [INSTALL](./docs/INSTALL.md)
 * [USAGE](./docs/USAGE-CPWORKER.md)

@@ -276,18 +276,6 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             return PARSE_ERROR;
         }
 
-        // snaplen
-        cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(pcap_file_obj, "snaplen");
-        if (!snaplen)
-            capturer->config.pcap_file.snaplen = 2048;
-        else if (cJSON_IsNumber(snaplen))
-            capturer->config.pcap_file.snaplen = snaplen->valueint;
-        else
-        {
-            cjson_set_parse_error(err, "invalid pcap_file.snaplen");
-            return PARSE_ERROR;
-        }
-
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(pcap_file_obj, "bpf");
         if (!bpf_filter)
@@ -1196,12 +1184,14 @@ char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg
     return output;
 }
 
+#define MAXIMUM_SNAPLEN 262144
+
 int task_capturer_snaplen(TaskConfig *task)
 {
     if (strcmp(task->capturer.type, CAPTURER_TYPE_LIBPCAP) == 0)
         return task->capturer.config.libpcap.snaplen;
     else if (strcmp(task->capturer.type, CAPTURER_TYPE_PCAP_FILE) == 0)
-        return task->capturer.config.pcap_file.snaplen;
+        return MAXIMUM_SNAPLEN;
     else if (strcmp(task->capturer.type, CAPTURER_TYPE_DPDK_PDUMP) == 0)
         return task->capturer.config.dpdk_pdump.snaplen;
 

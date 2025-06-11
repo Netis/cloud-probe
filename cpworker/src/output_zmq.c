@@ -134,30 +134,37 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     int32_t caplen = header->caplen;
     if (output->slice > 0 && output->slice < caplen)
-    {
         caplen = output->slice;
-    }
 
     uint16_t length = (uint16_t)(caplen <= 65531 ? caplen : 65531) + sizeof(mpls_header);
+    zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
 
     if (direct == PKT_DIR_UNKNOWN)
     {
         bytes_stats_add(&output->base.stats.direction_drop_bytes, length);
         packets_stats_add(&output->base.stats.direction_drop_packets, 1);
+
+        if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
+            header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
+        {
+            zmq_flush_packet(output);
+        }
         return -1;
     }
 
-    if (output->rate_limit_mbps > 0)
+    if (output->rate_limit_mbps > 0 && !token_bucket_consume(&output->throttle, length, header->ts))
     {
-        if (!token_bucket_consume(&output->throttle, length, header->ts))
+        bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, length);
+        packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
+
+        if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
+            header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
         {
-            bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, length);
-            packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
-            return -1;
+            zmq_flush_packet(output);
         }
+        return -1;
     }
 
-    zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
     if (pkts_buf->batch_hdr.pkts_num == 0)
         pkts_buf->first_pktsec = header->ts.tv_sec;
 

@@ -95,7 +95,6 @@ typedef struct
         struct
         {
             char *file_name;
-            int snaplen;
             char *bpf_filter;
         } pcap_file;
 

@@ -1,6 +1,7 @@
 #ifndef CPWORKER_LIBPCAP_H
 #define CPWORKER_LIBPCAP_H
 
+#include <sys/types.h>
 #include <time.h>
 
 #include <pcap/pcap.h>
@@ -32,8 +33,8 @@ typedef struct LibpcapCapturer
 
     bool drop_stat_started;
     time_t drop_stat_prev_time;
-    uint64_t drop_prev_packets;
-    uint64_t ifdrop_prev_packets;
+    __u_int prev_ps_drop;
+    __u_int prev_ps_ifdrop;
 
     char pcap_next_error[ERROR_BUFFER_SIZE];
 

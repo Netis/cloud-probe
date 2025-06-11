@@ -66,7 +66,8 @@ pcap_file_capturer_t *pcap_file_capturer_new(pcap_file_options_t opts, char *err
         return NULL;
     }
 
-    pcap_set_snaplen(p, opts.snaplen);
+    int snaplen = pcap_snapshot(p);
+    log_info("pcap file snaplen is %d", snaplen);
 
     if (opts.bpf_filter && strcmp(opts.bpf_filter, "") != 0)
     {
@@ -117,12 +118,10 @@ capturer_base_t *pcap_file_capture_new_from_cfg(TaskConfig *task_cfg, char *errb
 
     pcap_file_options_t opts = {
         .file_name = task_cfg->capturer.config.pcap_file.file_name,
-        .snaplen = task_cfg->capturer.config.pcap_file.snaplen,
         .bpf_filter = bpf_filter,
         .req_pattern = task_cfg->req_pattern,
     };
-    log_info("pcap_file capturer options: file_name=%s, snaplen=%d, bpf_filter='%s'", opts.file_name, opts.snaplen,
-             opts.bpf_filter);
+    log_info("pcap_file capturer options: file_name=%s, bpf_filter='%s'", opts.file_name, opts.bpf_filter);
 
     capturer_base_t *capturer = (capturer_base_t *)pcap_file_capturer_new(opts, errbuf);
     free(bpf_filter);

@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${env:CLOUD_PROBE_CXX_LIBS_PATH}/include"
+                "${env:CLOUD_PROBE_CXX_LIBS_PATH}/include",
+                "${env:DPDK_INSTALL_PATH}/include"
             ],
             "defines": [],
             "cStandard": "gnu11",
