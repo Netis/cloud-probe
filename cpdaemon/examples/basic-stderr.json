@@ -2,7 +2,6 @@
     "cpm": {
         "base_url": "https://127.0.0.1:48018",
         "reg": {
-            "name": "cpdaemon-0.9.0-test",
             "platform_id": "george-ali",
             "deploy_env": "INSTANCE"
         }

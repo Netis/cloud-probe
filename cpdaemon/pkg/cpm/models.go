@@ -199,9 +199,9 @@ type StrategyEntry struct {
 }
 
 type SyncMetricsRequest struct {
-	Logs    []LogEntry   `json:"logs"`
-	Metrics MetricsEntry `json:"metrics"`
-	Pid     int32        `json:"pid"`
+	Logs    []LogEntry    `json:"logs"`
+	Metrics *MetricsEntry `json:"metrics"`
+	Pid     *int32        `json:"pid"`
 }
 
 type NicEntry struct {

@@ -532,50 +532,48 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 		sync   time.Duration
 	}
 
-	begin := time.Now()
+	var req SyncMetricsRequest
 
+	begin := time.Now()
 	isAlive, err := s.workerMgr.IsAlive(ctx)
 	if err != nil {
 		s.lg.Error("check worker alive failed", slogx.Error(err))
 	}
-	if !isAlive {
-		// 表示当前捕获状态为: 未捕获
-		// 无法单独上报同步日志，因为仅上报日志也会导致捕获状态设置为: 捕获中
-		return
-	}
+	if isAlive {
+		pid := s.workerMgr.Pid()
+		buffSizePerTask := s.workerMgr.BuffSizePerTask()
 
-	pid := s.workerMgr.Pid()
-	buffSizePerTask := s.workerMgr.BuffSizePerTask()
+		metrics := MetricsEntry{
+			SamplingTimestamp:      time.Now().Unix(),
+			SamplingMicroTimestamp: time.Now().UnixMicro() % 1e6,
+			CapBuff:                buffSizePerTask,
+		}
+		workerBegin := time.Now()
+		if err := s.collectTaskStats(ctx, &metrics); err != nil {
+			s.lg.Error("collect cpworker stats error", slogx.Error(err))
+		}
+		durStats.worker = time.Since(workerBegin)
 
-	metrics := MetricsEntry{
-		SamplingTimestamp:      time.Now().Unix(),
-		SamplingMicroTimestamp: time.Now().UnixMicro() % 1e6,
-		CapBuff:                buffSizePerTask,
-	}
+		systemBegin := time.Now()
+		if err := s.collectSysStats(ctx, int32(pid), &metrics); err != nil {
+			s.lg.Error("collect system metrics failed", slogx.Error(err))
+		}
+		durStats.system = time.Since(systemBegin)
 
-	workerBegin := time.Now()
-	if err := s.collectTaskStats(ctx, &metrics); err != nil {
-		s.lg.Error("collect cpworker stats error", slogx.Error(err))
-	}
-	durStats.worker = time.Since(workerBegin)
+		req.Metrics = &metrics
 
-	systemBegin := time.Now()
-	if err := s.collectSysStats(ctx, int32(pid), &metrics); err != nil {
-		s.lg.Error("collect system metrics failed", slogx.Error(err))
+		// 不上报 pid 表示: 未捕获状态
+		req.Pid = lo.ToPtr(int32(pid))
 	}
-	durStats.system = time.Since(systemBegin)
 
 	logs := s.logBuf.Clear()
 	if logs == nil {
 		logs = []LogEntry{}
 	}
+	req.Logs = logs
 
 	syncBegin := time.Now()
-	err = s.client.SyncMetrics(ctx, s.regResp.Id, SyncMetricsRequest{
-		Metrics: metrics,
-		Logs:    logs,
-		Pid:     int32(pid),
-	})
+	err = s.client.SyncMetrics(ctx, s.regResp.Id, req)
 	if err != nil {
 		s.lg.Error("send metrics to cpm error", slogx.Error(err))
 	}

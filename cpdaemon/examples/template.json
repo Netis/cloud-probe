@@ -35,7 +35,7 @@
             }
         },
         "reg": {
-            "name": "cpdaemon-test",
+            "name": "",
             "uuid_file": "/usr/local/bin/uuid",
             "platform_id": "george-ali",
             "deploy_env": "INSTANCE",
