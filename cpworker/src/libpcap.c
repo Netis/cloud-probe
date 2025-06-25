@@ -229,11 +229,24 @@ error3:
 
 capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf)
 {
-    char *bpf_filter =
-        bpf_filter_exclude_task_output_hosts(task_cfg->capturer.config.libpcap.bpf_filter, task_cfg, errbuf);
-
-    if (bpf_filter == NULL)
-        return NULL;
+    char *bpf_filter = NULL;
+    if (!task_cfg->capturer.config.libpcap.not_filter_output_hosts)
+    {
+        log_info("exclude task output hosts");
+        bpf_filter =
+            bpf_filter_exclude_task_output_hosts(task_cfg->capturer.config.libpcap.bpf_filter, task_cfg, errbuf);
+        if (bpf_filter == NULL)
+            return NULL;
+    }
+    else
+    {
+        bpf_filter = strdup(task_cfg->capturer.config.libpcap.bpf_filter);
+        if (bpf_filter == NULL)
+        {
+            error_format(errbuf, "failed to allocate memory for bpf_filter");
+            return NULL;
+        }
+    }
 
     int buffer_size;
     int buffer_size_mb = task_cfg->capturer.config.libpcap.buffer_size_mb;

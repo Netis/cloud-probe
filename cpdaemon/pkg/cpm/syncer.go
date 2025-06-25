@@ -70,8 +70,8 @@ type Tool interface {
 }
 
 type IWorkerManager interface {
-	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
-	Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error
+	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) (*WorkerCreateResult, error)
+	Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) (*WorkerCreateResult, error)
 	Stop() error
 	IsAlive(ctx context.Context) (bool, error)
 	StartTime() time.Time
@@ -97,9 +97,10 @@ type Syncer struct {
 	startTime         time.Time
 	networkInterfaces []NicEntry
 
-	regResp             *RegisterResponse
-	syncResp            *SyncStrategyResponse
-	syncActiveInstances []string
+	regResp              *RegisterResponse
+	syncResp             *SyncStrategyResponse
+	syncActiveInstances  []string
+	workerCreateWarnings []error
 
 	logBuf *SyncLogBuffer
 	lg     *slog.Logger
@@ -274,6 +275,12 @@ func (s *Syncer) initNetworkInterfaces() error {
 	return nil
 }
 
+func (s *Syncer) resetSyncState() {
+	s.syncResp = nil
+	s.syncActiveInstances = nil
+	s.workerCreateWarnings = nil
+}
+
 func (s *Syncer) Run(ctx context.Context) error {
 	for {
 		err := s.registerLoop(ctx)
@@ -325,7 +332,7 @@ func (s *Syncer) registerLoop(ctx context.Context) error {
 				if err := s.workerMgr.Stop(); err != nil {
 					s.lg.Error("stop worker failed", slogx.Error(err))
 				} else {
-					s.syncResp = nil
+					s.resetSyncState()
 				}
 			}
 
@@ -370,8 +377,11 @@ func (s *Syncer) doRegister(ctx context.Context) error {
 
 	s.regResp = res
 	if s.syncResp != nil && s.regResp.Id != s.syncResp.DaemonId {
-		s.lg.Info("daemon id changed, clear syncResp")
-		s.syncResp = nil
+		s.lg.Info("stop worker when daemon id changed")
+		if err := s.workerMgr.Stop(); err != nil {
+			s.lg.Error("stop worker failed", slogx.Error(err))
+		}
+		s.resetSyncState()
 	}
 	return nil
 }
@@ -382,6 +392,9 @@ func (s *Syncer) syncLoop(ctx context.Context) error {
 
 	metricTimer := time.NewTimer(s.cfg.SyncMetricInterval)
 	defer metricTimer.Stop()
+
+	warningTimer := time.NewTimer(time.Minute)
+	defer warningTimer.Stop()
 
 	syncStrategyFailCount := 0
 	for {
@@ -419,6 +432,10 @@ func (s *Syncer) syncLoop(ctx context.Context) error {
 		case <-metricTimer.C:
 			s.syncMetric(ctx)
 			metricTimer.Reset(s.cfg.SyncMetricInterval)
+		case <-warningTimer.C:
+			for _, warning := range s.workerCreateWarnings {
+				s.lg.Warn(warning.Error())
+			}
 		}
 	}
 }
@@ -447,9 +464,11 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 				slog.Int("numItems", numItems),
 			)
 
-			if err := s.workerMgr.CreateIfDead(ctx, s.syncResp, s.daemonUUID, activeInstances); err != nil {
+			cr, err := s.workerMgr.CreateIfDead(ctx, s.syncResp, s.daemonUUID, activeInstances)
+			if err != nil {
 				return err
 			}
+			s.workerCreateWarnings = cr.Warnings
 			s.syncActiveInstances = activeInstances
 			return nil
 		}
@@ -468,11 +487,13 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 		slog.Int("numItems", res.Response.NumItems(activeInstances)),
 	)
 
-	if err := s.workerMgr.Update(ctx, res.Response, s.daemonUUID, activeInstances); err != nil {
+	cr, err := s.workerMgr.Update(ctx, res.Response, s.daemonUUID, activeInstances)
+	if err != nil {
 		return err
 	}
 	s.syncResp = res.Response
 	s.syncActiveInstances = activeInstances
+	s.workerCreateWarnings = cr.Warnings
 	return nil
 }
 
@@ -507,10 +528,12 @@ func (s *Syncer) updateIfInstanceChanged(ctx context.Context) error {
 		"instances changed, will restart worker",
 		slog.Int("numItems", s.syncResp.NumItems(activeInstances)),
 	)
-	if err := s.workerMgr.Update(ctx, s.syncResp, s.daemonUUID, activeInstances); err != nil {
+	cr, err := s.workerMgr.Update(ctx, s.syncResp, s.daemonUUID, activeInstances)
+	if err != nil {
 		return err
 	}
 	s.syncActiveInstances = activeInstances
+	s.workerCreateWarnings = cr.Warnings
 	return nil
 }
 

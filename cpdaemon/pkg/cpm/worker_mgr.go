@@ -47,6 +47,10 @@ func (c *WorkerConfig) Validate() error {
 	return nil
 }
 
+type WorkerCreateResult struct {
+	Warnings []error
+}
+
 type WorkerManager struct {
 	workerCfg WorkerConfig
 	tool      Tool
@@ -150,17 +154,17 @@ func (m *WorkerManager) CollectStatsSummary(ctx context.Context) (cpworker.Stats
 	return client.CollectStatsSummary(ctx)
 }
 
-func (m *WorkerManager) CreateIfDead(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
+func (m *WorkerManager) CreateIfDead(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) (*WorkerCreateResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.worker != nil {
 		isAlive, err := m.worker.IsAlive(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if isAlive {
-			return errors.New("worker is still running")
+			return nil, errors.New("worker is still running")
 		}
 
 		m.reset()
@@ -169,35 +173,35 @@ func (m *WorkerManager) CreateIfDead(ctx context.Context, res *SyncStrategyRespo
 	return m.createUnsafe(ctx, res, daemonUUID, activeInstances)
 }
 
-func (m *WorkerManager) Update(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
+func (m *WorkerManager) Update(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) (*WorkerCreateResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.worker != nil {
 		if err := m.worker.Stop(); err != nil {
-			return errors.Wrap(err, "stop worker failed")
+			return nil, errors.Wrap(err, "stop worker failed")
 		}
 		m.reset()
 	}
 	return m.createUnsafe(ctx, res, daemonUUID, activeInstances)
 }
 
-func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
+func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyResponse, daemonUUID string, activeInstances []string) (*WorkerCreateResult, error) {
 	if m.worker != nil {
-		return errors.New("worker is already exists")
+		return nil, errors.New("worker is already exists")
 	}
 
 	numItems := res.NumItems(activeInstances)
 	if numItems == 0 {
 		// 策略为空
 		m.lg.Info("skip create worker: strategy is empty")
-		return nil
+		return &WorkerCreateResult{}, nil
 	}
 
 	buffSizePerTask := uint64(256)
 	if res.MemLimit != nil && *res.MemLimit > 0 {
 		if *res.MemLimit < int64(numItems) {
-			return errors.New("memory limit small than number of strategy items")
+			return nil, errors.New("memory limit small than number of strategy items")
 		}
 		buffSizePerTask = uint64(*res.MemLimit) / uint64(numItems)
 	}
@@ -213,13 +217,16 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 		tb.addStrategy(strategy)
 	}
 
+	// TODO: 周期性输出
 	for _, warning := range tb.warnings {
 		m.lg.Warn(warning.Error())
 	}
 
 	if len(tb.tasks) == 0 {
 		m.lg.Warn("no tasks")
-		return nil
+		return &WorkerCreateResult{
+			Warnings: tb.warnings,
+		}, nil
 	}
 
 	cfg := worker.ExecConfig{
@@ -243,24 +250,29 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 		socketPath := filepath.Clean(cfg.Control.Unix.Path)
 		socketDir := filepath.Dir(socketPath)
 		if err := os.MkdirAll(socketDir, 0o755); err != nil {
-			return errors.Wrapf(err, "create dir %s failed", socketDir)
+			return nil, errors.Wrapf(err, "create dir %s failed", socketDir)
 		}
 	}
 
 	var err error
 	m.client, err = cpworker.NewClient(cfg.Control.ConnectString())
 	if err != nil {
-		return errors.Wrap(err, "create worker client failed")
+		return nil, errors.Wrap(err, "create worker client failed")
 	}
 
 	m.worker, err = worker.NewWorker("cpm", cfg)
 	if err != nil {
 		m.client.Close()
 		m.client = nil
-		return errors.Wrap(err, "create worker failed")
+		return nil, errors.Wrap(err, "create worker failed")
 	}
 	m.worker.SetLogger(m.baseLg)
 	m.buffSizePerTask = buffSizePerTask
 
-	return m.worker.Start(ctx)
+	if err := m.worker.Start(ctx); err != nil {
+		return nil, err
+	}
+	return &WorkerCreateResult{
+		Warnings: tb.warnings,
+	}, nil
 }

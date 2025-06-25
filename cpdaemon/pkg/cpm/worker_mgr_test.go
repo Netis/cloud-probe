@@ -47,7 +47,7 @@ func TestWorkerManager(t *testing.T) {
 	}
 
 	{
-		err := mgr.Update(context.Background(), &res, "", []string{})
+		_, err := mgr.Update(context.Background(), &res, "", []string{})
 		require.NoError(t, err)
 
 		isAlive, err := mgr.IsAlive(context.Background())
@@ -59,7 +59,7 @@ func TestWorkerManager(t *testing.T) {
 	}
 
 	{
-		err := mgr.CreateIfDead(context.Background(), &res, "", []string{})
+		_, err := mgr.CreateIfDead(context.Background(), &res, "", []string{})
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "worker is still running")
 	}
@@ -77,7 +77,7 @@ func TestWorkerManager(t *testing.T) {
 	}
 
 	{
-		err := mgr.CreateIfDead(context.Background(), &res, "", []string{})
+		_, err := mgr.CreateIfDead(context.Background(), &res, "", []string{})
 		require.NoError(t, err)
 
 		isAlive, err := mgr.IsAlive(context.Background())

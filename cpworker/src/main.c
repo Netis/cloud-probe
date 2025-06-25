@@ -113,11 +113,22 @@ int main(int argc, char **argv)
         log_info("set cpu affinity to %d", config->cpu_affinity);
     }
 
-    if (task_manager_init(config->tasks_cfg) <= 0)
+    int total_num_tasks = config->tasks_cfg->num_tasks;
+    int inited_num_tasks = task_manager_init(config->tasks_cfg);
+    if (inited_num_tasks < 0)
+    {
+        log_fatal("init tasks failed");
+        exit(EXIT_FAILURE);
+    }
+
+    log_info("init %d tasks, total %d tasks", inited_num_tasks, total_num_tasks);
+    if (inited_num_tasks == 0)
     {
         log_fatal("no task was successfully initialized");
         exit(EXIT_FAILURE);
     }
+    // tasks_cfg owned by task_manager
+    config->tasks_cfg = NULL;
 
     bool control_enabled = config->control != NULL;
     bool control_unix_enabled = control_enabled && strcmp(config->control->type, CONTROL_TYPE_UNIX) == 0;
@@ -142,9 +153,6 @@ int main(int argc, char **argv)
         }
     }
 
-    // tasks_cfg owned by task_manager
-    config->tasks_cfg = NULL;
-
     signal(SIGINT, signal_handler);
     signal(SIGPIPE, SIG_IGN);
 
@@ -156,15 +164,18 @@ int main(int argc, char **argv)
         if (num_pkts == 0)
             usleep(10);
 
-        if (control_enabled)
+        if (control_enabled || inited_num_tasks < total_num_tasks)
         {
             time_t now = time(NULL);
-            // every 5 seconds
-            if (difftime(now, last_tm) >= 5)
-            {
+            double delta = difftime(now, last_tm);
+
+            if (control_enabled && delta >= 5)
                 task_manager_update_stats();
-                last_tm = now;
-            }
+
+            if (delta > 60)
+                task_manager_print_errors();
+
+            last_tm = now;
         }
     }
 

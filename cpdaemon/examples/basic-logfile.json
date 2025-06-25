@@ -12,7 +12,7 @@
         }
     },
     "cpm": {
-        "base_url": "https://127.0.0.1:48018",
+        "base_url": "https://127.0.0.1",
         "reg": {
             "platform_id": "george-ali",
             "deploy_env": "INSTANCE"

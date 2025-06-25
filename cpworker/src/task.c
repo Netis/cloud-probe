@@ -180,10 +180,18 @@ typedef struct Task
     TAILQ_ENTRY(Task) next;
 } task_t;
 
+typedef struct TaskError
+{
+    int index;
+    char errbuf[ERROR_BUFFER_SIZE];
+    TAILQ_ENTRY(TaskError) next;
+} task_error_t;
+
 typedef struct TaskManager
 {
     TasksAllConfig *config;
     TAILQ_HEAD(, Task) tasks;
+    TAILQ_HEAD(, TaskError) errors;
 
     pthread_mutex_t stats_lock;
     task_manager_stats_summary_t stats_summary;
@@ -196,13 +204,14 @@ static int task_manager_new(task_manager_t *this, TasksAllConfig *config)
 {
     this->config = config;
     TAILQ_INIT(&this->tasks);
+    TAILQ_INIT(&this->errors);
 
     pthread_mutex_init(&this->stats_lock, NULL);
 
     int num_tasks = config->num_tasks;
     log_info("find %d tasks", num_tasks);
 
-    int ret;
+    int inited_count = 0;
     char errbuf[ERROR_BUFFER_SIZE];
     for (int i = 0; i < num_tasks; ++i)
     {
@@ -210,29 +219,46 @@ static int task_manager_new(task_manager_t *this, TasksAllConfig *config)
         if (!cap_task)
         {
             log_error("new task-%d error: %s", i, errbuf);
+            struct TaskError *error = calloc(1, sizeof(struct TaskError));
+            if (!error)
+            {
+                log_error("allocate memory failed");
+                task_manager_destory();
+                return -1;
+            }
+            error->index = i;
+            strncpy(error->errbuf, errbuf, ERROR_BUFFER_SIZE);
+            TAILQ_INSERT_TAIL(&this->errors, error, next);
             continue;
         }
 
         struct Task *task = calloc(1, sizeof(struct Task));
         if (!task)
         {
-            log_error("new task-%d error: can't allocate new task", i);
-            continue;
+            log_error("allocate memory failed");
+            task_manager_destory();
+            return -1;
         }
 
         log_info("create task-%d success", i);
         task->index = i;
         task->task = cap_task;
         TAILQ_INSERT_TAIL(&this->tasks, task, next);
-        ret++;
+        ++inited_count;
     }
-    return ret;
+    return inited_count;
 }
 
 int task_manager_init(TasksAllConfig *config)
 {
     // use global task_mgr
     return task_manager_new(&task_mgr, config);
+}
+
+void task_manager_print_errors()
+{
+    task_error_t *item;
+    TAILQ_FOREACH(item, &task_mgr.errors, next) { log_error("new task-%d error: %s", item->index, item->errbuf); }
 }
 
 void task_manager_destory()

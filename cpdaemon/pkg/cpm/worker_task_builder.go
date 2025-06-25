@@ -27,7 +27,7 @@ type workerTasksBuilder struct {
 
 func (b *workerTasksBuilder) addStrategy(strategy StrategyEntry) {
 	// check strategy is valid
-	_, err := b.newTaskConfig(strategy, taskItem{nicName: "eth0", obsIdx: 0})
+	_, err := b.newTaskConfig(strategy, taskItem{nicName: "eth0", obsIdx: 0, typ: TaskTypeInterface})
 	if err != nil {
 		b.warnings = append(b.warnings, err)
 		return
@@ -82,6 +82,7 @@ func (b *workerTasksBuilder) addContainerIds(strategy StrategyEntry) {
 
 func (b *workerTasksBuilder) addContainerId(strategy StrategyEntry, hostPid int, nic string, obsIdx int) {
 	item := taskItem{
+		typ:         TaskTypeContainer,
 		nicName:     nic,
 		netns:       fmt.Sprintf("/proc/%d/ns/net", hostPid),
 		obsIdx:      obsIdx,
@@ -98,6 +99,7 @@ func (b *workerTasksBuilder) addContainerId(strategy StrategyEntry, hostPid int,
 
 func (b *workerTasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceName string, obsIdx int) {
 	item := taskItem{
+		typ:         TaskTypeInterface,
 		nicName:     interfaceName,
 		obsIdx:      obsIdx,
 		dumpSubDirs: []string{interfaceName},
@@ -108,6 +110,7 @@ func (b *workerTasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceN
 		b.warnings = append(b.warnings, err)
 		return
 	}
+
 	b.tasks = append(b.tasks, *task)
 }
 
@@ -128,6 +131,7 @@ func (b *workerTasksBuilder) addInstanceName(strategy StrategyEntry, instanceNam
 	}
 
 	item := taskItem{
+		typ:         TaskTypeKvmInstance,
 		nicName:     ifs[0],
 		obsIdx:      obsIdx,
 		dumpSubDirs: []string{ifs[0]},
@@ -155,18 +159,42 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 		task.Capturer.Libpcap.Bpf = strategy.Bpf
 	}
 
+	startupArgs := &startupArgs{}
 	if strategy.Startup != nil {
-		startupArgs, err := parseStartup(*strategy.Startup, true)
+		var err error
+		startupArgs, err = parseStartup(*strategy.Startup, true)
 		if err != nil {
 			return nil, errors.Wrapf(err, "parse startup failed: %s", *strategy.Startup)
 		}
-		if startupArgs.Snaplen != nil {
-			task.Capturer.Libpcap.Snaplen = lo.ToPtr(*startupArgs.Snaplen)
-		}
-		if startupArgs.Timeout != nil {
-			task.Capturer.Libpcap.TimeoutMs = lo.ToPtr(int(*startupArgs.Timeout))
+	}
+
+	if startupArgs.Snaplen != nil {
+		task.Capturer.Libpcap.Snaplen = lo.ToPtr(*startupArgs.Snaplen)
+	}
+	if startupArgs.Timeout != nil {
+		task.Capturer.Libpcap.TimeoutMs = lo.ToPtr(int(*startupArgs.Timeout))
+	}
+	if isTrue(startupArgs.NoFilter) {
+		allowNoFilter := func() bool {
+			if item.typ != TaskTypeInterface {
+				return true
+			}
+			if !slices.Contains([]string{PacketChannelType_GRE, PacketChannelType_VXLAN}, strategy.PacketChannelType) {
+				return false
+			}
+			if startupArgs.BindDevice == nil {
+				return false
+			}
+			if *startupArgs.BindDevice == item.nicName {
+				return false
+			}
+			return true
+		}()
+		if !allowNoFilter {
+			return nil, errors.Errorf("nofilter only allowed when bind_device is set and different from the snoop interface")
 		}
 	}
+	task.Capturer.Libpcap.NotFilterOutputHosts = startupArgs.NoFilter
 
 	if strategy.ReqPatternType != nil {
 		switch *strategy.ReqPatternType {
@@ -211,6 +239,8 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 				output.Vxlan.CaptureTime = lo.ToPtr(false)
 			}
 		}
+		output.Vxlan.BindDevice = startupArgs.BindDevice
+		output.Vxlan.Pmtudisc = startupArgs.Pmtudisc
 
 		if strategy.ApiVersion == nil || *strategy.ApiVersion == "v1" {
 			if strategy.HasServiceTag && strategy.ServiceTag != nil {
@@ -252,6 +282,8 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 		if strategy.HasServiceTag && strategy.ServiceTag != nil {
 			output.Gre.ServiceTag = lo.ToPtr(uint32(*strategy.ServiceTag))
 		}
+		output.Gre.BindDevice = startupArgs.BindDevice
+		output.Gre.Pmtudisc = startupArgs.Pmtudisc
 	case PacketChannelType_ZMQ:
 		output.Type = worker.OutputType_Zmq
 		output.Zmq = &worker.ZmqOutputConfig{
@@ -266,6 +298,7 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 		if strategy.HasServiceTag && strategy.ServiceTag != nil {
 			output.Zmq.ServiceTag = lo.ToPtr(uint32(*strategy.ServiceTag))
 		}
+		output.Zmq.Hwm = startupArgs.ZmqHwm
 	case PacketChannelType_FILE:
 		output.Type = worker.OutputType_RotatingFile
 		if strategy.DumpDir == nil {
@@ -295,7 +328,16 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 	return &task, nil
 }
 
+type TaskType int
+
+const (
+	TaskTypeInterface TaskType = iota + 1
+	TaskTypeContainer
+	TaskTypeKvmInstance
+)
+
 type taskItem struct {
+	typ     TaskType
 	nicName string
 	netns   string
 
@@ -337,8 +379,15 @@ func (t Vni2Tag) Encode() uint32 {
 }
 
 type startupArgs struct {
-	Snaplen *int
-	Timeout *int
+	Snaplen    *int
+	Timeout    *int
+	BindDevice *string
+	Pmtudisc   *string
+	ZmqHwm     *int
+	NoFilter   *bool
+
+	Priority    *bool // unused，非任务级别参数
+	CpuAffinity *int  // unused，非任务级别参数
 }
 
 func parseStartup(startup string, ignoreUnknown bool) (*startupArgs, error) {
@@ -350,6 +399,12 @@ func parseStartup(startup string, ignoreUnknown bool) (*startupArgs, error) {
 	f := flag.NewFlagSet("", flag.ContinueOnError)
 	snaplen := f.IntP("snaplen", "s", 0, "snaplen")
 	timeout := f.IntP("timeout", "t", 0, "timeout")
+	bindDevice := f.StringP("bind_device", "B", "", "bind device")
+	pmtudisc := f.StringP("pmtudisc_option", "M", "", "select Path MTU Discovery option")
+	zmqHwm := f.Int("zmq_hwm", 100, "ZMQ high watermark")
+	noFilter := f.Bool("nofilter", false, "force no filter, you confirm that the snoop interface is different from the output interface")
+	priority := f.BoolP("priority", "p", false, "set high priority mode")
+	cpuAffinity := f.Int("cpu", -1, "set CPU affinity core")
 
 	err = f.Parse(args)
 	switch {
@@ -368,6 +423,28 @@ func parseStartup(startup string, ignoreUnknown bool) (*startupArgs, error) {
 	if f.Changed("timeout") {
 		res.Timeout = timeout
 	}
+	if f.Changed("bind_device") {
+		res.BindDevice = bindDevice
+	}
+	if f.Changed("pmtudisc_option") {
+		res.Pmtudisc = pmtudisc
+	}
+	if f.Changed("zmq_hwm") {
+		res.ZmqHwm = zmqHwm
+	}
+	if f.Changed("nofilter") {
+		res.NoFilter = noFilter
+	}
+	if f.Changed("priority") {
+		res.Priority = priority
+	}
+	if f.Changed("cpu") {
+		res.CpuAffinity = cpuAffinity
+	}
 
 	return res, nil
+}
+
+func isTrue(v *bool) bool {
+	return v != nil && *v
 }

@@ -30,27 +30,37 @@ func (r *testWorkerManagerRecoder) Calls() []string {
 	return r.calls
 }
 
-func (r *testWorkerManagerRecoder) CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
+func (r *testWorkerManagerRecoder) CreateIfDead(
+	ctx context.Context,
+	resp *SyncStrategyResponse,
+	daemonUUID string,
+	activeInstances []string,
+) (*WorkerCreateResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "CreateIfDead")
 	if r.isAlive {
-		return nil
+		return &WorkerCreateResult{}, nil
 	}
 	r.isAlive = true
 	r.pid = len(r.calls)
 	r.startTime = time.Now()
-	return nil
+	return &WorkerCreateResult{}, nil
 }
 
-func (r *testWorkerManagerRecoder) Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) error {
+func (r *testWorkerManagerRecoder) Update(
+	ctx context.Context,
+	resp *SyncStrategyResponse,
+	daemonUUID string,
+	activeInstances []string,
+) (*WorkerCreateResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "Update")
 	r.isAlive = true
 	r.pid = len(r.calls)
 	r.startTime = time.Now()
-	return nil
+	return &WorkerCreateResult{}, nil
 }
 
 func (r *testWorkerManagerRecoder) Stop() error {

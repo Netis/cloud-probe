@@ -5,7 +5,7 @@
         {
             "sliceLen": 0,
             "networkInterfaceName": "eth0",
-            "startup": "-s 65535 -t 0",
+            "startup": "-s 65535 -t 0 --zmq_hwm 2000",
             "forwardRateLimit": null,
             "buffLimit": 64,
             "bpf": null,

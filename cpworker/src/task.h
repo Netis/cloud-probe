@@ -19,6 +19,7 @@ uint64_t capture_task_poll_packets(capture_task_t *task);
 int task_manager_init(TasksAllConfig *config);
 void task_manager_destory();
 uint64_t task_manager_poll_packets();
+void task_manager_print_errors();
 void task_manager_update_stats();
 int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg, void *data);
 int task_manager_collect_stats_detail_command(cJSON *cmd_msg, cJSON *server_msg, void *data);

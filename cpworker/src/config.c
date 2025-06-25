@@ -252,6 +252,17 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             cjson_set_parse_error(err, "invalid libpcap.timeout_ms");
             return PARSE_ERROR;
         }
+
+        cJSON *not_filter_output_hosts = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "not_filter_output_hosts");
+        if (!not_filter_output_hosts)
+            capturer->config.libpcap.not_filter_output_hosts = false;
+        else if (cJSON_IsBool(not_filter_output_hosts))
+            capturer->config.libpcap.not_filter_output_hosts = cJSON_IsTrue(not_filter_output_hosts);
+        else
+        {
+            cjson_set_parse_error(err, "invalid libpcap.not_filter_output_hosts");
+            return PARSE_ERROR;
+        }
     }
     else if (strcmp(capturer->type, CAPTURER_TYPE_PCAP_FILE) == 0)
     {

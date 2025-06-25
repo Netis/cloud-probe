@@ -90,6 +90,7 @@ typedef struct
             char *bpf_filter;
             int buffer_size_mb;
             int timeout_ms;
+            bool not_filter_output_hosts;
         } libpcap;
 
         struct

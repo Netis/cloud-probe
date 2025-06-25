@@ -27,7 +27,7 @@
         "hierarchy": "cloud-probe"
     },
     "cpm": {
-        "base_url": "https://127.0.0.1:48018",
+        "base_url": "https://127.0.0.1",
         "client": {
             "tls": {
                 "pkcs12_cert_file": "",

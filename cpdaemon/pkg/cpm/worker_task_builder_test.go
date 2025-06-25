@@ -70,6 +70,7 @@ func Test_workerTasksBuilder_1(t *testing.T) {
 					Zmq: &worker.ZmqOutputConfig{
 						Host: "127.0.0.1",
 						Port: 5555,
+						Hwm:  lo.ToPtr(2000),
 						Uuid: "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
 					},
 				},
@@ -103,22 +104,23 @@ func Test_workerTasksBuilder_2(t *testing.T) {
 			Capturer: worker.CapturerConfig{
 				Type: "libpcap",
 				Libpcap: &worker.LibpcapConfig{
-					Interface:    "eth0",
-					Snaplen:      lo.ToPtr(65535),
-					Bpf:          lo.ToPtr("host 10.1.1.1"),
-					BufferSizeMB: lo.ToPtr[uint64](256),
-					TimeoutMs:    lo.ToPtr(0),
+					Interface:            "eth0",
+					Snaplen:              lo.ToPtr(65535),
+					Bpf:                  lo.ToPtr("host 10.1.1.1"),
+					BufferSizeMB:         lo.ToPtr[uint64](256),
+					TimeoutMs:            lo.ToPtr(0),
+					NotFilterOutputHosts: lo.ToPtr(true),
 				},
 			},
 			Outputs: []worker.OutputConfig{
 				{
-					Type:          "zmq",
+					Type:          "gre",
 					RateLimitMbps: lo.ToPtr[uint64](256),
-					Zmq: &worker.ZmqOutputConfig{
-						Host:       "127.0.0.1",
-						Port:       5555,
+					Gre: &worker.GreOutputConfig{
+						Host:       "2.2.2.2",
 						ServiceTag: lo.ToPtr[uint32](3456),
-						Uuid:       "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
+						Pmtudisc:   lo.ToPtr("do"),
+						BindDevice: lo.ToPtr("eth1"),
 					},
 				},
 			},
@@ -145,28 +147,47 @@ func Test_parseStartup(t *testing.T) {
 		},
 		{
 			args: args{
-				startup: "-s 65535 -t 1000",
+				startup: "-s 65535 -t 1000 -B eth1 -M do --zmq_hwm 1000 -p --cpu 2 --nofilter",
 			},
 			want: &startupArgs{
-				Snaplen: lo.ToPtr(65535),
-				Timeout: lo.ToPtr(1000),
+				Snaplen:     lo.ToPtr(65535),
+				Timeout:     lo.ToPtr(1000),
+				BindDevice:  lo.ToPtr("eth1"),
+				Pmtudisc:    lo.ToPtr("do"),
+				ZmqHwm:      lo.ToPtr(1000),
+				Priority:    lo.ToPtr(true),
+				CpuAffinity: lo.ToPtr(2),
+				NoFilter:    lo.ToPtr(true),
 			},
 		},
 		{
 			args: args{
-				startup: "--snaplen=65535 --timeout=1000",
+				startup: "--snaplen 65535 --timeout 1000 --bind_device eth1 --pmtudisc_option do --zmq_hwm 1000 --priority --cpu 2 --nofilter",
 			},
 			want: &startupArgs{
-				Snaplen: lo.ToPtr(65535),
-				Timeout: lo.ToPtr(1000),
+				Snaplen:     lo.ToPtr(65535),
+				Timeout:     lo.ToPtr(1000),
+				BindDevice:  lo.ToPtr("eth1"),
+				Pmtudisc:    lo.ToPtr("do"),
+				ZmqHwm:      lo.ToPtr(1000),
+				Priority:    lo.ToPtr(true),
+				CpuAffinity: lo.ToPtr(2),
+				NoFilter:    lo.ToPtr(true),
 			},
 		},
 		{
 			args: args{
-				startup: "--snaplen 65535",
+				startup: "--snaplen=65535 --timeout=1000 --bind_device=eth1 --pmtudisc_option=do --zmq_hwm=1000 --priority --cpu=2 --nofilter",
 			},
 			want: &startupArgs{
-				Snaplen: lo.ToPtr(65535),
+				Snaplen:     lo.ToPtr(65535),
+				Timeout:     lo.ToPtr(1000),
+				BindDevice:  lo.ToPtr("eth1"),
+				Pmtudisc:    lo.ToPtr("do"),
+				ZmqHwm:      lo.ToPtr(1000),
+				Priority:    lo.ToPtr(true),
+				CpuAffinity: lo.ToPtr(2),
+				NoFilter:    lo.ToPtr(true),
 			},
 		},
 		{

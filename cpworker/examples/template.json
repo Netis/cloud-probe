@@ -23,6 +23,7 @@
                     "netns": "/proc/1432897/ns/net",
                     "bpf": "host nic.eth0",
                     "buffer_size_mb": 256,
+                    "not_filter_output_hosts": false,
                     "timeout_ms": 3
                 }
             },

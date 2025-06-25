@@ -62,12 +62,13 @@ type CapturerConfig struct {
 }
 
 type LibpcapConfig struct {
-	Interface    string  `json:"interface"`
-	Snaplen      *int    `json:"snaplen,omitempty"`
-	Netns        *string `json:"netns,omitempty"`
-	Bpf          *string `json:"bpf,omitempty"`
-	BufferSizeMB *uint64 `json:"buffer_size_mb,omitempty"`
-	TimeoutMs    *int    `json:"timeout_ms,omitempty"`
+	Interface            string  `json:"interface"`
+	Snaplen              *int    `json:"snaplen,omitempty"`
+	Netns                *string `json:"netns,omitempty"`
+	Bpf                  *string `json:"bpf,omitempty"`
+	BufferSizeMB         *uint64 `json:"buffer_size_mb,omitempty"`
+	TimeoutMs            *int    `json:"timeout_ms,omitempty"`
+	NotFilterOutputHosts *bool   `json:"not_filter_output_hosts,omitempty"`
 }
 
 type OutputConfig struct {
