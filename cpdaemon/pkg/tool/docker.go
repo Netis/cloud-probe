@@ -21,8 +21,8 @@ func GetContainerHostPidByDocker(containerId string) (int, error) {
 		return 0, errors.Wrapf(
 			err,
 			"docker inspect failed, stdout: %s, stderr: %s",
-			string(stdout.Bytes()),
-			string(stderr.Bytes()),
+			stdout.String(),
+			stderr.String(),
 		)
 	}
 	return parsePID(stdout.String())

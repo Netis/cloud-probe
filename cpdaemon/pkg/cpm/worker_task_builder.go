@@ -49,21 +49,11 @@ func (b *workerTasksBuilder) addStrategy(strategy StrategyEntry) {
 
 func (b *workerTasksBuilder) addContainerIds(strategy StrategyEntry) {
 	var idx int
-	for _, containerId := range strategy.ContainerIds {
-		// 来源旧版本C++实现，支持多个连续的下划线
-		parts := strings.FieldsFunc(containerId, func(r rune) bool {
-			return r == '_'
-		})
-
-		if len(parts) == 0 {
-			b.warnings = append(b.warnings, errors.Errorf("invalid container id: %s", containerId))
+	for _, cId := range strategy.ContainerIds {
+		containerId, nics := decodeContainerId(cId)
+		if containerId == "" {
+			b.warnings = append(b.warnings, errors.Errorf("invalid container id: %s", cId))
 			continue
-		}
-
-		nics := parts[1:]
-		if len(nics) == 0 {
-			// 未指定nic，默认使用eth0
-			nics = []string{"eth0"}
 		}
 
 		hostPid, err := b.tool.GetContainerHostPid(containerId)
@@ -326,6 +316,30 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 		task.Capturer.Libpcap.Netns = lo.ToPtr(item.netns)
 	}
 	return &task, nil
+}
+
+func decodeContainerId(containerId string) (string, []string) {
+	// 来源旧版本C++实现，支持多个连续的下划线
+	parts := strings.FieldsFunc(containerId, func(r rune) bool {
+		return r == '_'
+	})
+	if len(parts) == 0 {
+		return "", nil
+	}
+	nics := parts[1:]
+	if len(nics) == 0 {
+		// 未指定nic，默认使用eth0
+		nics = []string{"eth0"}
+	}
+
+	id := parts[0]
+	i := strings.Index(id, "://")
+	if i != -1 {
+		// 处理类似 "docker://container_id" 的格式
+		id = id[i+3:]
+	}
+
+	return id, nics
 }
 
 type TaskType int

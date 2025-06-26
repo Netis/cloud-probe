@@ -18,8 +18,8 @@ func RunShellScript(script string, args ...string) (string, error) {
 		return "", errors.Wrapf(
 			err,
 			"command failed, stdout: %s, stderr: %s",
-			string(stdout.Bytes()),
-			string(stderr.Bytes()),
+			stdout.String(),
+			stderr.String(),
 		)
 	}
 	return stdout.String(), nil

@@ -237,3 +237,69 @@ func Test_Vni2Tag(t *testing.T) {
 	}
 	assert.Equal(t, uint32(913444), tag.Encode())
 }
+
+func Test_decodeContainerId(t *testing.T) {
+	tests := []struct {
+		name        string
+		containerId string
+		want        string
+		want1       []string
+	}{
+		{
+			containerId: "1234567890abcdef",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth0"},
+		},
+		{
+			containerId: "1234567890abcdef_eth1",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth1"},
+		},
+		{
+			containerId: "1234567890abcdef_eth0_eth1",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth0", "eth1"},
+		},
+		{
+			containerId: "docker://1234567890abcdef",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth0"},
+		},
+		{
+			containerId: "docker://1234567890abcdef_eth1",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth1"},
+		},
+		{
+			containerId: "docker://1234567890abcdef_eth0_eth1",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth0", "eth1"},
+		},
+		{
+			containerId: "containerd://1234567890abcdef",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth0"},
+		},
+		{
+			containerId: "containerd://1234567890abcdef_eth1",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth1"},
+		},
+		{
+			containerId: "containerd://1234567890abcdef_eth0_eth1",
+			want:        "1234567890abcdef",
+			want1:       []string{"eth0", "eth1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := decodeContainerId(tt.containerId)
+			if got != tt.want {
+				t.Errorf("decodeContainerId() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("decodeContainerId() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}

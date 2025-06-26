@@ -156,7 +156,8 @@ func (w *Worker) startProcess() error {
 		return errors.Errorf("worker %s is already running", w.name)
 	}
 
-	if err := w.writeConfig(); err != nil {
+	cfg := w.newConfig()
+	if err := w.writeConfig(cfg); err != nil {
 		return err
 	}
 
@@ -180,6 +181,9 @@ func (w *Worker) startProcess() error {
 		slog.Int("pid", cmd.Process.Pid),
 		slog.String("command", strings.Join(cmd.Args, " ")),
 	)
+
+	cfgStr, _ := json.Marshal(cfg)
+	w.lg.Info("worker config", slog.String("config", string(cfgStr)))
 
 	w.cmd = cmd
 	w.waitDone = make(chan error, 1)
@@ -270,21 +274,12 @@ func (w *Worker) createPidFile() func() error {
 	}
 }
 
-func (w *Worker) writeConfig() error {
+func (w *Worker) writeConfig(cfg Config) error {
 	fp, err := os.Create(w.cfg.ConfigFile)
 	if err != nil {
 		return errors.Wrapf(err, "create worker config file: %s", w.cfg.ConfigFile)
 	}
 	defer fp.Close()
-
-	cfg := Config{
-		LogLevel: w.cfg.LogLevel,
-		Control:  w.cfg.Control,
-		Tasks:    w.cfg.Tasks,
-	}
-	if w.cfg.CpuAffinity >= 0 {
-		cfg.CpuAffinity = lo.ToPtr(w.cfg.CpuAffinity)
-	}
 
 	enc := json.NewEncoder(fp)
 	enc.SetIndent("", "    ")
@@ -296,4 +291,16 @@ func (w *Worker) writeConfig() error {
 		return errors.Wrapf(err, "create worker config file: %s", w.cfg.ConfigFile)
 	}
 	return nil
+}
+
+func (w *Worker) newConfig() Config {
+	cfg := Config{
+		LogLevel: w.cfg.LogLevel,
+		Control:  w.cfg.Control,
+		Tasks:    w.cfg.Tasks,
+	}
+	if w.cfg.CpuAffinity >= 0 {
+		cfg.CpuAffinity = lo.ToPtr(w.cfg.CpuAffinity)
+	}
+	return cfg
 }
