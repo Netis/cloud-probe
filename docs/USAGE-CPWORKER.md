@@ -6,7 +6,7 @@ cpworker is a network packet capture tool built on libpcap, supporting multiple 
 ## Configuration Template
 ```json
 {
-    "cpu_affinity": 1,
+    "cpu_affinity": "1",
     "log_level": "INFO",
     "control": {
         "type": "unix",
@@ -79,7 +79,7 @@ For more configuration examples, see: [examples](../cpworker/examples)
 ## Top-level Parameters
 | Parameter          | Type     | Default | Description |
 |--------------------|----------|---------|-------------|
-| cpu_affinity       | int      | -       | Set CPU affinity |
+| cpu_affinity       | string   | -       | Set CPU affinity |
 | log_level          | string   | INFO    | Log level (DEBUG, INFO, WARN, ERROR) |
 | control            | object   | -       | Control plane communication interface |
 | control.type       | string   | -       | Control interface type (currently supports: unix) |

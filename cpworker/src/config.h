@@ -148,7 +148,7 @@ typedef struct
 typedef struct
 {
     int log_level;
-    int cpu_affinity;
+    char *cpu_affinity;
     ControlConfig *control;
     TasksAllConfig *tasks_cfg;
 } Config;

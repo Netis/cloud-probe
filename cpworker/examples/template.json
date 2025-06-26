@@ -1,5 +1,5 @@
 {
-    "cpu_affinity": 1,
+    "cpu_affinity": "1",
     "log_level": "INFO",
     "control": {
         "type": "unix",

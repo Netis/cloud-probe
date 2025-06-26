@@ -158,7 +158,7 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 			PidFile:     vp.GetString(VKey.Cpm.Worker.PidFile),
 			ConfigFile:  vp.GetString(VKey.Cpm.Worker.ConfigFile),
 			Executable:  vp.GetString(VKey.Cpm.Worker.Executable),
-			CpuAffinity: vp.GetInt(VKey.Cpm.Worker.CpuAffinity),
+			CpuAffinity: vp.GetString(VKey.Cpm.Worker.CpuAffinity),
 			LogLevel:    vp.GetString(VKey.Cpm.Worker.LogLevel),
 			Control: worker.ControlConfig{
 				Type: vp.GetString(VKey.Cpm.Worker.Control.Type),

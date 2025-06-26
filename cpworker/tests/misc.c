@@ -1,3 +1,5 @@
+#include "affinity.h"
+
 #include <arpa/inet.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -228,6 +230,23 @@ void test_req_pattern_invalid(void)
     TEST_ASSERT_EQUAL_INT(-1, ret);
 }
 
+#if defined(OS_LINUX)
+void test_cpu_set_parse(void)
+{
+    cpu_set_t mask;
+    TEST_ASSERT_EQUAL(0, cpu_set_parse(&mask, "1"));
+    TEST_ASSERT_EQUAL(1, CPU_COUNT(&mask));
+    TEST_ASSERT_EQUAL(0, cpu_set_parse(&mask, "0,1,2"));
+    TEST_ASSERT_EQUAL(3, CPU_COUNT(&mask));
+    TEST_ASSERT_EQUAL(0, cpu_set_parse(&mask, "0-1"));
+    TEST_ASSERT_EQUAL(2, CPU_COUNT(&mask));
+    TEST_ASSERT_EQUAL(0, cpu_set_parse(&mask, "0-1,2"));
+    TEST_ASSERT_EQUAL(3, CPU_COUNT(&mask));
+    TEST_ASSERT_EQUAL(0, cpu_set_parse(&mask, "2,0-1"));
+    TEST_ASSERT_EQUAL(3, CPU_COUNT(&mask));
+}
+#endif
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -246,6 +265,10 @@ int main(void)
     RUN_TEST(test_req_pattern_custom_multi_host_and_multi_port);
     RUN_TEST(test_req_pattern_custom_host_ifname);
     RUN_TEST(test_req_pattern_invalid);
+
+#if defined(OS_LINUX)
+    RUN_TEST(test_cpu_set_parse);
+#endif
 
     return UNITY_END();
 }

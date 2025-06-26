@@ -27,7 +27,7 @@ type WorkerConfig struct {
 	WorkDir    string
 	CgroupCfg  cgroup.CgroupCfg
 
-	CpuAffinity int
+	CpuAffinity string
 	LogLevel    string
 	Control     worker.ControlConfig
 }

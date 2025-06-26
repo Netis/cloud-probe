@@ -103,11 +103,11 @@ int main(int argc, char **argv)
     }
 
     log_set_level(config->log_level);
-    if (config->cpu_affinity >= 0)
+    if (strcmp(config->cpu_affinity, "") != 0)
     {
         if (set_cpu_affinity(config->cpu_affinity) != 0)
         {
-            log_fatal("set cpu affinity fail");
+            log_fatal("set cpu affinity fail: %s", config->cpu_affinity);
             exit(EXIT_FAILURE);
         }
         log_info("set cpu affinity to %d", config->cpu_affinity);

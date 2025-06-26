@@ -118,7 +118,6 @@ func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Cpm.Worker.LogLevel, "INFO")
 	vp.SetDefault(VKey.Cpm.Worker.Control.Type, "unix")
 	vp.SetDefault(VKey.Cpm.Worker.Control.Unix.Path, "cpm-worker.sock")
-	vp.SetDefault(VKey.Cpm.Worker.CpuAffinity, -1)
 
 	vp.SetDefault(VKey.Cpm.Client.Timeout, 15*time.Second)
 	vp.SetDefault(VKey.Cpm.Client.DialTimeout, 5*time.Second)

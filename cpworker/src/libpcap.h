@@ -28,6 +28,8 @@ typedef struct LibpcapCapturer
 {
     capturer_base_t base;
 
+    char *interface;
+    char *netns;
     req_pattern_t *req_pattern;
     pcap_t *p;
 

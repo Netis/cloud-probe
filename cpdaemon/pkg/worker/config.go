@@ -14,7 +14,7 @@ const (
 )
 
 type Config struct {
-	CpuAffinity *int          `json:"cpu_affinity,omitempty"`
+	CpuAffinity *string       `json:"cpu_affinity,omitempty"`
 	LogLevel    string        `json:"log_level"`
 	Control     ControlConfig `json:"control"`
 	Tasks       []TaskConfig  `json:"tasks"`

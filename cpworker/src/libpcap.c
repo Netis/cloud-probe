@@ -50,10 +50,12 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
         if (capturer->pcap_next_error[0] == '\0')
         {
             if (ret == PCAP_ERROR)
-                snprintf(capturer->pcap_next_error, ERROR_BUFFER_SIZE, "pcap_next_ex error: %s",
-                         pcap_geterr(capturer->p));
+                snprintf(capturer->pcap_next_error, ERROR_BUFFER_SIZE, "interface=%s, netns=%s, pcap_next_ex error: %s",
+                         capturer->interface, capturer->netns, pcap_geterr(capturer->p));
             else
-                snprintf(capturer->pcap_next_error, ERROR_BUFFER_SIZE, "pcap_next_ex error_code: %d", ret);
+                snprintf(capturer->pcap_next_error, ERROR_BUFFER_SIZE,
+                         "interface=%s, netns=%s, pcap_next_ex error_code: %d", capturer->interface, capturer->netns,
+                         ret);
         }
         break;
     }
@@ -197,6 +199,18 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
     if (!capturer)
     {
         error_format(errbuf, "failed to allocate memory for libpcap_capturer_t");
+        goto error3;
+    }
+    capturer->interface = strdup(opts.interface);
+    if (!capturer->interface)
+    {
+        error_format(errbuf, "failed to allocate memory");
+        goto error3;
+    }
+    capturer->netns = strdup(opts.netns);
+    if (!capturer->netns)
+    {
+        error_format(errbuf, "failed to allocate memory");
         goto error3;
     }
     capturer->base.capture = libpcap_do_capture;

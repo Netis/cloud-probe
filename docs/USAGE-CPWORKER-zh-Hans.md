@@ -6,7 +6,7 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 ## 配置模版
 ```json
 {
-    "cpu_affinity": 1,
+    "cpu_affinity": "1",
     "log_level": "INFO",
     "control": {
         "type": "unix",
@@ -78,7 +78,7 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 ## 顶层参数列表
 | 参数	             | 类型	   | 默认值	  | 说明  |
 |-------------------|---------|---------|-----|
-| cpu_affinity      | int     | -       | 设置cpu亲和性 |
+| cpu_affinity      | string  | -       | 设置cpu亲和性 |
 | log_level         | string  | INFO    | 日志级别，可选值：DEBUG, INFO, WARN, ERROR |
 | control           | object  | -       | 控制面通信接口 |
 | control.type      | string  | -       | 控制面通信接口类型，当前支持：unix |

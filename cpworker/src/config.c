@@ -182,7 +182,14 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         // netns
         cJSON *netns = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "netns");
         if (!netns)
+        {
             capturer->config.libpcap.netns = strdup("");
+            if (!capturer->config.libpcap.netns)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else if (cJSON_IsString(netns))
         {
             capturer->config.libpcap.netns = strdup(netns->valuestring);
@@ -213,7 +220,14 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "bpf");
         if (!bpf_filter)
+        {
             capturer->config.libpcap.bpf_filter = strdup("");
+            if (!capturer->config.libpcap.bpf_filter)
+            {
+                cjson_set_parse_error(err, "Memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else if (cJSON_IsString(bpf_filter))
         {
             capturer->config.libpcap.bpf_filter = strdup(bpf_filter->valuestring);
@@ -290,7 +304,14 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(pcap_file_obj, "bpf");
         if (!bpf_filter)
+        {
             capturer->config.pcap_file.bpf_filter = strdup("");
+            if (!capturer->config.pcap_file.bpf_filter)
+            {
+                cjson_set_parse_error(err, "Memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else if (cJSON_IsString(bpf_filter))
         {
             capturer->config.pcap_file.bpf_filter = strdup(bpf_filter->valuestring);
@@ -344,7 +365,14 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "bpf");
         if (!bpf_filter)
+        {
             capturer->config.dpdk_pdump.bpf_filter = strdup("");
+            if (!capturer->config.dpdk_pdump.bpf_filter)
+            {
+                cjson_set_parse_error(err, "Memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else if (cJSON_IsString(bpf_filter))
         {
             capturer->config.dpdk_pdump.bpf_filter = strdup(bpf_filter->valuestring);
@@ -443,6 +471,11 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
         output->config.vxlan.host = strdup(host->valuestring);
+        if (!output->config.vxlan.host)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
 
         // Port
         cJSON *port = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "port");
@@ -511,9 +544,23 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         // Bind device
         cJSON *bind = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "bind_device");
         if (!bind)
+        {
             output->config.vxlan.bind_device = strdup("");
+            if (!output->config.vxlan.bind_device)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else if (cJSON_IsString(bind))
+        {
             output->config.vxlan.bind_device = strdup(bind->valuestring);
+            if (!output->config.vxlan.bind_device)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else
         {
             cjson_set_parse_error(err, "invalid vxlan.bind_device");
@@ -561,6 +608,11 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
         output->config.gre.host = strdup(host->valuestring);
+        if (!output->config.gre.host)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
 
         // Service Tag
         cJSON *service_tag = cJSON_GetObjectItemCaseSensitive(gre_obj, "service_tag");
@@ -577,9 +629,23 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         // Bind device
         cJSON *bind = cJSON_GetObjectItemCaseSensitive(gre_obj, "bind_device");
         if (!bind)
+        {
             output->config.gre.bind_device = strdup("");
+            if (!output->config.gre.bind_device)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else if (cJSON_IsString(bind))
+        {
             output->config.gre.bind_device = strdup(bind->valuestring);
+            if (!output->config.gre.bind_device)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else
         {
             cjson_set_parse_error(err, "invalid gre.bind_device");
@@ -628,6 +694,11 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
         output->config.zmq.host = strdup(host->valuestring);
+        if (!output->config.zmq.host)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
 
         // Port
         cJSON *port = cJSON_GetObjectItemCaseSensitive(zmq_obj, "port");
@@ -671,9 +742,23 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         // uuid
         cJSON *uuid = cJSON_GetObjectItemCaseSensitive(zmq_obj, "uuid");
         if (!uuid)
+        {
             output->config.zmq.uuid = strdup("");
+            if (!output->config.zmq.uuid)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else if (cJSON_IsString(uuid))
+        {
             output->config.zmq.uuid = strdup(uuid->valuestring);
+            if (!output->config.zmq.uuid)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
+        }
         else
         {
             cjson_set_parse_error(err, "invalid zmq.uuid");
@@ -697,6 +782,12 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
         output->config.file.name = strdup(name->valuestring);
+        if (!output->config.file.name)
+        {
+
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
     }
     else if (strcmp(output->type, OUTPUT_TYPE_ROTATING_FILE) == 0)
     {
@@ -714,6 +805,11 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             return PARSE_ERROR;
         }
         output->config.rotating_file.file_root = strdup(file_root->valuestring);
+        if (!output->config.rotating_file.file_root)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
 
         cJSON *max_file_interval = cJSON_GetObjectItemCaseSensitive(rotating_file_obj, "max_file_interval");
         if (!max_file_interval)
@@ -769,10 +865,20 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
         if (!pattern)
         {
             req_pattern->custom.pattern = strdup("");
+            if (!req_pattern->custom.pattern)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
         }
         else if (cJSON_IsString(pattern))
         {
             req_pattern->custom.pattern = strdup(pattern->valuestring);
+            if (!req_pattern->custom.pattern)
+            {
+                cjson_set_parse_error(err, "memory allocation failed");
+                return PARSE_ERROR;
+            }
         }
         else
         {
@@ -795,6 +901,12 @@ static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError 
     if (!req_pattern)
     {
         task->req_pattern.type = strdup(REQ_PATTERN_TYPE_NONE_STR);
+        if (!task->req_pattern.type)
+        {
+
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
     }
     else if (!cJSON_IsObject(req_pattern))
     {
@@ -1010,6 +1122,11 @@ static int parse_control_config(cJSON *control_obj, ControlConfig *control, cJSO
             return PARSE_ERROR;
         }
         control->config.unix_socket.path = strdup(path->valuestring);
+        if (!control->config.unix_socket.path)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            return PARSE_ERROR;
+        }
     }
     else
     {
@@ -1063,9 +1180,23 @@ static Config *parse_config_json(cJSON *json, cJSONParseError *err)
 
     cJSON *cpu_affinity = cJSON_GetObjectItemCaseSensitive(json, "cpu_affinity");
     if (!cpu_affinity)
-        config->cpu_affinity = -1;
-    else if (cJSON_IsNumber(cpu_affinity))
-        config->cpu_affinity = cpu_affinity->valueint;
+    {
+        config->cpu_affinity = strdup("");
+        if (!config->cpu_affinity)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            goto error;
+        }
+    }
+    else if (cJSON_IsString(cpu_affinity))
+    {
+        config->cpu_affinity = strdup(cpu_affinity->valuestring);
+        if (!config->cpu_affinity)
+        {
+            cjson_set_parse_error(err, "memory allocation failed");
+            goto error;
+        }
+    }
     else
     {
         cjson_set_parse_error(err, "invalid cpu_affinity");

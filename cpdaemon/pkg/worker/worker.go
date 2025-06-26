@@ -26,7 +26,7 @@ type ExecConfig struct {
 	Env        map[string]string
 	WorkDir    string
 
-	CpuAffinity int
+	CpuAffinity string
 	LogLevel    string
 	Control     ControlConfig
 	Tasks       []TaskConfig
@@ -299,7 +299,7 @@ func (w *Worker) newConfig() Config {
 		Control:  w.cfg.Control,
 		Tasks:    w.cfg.Tasks,
 	}
-	if w.cfg.CpuAffinity >= 0 {
+	if w.cfg.CpuAffinity != "" {
 		cfg.CpuAffinity = lo.ToPtr(w.cfg.CpuAffinity)
 	}
 	return cfg

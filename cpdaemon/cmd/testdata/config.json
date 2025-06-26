@@ -32,7 +32,7 @@
             "log_level": "INFO",
             "config_file": "cpm-worker.json",
             "unix_socket": "cpm-worker.sock",
-            "cpu_affinity": -1
+            "cpu_affinity": ""
         }
     }
 }
