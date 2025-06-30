@@ -51,8 +51,8 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats.direction_drop_bytes, length);
-        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        packets_stats_add(&output->base.stats->direction_drop_packets, 1);
         return -1;
     }
 
@@ -60,8 +60,8 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     {
         if (!token_bucket_consume(&output->throttle, GRE_HEADER_LEN + length, header->ts))
         {
-            bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, GRE_HEADER_LEN + length);
-            packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, GRE_HEADER_LEN + length);
+            packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
             return -1;
         }
     }
@@ -111,8 +111,8 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
                 output->error_info.nb_other_send_error_drops++;
             }
 
-            bytes_stats_add(&output->base.stats.error_drop_bytes, GRE_HEADER_LEN + length);
-            packets_stats_add(&output->base.stats.error_drop_packets, 1);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, GRE_HEADER_LEN + length);
+            packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
 
@@ -120,19 +120,19 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         {
             output->error_info.nb_partial_sends++;
 
-            bytes_stats_add(&output->base.stats.error_drop_bytes, GRE_HEADER_LEN + length - send_bytes);
-            bytes_stats_add(&output->base.stats.fwd_bytes, send_bytes);
-            packets_stats_add(&output->base.stats.fwd_packets, 1);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, GRE_HEADER_LEN + length - send_bytes);
+            bytes_stats_add(&output->base.stats->fwd_bytes, send_bytes);
+            packets_stats_add(&output->base.stats->fwd_packets, 1);
             return -1;
         }
 
-        bytes_stats_add(&output->base.stats.fwd_bytes, GRE_HEADER_LEN + length);
-        packets_stats_add(&output->base.stats.fwd_packets, 1);
+        bytes_stats_add(&output->base.stats->fwd_bytes, GRE_HEADER_LEN + length);
+        packets_stats_add(&output->base.stats->fwd_packets, 1);
         return 0;
     } while (true);
 }
 
-gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
+gre_output_t *gre_output_new(gre_options_t opts, output_stats_t *stats, char *errbuf)
 {
 
     struct sockaddr_in remote_addr;
@@ -188,6 +188,7 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
     output->base.send_packet = gre_send_packet;
     output->base.heartbeat = NULL;
     output->base.destory = gre_output_destory;
+    output->base.stats = stats;
 
     if (opts.rate_limit_mbps > 0)
     {
@@ -204,7 +205,8 @@ gre_output_t *gre_output_new(gre_options_t opts, char *errbuf)
     return output;
 }
 
-output_base_t *gre_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+output_base_t *gre_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, output_stats_t *stats,
+                                       char *errbuf)
 {
     gre_options_t opts = {
         .host = output_cfg->config.gre.host,
@@ -216,7 +218,7 @@ output_base_t *gre_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
     };
     log_info("gre output options: host=%s, service_tag=%d, bind_device=%s, pmtudisc=%d, rate_limit_mbps=%d, slice=%d",
              opts.host, opts.service_tag, opts.bind_device, opts.pmtudisc, opts.rate_limit_mbps, opts.slice);
-    return (output_base_t *)gre_output_new(opts, errbuf);
+    return (output_base_t *)gre_output_new(opts, stats, errbuf);
 }
 
 void gre_output_destory(output_base_t *self)

@@ -106,8 +106,8 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats.direction_drop_bytes, length);
-        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        packets_stats_add(&output->base.stats->direction_drop_packets, 1);
         return -1;
     }
 
@@ -115,8 +115,8 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     {
         if (!token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length, header->ts))
         {
-            bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
-            packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
+            packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
             return -1;
         }
     }
@@ -194,8 +194,8 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
                 output->error_info.nb_other_send_error_drops++;
             }
 
-            bytes_stats_add(&output->base.stats.error_drop_bytes, VXLAN_HEADER_LEN + length);
-            packets_stats_add(&output->base.stats.error_drop_packets, 1);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, VXLAN_HEADER_LEN + length);
+            packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
 
@@ -203,19 +203,19 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
         {
             output->error_info.nb_partial_sends++;
 
-            bytes_stats_add(&output->base.stats.error_drop_bytes, VXLAN_HEADER_LEN + length - send_bytes);
-            bytes_stats_add(&output->base.stats.fwd_bytes, send_bytes);
-            packets_stats_add(&output->base.stats.fwd_packets, 1);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, VXLAN_HEADER_LEN + length - send_bytes);
+            bytes_stats_add(&output->base.stats->fwd_bytes, send_bytes);
+            packets_stats_add(&output->base.stats->fwd_packets, 1);
             return -1;
         }
 
-        bytes_stats_add(&output->base.stats.fwd_bytes, VXLAN_HEADER_LEN + length);
-        packets_stats_add(&output->base.stats.fwd_packets, 1);
+        bytes_stats_add(&output->base.stats->fwd_bytes, VXLAN_HEADER_LEN + length);
+        packets_stats_add(&output->base.stats->fwd_packets, 1);
         return 0;
     } while (true);
 }
 
-vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
+vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, char *errbuf)
 {
     struct sockaddr_in remote_addr;
     memset(&remote_addr, 0, sizeof(struct sockaddr_in));
@@ -270,6 +270,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
     output->base.send_packet = vxlan_send_packet;
     output->base.heartbeat = NULL;
     output->base.destory = vxlan_output_destory;
+    output->base.stats = stats;
 
     if (opts.rate_limit_mbps > 0)
     {
@@ -287,7 +288,8 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, char *errbuf)
     return output;
 }
 
-output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, output_stats_t *stats,
+                                         char *errbuf)
 {
     vxlan_options_t opts = {
         .host = output_cfg->config.vxlan.host,
@@ -304,7 +306,7 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
              "pmtudisc=%d, rate_limit_mbps=%d, slice=%d",
              opts.host, opts.port, opts.capture_time, opts.vni_version, opts.vni, opts.bind_device, opts.pmtudisc,
              opts.rate_limit_mbps, opts.slice);
-    return (output_base_t *)vxlan_output_new(opts, errbuf);
+    return (output_base_t *)vxlan_output_new(opts, stats, errbuf);
 }
 
 void vxlan_output_destory(output_base_t *self)

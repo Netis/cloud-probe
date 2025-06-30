@@ -107,8 +107,8 @@ int zmq_flush_packet(zmq_output_t *output)
     int rc = zmq_send(output->pusher, &(pkts_buf->buf[0]), pkts_buf->batch_bufpos, ZMQ_DONTWAIT);
     if (rc != -1)
     {
-        bytes_stats_add(&output->base.stats.fwd_bytes, pkts_buf->batch_bufpos);
-        packets_stats_add(&output->base.stats.fwd_packets, send_num);
+        bytes_stats_add(&output->base.stats->fwd_bytes, pkts_buf->batch_bufpos);
+        packets_stats_add(&output->base.stats->fwd_packets, send_num);
     }
     else
     {
@@ -118,8 +118,8 @@ int zmq_flush_packet(zmq_output_t *output)
         output->error_info.nb_drop_batches++;
         output->error_info.nb_drop_packets += send_num;
 
-        bytes_stats_add(&output->base.stats.error_drop_bytes, pkts_buf->batch_bufpos);
-        packets_stats_add(&output->base.stats.error_drop_packets, send_num);
+        bytes_stats_add(&output->base.stats->error_drop_bytes, pkts_buf->batch_bufpos);
+        packets_stats_add(&output->base.stats->error_drop_packets, send_num);
     }
 
     pkts_buf->first_pktsec = 0;
@@ -141,8 +141,8 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats.direction_drop_bytes, length);
-        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        packets_stats_add(&output->base.stats->direction_drop_packets, 1);
 
         if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
             header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
@@ -154,8 +154,8 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (output->rate_limit_mbps > 0 && !token_bucket_consume(&output->throttle, length, header->ts))
     {
-        bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, length);
-        packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
+        bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, length);
+        packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
 
         if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
             header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
@@ -254,7 +254,7 @@ void zmq_heartbeat(output_base_t *self, time_t now)
     }
 }
 
-zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
+zmq_output_t *zmq_output_new(zmq_options_t opts, output_stats_t *stats, char *errbuf)
 {
     uint8_t uuid[16];
     memset(uuid, 0, sizeof(uuid));
@@ -319,6 +319,7 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
     output->base.send_packet = zmq_send_packet;
     output->base.heartbeat = zmq_heartbeat;
     output->base.destory = zmq_output_destory;
+    output->base.stats = stats;
 
     output->context = context;
     output->pusher = pusher;
@@ -344,7 +345,8 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, char *errbuf)
     return output;
 }
 
-output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, output_stats_t *stats,
+                                       char *errbuf)
 {
     zmq_options_t opts = {
         .host = output_cfg->config.zmq.host,
@@ -357,7 +359,7 @@ output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
     };
     log_info("zmq output options: host=%s, port=%d, hwm=%d, service_tag=%d, uuid=%s, rate_limit_mbps=%d, slice=%d",
              opts.host, opts.port, opts.hwm, opts.service_tag, opts.uuid, opts.rate_limit_mbps, opts.slice);
-    return (output_base_t *)zmq_output_new(opts, errbuf);
+    return (output_base_t *)zmq_output_new(opts, stats, errbuf);
 }
 
 void zmq_output_destory(output_base_t *self)

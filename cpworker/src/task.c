@@ -61,7 +61,7 @@ static OutputFactory find_output_factory(const char *name)
     return NULL;
 }
 
-capture_task_t *capture_task_new(TaskConfig *task_cfg, char *errbuf)
+capture_task_t *capture_task_new(TaskConfig *task_cfg, task_stats_summary_t *stats, char *errbuf)
 {
     capture_task_t *task = (capture_task_t *)calloc(1, sizeof(capture_task_t));
     if (!task)
@@ -76,7 +76,7 @@ capture_task_t *capture_task_new(TaskConfig *task_cfg, char *errbuf)
         error_format(errbuf, "unsupport capturer type %s", task_cfg->capturer.type);
         goto error;
     }
-    task->capturer = factory(task_cfg, errbuf);
+    task->capturer = factory(task_cfg, &stats->capture, errbuf);
     if (!task->capturer)
         goto error;
 
@@ -91,7 +91,7 @@ capture_task_t *capture_task_new(TaskConfig *task_cfg, char *errbuf)
             goto error;
         }
 
-        output_base_t *output = factory(task_cfg, output_cfg, errbuf);
+        output_base_t *output = factory(task_cfg, output_cfg, &stats->output, errbuf);
         if (!output)
             goto error;
 
@@ -150,29 +150,6 @@ uint64_t capture_task_poll_packets(capture_task_t *task)
 #define STAT_MAX_OUTPUT_PER_TASK 5
 #define STAT_MAX_TASKS 1024
 
-typedef struct TaskStats
-{
-    int index;
-    capture_stats_t capture;
-    output_stats_t outputs[STAT_MAX_OUTPUT_PER_TASK];
-    int num_outputs;
-} task_stats_t;
-
-typedef struct TaskManagerStatsDetail
-{
-    struct timespec tm;
-    task_stats_t tasks[STAT_MAX_TASKS];
-    int num_tasks;
-} task_manager_stats_detail_t;
-
-typedef struct TaskManagerStatsSummary
-{
-    struct timespec tm;
-
-    capture_stats_t capture;
-    output_stats_t output;
-} task_manager_stats_summary_t;
-
 typedef struct Task
 {
     int index;
@@ -187,6 +164,13 @@ typedef struct TaskError
     TAILQ_ENTRY(TaskError) next;
 } task_error_t;
 
+typedef struct TaskStatsSummarySnapshot
+{
+    struct timespec tm;
+    capture_stats_t capture;
+    output_stats_t output;
+} task_stats_summary_snapshot_t;
+
 typedef struct TaskManager
 {
     TasksAllConfig *config;
@@ -194,8 +178,8 @@ typedef struct TaskManager
     TAILQ_HEAD(, TaskError) errors;
 
     pthread_mutex_t stats_lock;
-    task_manager_stats_summary_t stats_summary;
-    task_manager_stats_detail_t stats_detail;
+    task_stats_summary_t stats_summary;
+    task_stats_summary_snapshot_t stats_summary_snapshot;
 } task_manager_t;
 
 static task_manager_t task_mgr;
@@ -215,7 +199,7 @@ static int task_manager_new(task_manager_t *this, TasksAllConfig *config)
     char errbuf[ERROR_BUFFER_SIZE];
     for (int i = 0; i < num_tasks; ++i)
     {
-        capture_task_t *cap_task = capture_task_new(config->tasks[i], errbuf);
+        capture_task_t *cap_task = capture_task_new(config->tasks[i], &this->stats_summary, errbuf);
         if (!cap_task)
         {
             log_error("new task-%d error: %s", i, errbuf);
@@ -287,88 +271,22 @@ uint64_t task_manager_poll_packets()
     return num_pkts;
 }
 
-static void task_manager_update_stats_detail()
-{
-    task_manager_t *this = &task_mgr;
-    task_manager_stats_detail_t stats_detail = {0};
-
-    task_t *item;
-    TAILQ_FOREACH(item, &this->tasks, next)
-    {
-        if (stats_detail.num_tasks >= STAT_MAX_TASKS - 1)
-        {
-            log_warn("task manager stats only support %d tasks", STAT_MAX_TASKS);
-            break;
-        }
-
-        task_stats_t *task_stats = &stats_detail.tasks[stats_detail.num_tasks];
-        task_stats->index = item->index;
-        task_stats->capture = item->task->capturer->stats;
-        for (int i = 0; i < item->task->num_outputs; ++i)
-        {
-            if (i >= STAT_MAX_OUTPUT_PER_TASK - 1)
-            {
-                log_warn("task manager stats only support %d output per task", STAT_MAX_OUTPUT_PER_TASK);
-                break;
-            }
-
-            task_stats->outputs[task_stats->num_outputs] = item->task->outputs[i]->stats;
-            task_stats->num_outputs++;
-        }
-        stats_detail.num_tasks++;
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, &stats_detail.tm);
-
-    pthread_mutex_lock(&this->stats_lock);
-    this->stats_detail = stats_detail;
-    pthread_mutex_unlock(&this->stats_lock);
-}
-
 static void task_manager_update_stats_summary()
 {
     task_manager_t *this = &task_mgr;
-    task_manager_stats_summary_t stats_summary;
-    memset(&stats_summary, 0, sizeof(task_manager_stats_summary_t));
+    task_stats_summary_snapshot_t stats;
+    memset(&stats, 0, sizeof(task_stats_summary_snapshot_t));
 
-    task_t *item;
-    TAILQ_FOREACH(item, &this->tasks, next)
-    {
-        bytes_stats_merge(&stats_summary.capture.cap_bytes, &item->task->capturer->stats.cap_bytes);
-        packets_stats_merge(&stats_summary.capture.cap_packets, &item->task->capturer->stats.cap_packets);
-
-        packets_stats_merge(&stats_summary.capture.drop_packets, &item->task->capturer->stats.drop_packets);
-        packets_stats_merge(&stats_summary.capture.ifdrop_packets, &item->task->capturer->stats.ifdrop_packets);
-
-        for (int i = 0; i < item->task->num_outputs; ++i)
-        {
-            output_stats_t *output_stats = &item->task->outputs[i]->stats;
-            bytes_stats_merge(&stats_summary.output.fwd_bytes, &output_stats->fwd_bytes);
-            packets_stats_merge(&stats_summary.output.fwd_packets, &output_stats->fwd_packets);
-
-            bytes_stats_merge(&stats_summary.output.direction_drop_bytes, &output_stats->direction_drop_bytes);
-            packets_stats_merge(&stats_summary.output.direction_drop_packets, &output_stats->direction_drop_packets);
-
-            bytes_stats_merge(&stats_summary.output.error_drop_bytes, &output_stats->error_drop_bytes);
-            packets_stats_merge(&stats_summary.output.error_drop_packets, &output_stats->error_drop_packets);
-
-            bytes_stats_merge(&stats_summary.output.ratelimit_drop_bytes, &output_stats->ratelimit_drop_bytes);
-            packets_stats_merge(&stats_summary.output.ratelimit_drop_packets, &output_stats->ratelimit_drop_packets);
-        }
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, &stats_summary.tm);
+    clock_gettime(CLOCK_MONOTONIC, &stats.tm);
+    stats.capture = this->stats_summary.capture;
+    stats.output = this->stats_summary.output;
 
     pthread_mutex_lock(&this->stats_lock);
-    this->stats_summary = stats_summary;
+    this->stats_summary_snapshot = stats;
     pthread_mutex_unlock(&this->stats_lock);
 }
 
-void task_manager_update_stats()
-{
-    task_manager_update_stats_detail();
-    task_manager_update_stats_summary();
-}
+void task_manager_update_stats() { task_manager_update_stats_summary(); }
 
 static int bytes_stats_json_dump(bytes_stats_t st, cJSON *obj)
 {
@@ -497,7 +415,7 @@ int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg
     task_manager_t *this = &task_mgr;
 
     pthread_mutex_lock(&this->stats_lock);
-    task_manager_stats_summary_t stats = this->stats_summary;
+    task_stats_summary_snapshot_t stats = this->stats_summary_snapshot;
     pthread_mutex_unlock(&this->stats_lock);
 
     cJSON *time = cJSON_CreateObject();
@@ -528,78 +446,6 @@ int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg
     cJSON_AddItemToObject(server_msg, "output", output);
     if (output_stats_json_dump(&stats.output, output) != 0)
         goto error;
-
-    return 0;
-error:
-    return -1;
-}
-
-int task_manager_collect_stats_detail_command(cJSON *cmd_msg, cJSON *server_msg, void *data)
-{
-    task_manager_t *this = &task_mgr;
-
-    pthread_mutex_lock(&this->stats_lock);
-    task_manager_stats_detail_t stats = this->stats_detail;
-    pthread_mutex_unlock(&this->stats_lock);
-
-    cJSON *time = cJSON_CreateObject();
-    if (!time)
-        goto error;
-    cJSON_AddItemToObject(server_msg, "time", time);
-
-    cJSON *tv_sec = cJSON_CreateNumber(stats.tm.tv_sec);
-    if (!tv_sec)
-        goto error;
-    cJSON_AddItemToObject(time, "sec", tv_sec);
-
-    cJSON *tv_nsec = cJSON_CreateNumber(stats.tm.tv_nsec);
-    if (!tv_nsec)
-        goto error;
-    cJSON_AddItemToObject(time, "nsec", tv_nsec);
-
-    cJSON *tasks = cJSON_CreateArray();
-    if (!tasks)
-        goto error;
-    cJSON_AddItemToObject(server_msg, "tasks", tasks);
-
-    for (int i = 0; i < stats.num_tasks; ++i)
-    {
-        cJSON *task = cJSON_CreateObject();
-        if (!task)
-            goto error;
-        cJSON_AddItemToArray(tasks, task);
-
-        cJSON *index = cJSON_CreateNumber(stats.tasks[i].index);
-        if (!index)
-            goto error;
-        cJSON_AddItemToObject(task, "index", index);
-
-        cJSON *capture = cJSON_CreateObject();
-        if (!capture)
-            goto error;
-        cJSON_AddItemToObject(task, "capture", capture);
-
-        if (capture_stats_json_dump(&stats.tasks[i].capture, capture) != 0)
-            goto error;
-
-        cJSON *outputs = cJSON_CreateArray();
-        if (!outputs)
-            goto error;
-        cJSON_AddItemToObject(task, "outputs", outputs);
-
-        for (int j = 0; j < stats.tasks[i].num_outputs; ++j)
-        {
-            output_stats_t *output_stats = &stats.tasks[i].outputs[j];
-
-            cJSON *output = cJSON_CreateObject();
-            if (!output)
-                goto error;
-            cJSON_AddItemToArray(outputs, output);
-
-            if (output_stats_json_dump(output_stats, output) != 0)
-                goto error;
-        }
-    }
 
     return 0;
 error:

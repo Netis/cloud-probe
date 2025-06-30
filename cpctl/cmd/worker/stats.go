@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"cmp"
 	"fmt"
 	"math"
 	"time"
@@ -9,11 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Netis/cloud-probe/cpgolib/cpworker"
-)
-
-const (
-	EIB_IN_BYTES    = 1024 * 1024 * 1024 * 1024 * 1024 * 1024 // 1 EiB = 2^60 bytes
-	PETA_IN_PACKETS = 10000000000000000                       // 1 Peta = 10^16 packets
 )
 
 func init() {
@@ -76,7 +70,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	secs := t1.Sub(t2).Seconds()
 
 	headers = append(headers, "Cap Bytes")
-	diffCapBytes, isLess := diffBytesStats(stats.Capture.CapBytes, lastStats.Capture.CapBytes)
+	diffCapBytes, isLess := stats.Capture.CapBytes.Sub(lastStats.Capture.CapBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -84,7 +78,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Cap Packets")
-	diffCapPackets, isLess := diffPacketsStats(stats.Capture.CapPackets, lastStats.Capture.CapPackets)
+	diffCapPackets, isLess := stats.Capture.CapPackets.Sub(lastStats.Capture.CapPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -92,7 +86,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Drop Packets")
-	diffDropPackets, isLess := diffPacketsStats(stats.Capture.DropPackets, lastStats.Capture.DropPackets)
+	diffDropPackets, isLess := stats.Capture.DropPackets.Sub(lastStats.Capture.DropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -100,7 +94,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Ifdrop Packets")
-	diffIfdropPackets, isLess := diffPacketsStats(stats.Capture.IfdropPackets, lastStats.Capture.IfdropPackets)
+	diffIfdropPackets, isLess := stats.Capture.IfdropPackets.Sub(lastStats.Capture.IfdropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -108,7 +102,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Fwd Bytes")
-	diffFwdBytes, isLess := diffBytesStats(stats.Output.FwdBytes, lastStats.Output.FwdBytes)
+	diffFwdBytes, isLess := stats.Output.FwdBytes.Sub(lastStats.Output.FwdBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -116,7 +110,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Fwd Packets")
-	diffFwdPackets, isLess := diffPacketsStats(stats.Output.FwdPackets, lastStats.Output.FwdPackets)
+	diffFwdPackets, isLess := stats.Output.FwdPackets.Sub(lastStats.Output.FwdPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -124,7 +118,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Direction Drop Bytes")
-	diffDirectionDropBytes, isLess := diffBytesStats(stats.Output.DirectionDropBytes, lastStats.Output.DirectionDropBytes)
+	diffDirectionDropBytes, isLess := stats.Output.DirectionDropBytes.Sub(lastStats.Output.DirectionDropBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -132,7 +126,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Direction Drop Packets")
-	diffDirectionDropPackets, isLess := diffPacketsStats(stats.Output.DirectionDropPackets, lastStats.Output.DirectionDropPackets)
+	diffDirectionDropPackets, isLess := stats.Output.DirectionDropPackets.Sub(lastStats.Output.DirectionDropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -140,7 +134,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Error Drop Bytes")
-	diffErrorDropBytes, isLess := diffBytesStats(stats.Output.ErrorDropBytes, lastStats.Output.ErrorDropBytes)
+	diffErrorDropBytes, isLess := stats.Output.ErrorDropBytes.Sub(lastStats.Output.ErrorDropBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -148,7 +142,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Error Drop Packets")
-	diffErrorDropPackets, isLess := diffPacketsStats(stats.Output.ErrorDropPackets, lastStats.Output.ErrorDropPackets)
+	diffErrorDropPackets, isLess := stats.Output.ErrorDropPackets.Sub(lastStats.Output.ErrorDropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -156,7 +150,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Ratelimit Drop Bytes")
-	diffRatelimitDropBytes, isLess := diffBytesStats(stats.Output.RatelimitDropBytes, lastStats.Output.RatelimitDropBytes)
+	diffRatelimitDropBytes, isLess := stats.Output.RatelimitDropBytes.Sub(lastStats.Output.RatelimitDropBytes)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -164,7 +158,7 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 
 	headers = append(headers, "Ratelimit Drop Packets")
-	diffRatelimitDropPackets, isLess := diffPacketsStats(stats.Output.RatelimitDropPackets, lastStats.Output.RatelimitDropPackets)
+	diffRatelimitDropPackets, isLess := stats.Output.RatelimitDropPackets.Sub(lastStats.Output.RatelimitDropPackets)
 	if isLess {
 		row = append(row, "-")
 	} else {
@@ -183,104 +177,12 @@ func printSummaryStats(stats cpworker.StatsSummary, lastStats cpworker.StatsSumm
 	}
 }
 
-func comparePacketsStats(stats cpworker.PacketsStats, lastStats cpworker.PacketsStats) int {
-	return cmp.Or(
-		cmp.Compare(stats.Peta, lastStats.Peta),
-		cmp.Compare(stats.Packets, lastStats.Packets),
-	)
-}
-
-func compareBytesStats(stats cpworker.BytesStats, lastStats cpworker.BytesStats) int {
-	return cmp.Or(
-		cmp.Compare(stats.Eib, lastStats.Eib),
-		cmp.Compare(stats.Bytes, lastStats.Bytes),
-	)
-}
-
-func addPacketsStats(stats cpworker.PacketsStats, lastStats cpworker.PacketsStats) cpworker.PacketsStats {
-	packets := stats.Packets + lastStats.Packets
-	peta := stats.Peta + lastStats.Peta
-	if packets >= PETA_IN_PACKETS {
-		peta++
-		packets -= PETA_IN_PACKETS
-	}
-	return cpworker.PacketsStats{
-		Packets: packets,
-		Peta:    peta,
-	}
-}
-
-func diffPacketsStats(stats cpworker.PacketsStats, lastStats cpworker.PacketsStats) (cpworker.PacketsStats, bool) {
-	cmpRet := comparePacketsStats(stats, lastStats)
-	isLess := cmpRet < 0
-
-	xStats := stats
-	yStats := lastStats
-	if isLess {
-		xStats = lastStats
-		yStats = stats
-	}
-
-	peta := xStats.Peta - yStats.Peta
-	var packets uint64
-	if xStats.Packets < yStats.Packets {
-		peta--
-		packets = PETA_IN_PACKETS + xStats.Packets - yStats.Packets
-	} else {
-		packets = xStats.Packets - yStats.Packets
-	}
-
-	return cpworker.PacketsStats{
-		Packets: packets,
-		Peta:    peta,
-	}, isLess
-}
-
-func addBytesStats(stats cpworker.BytesStats, lastStats cpworker.BytesStats) cpworker.BytesStats {
-	bytes := stats.Bytes + lastStats.Bytes
-	eib := stats.Eib + lastStats.Eib
-	if bytes >= EIB_IN_BYTES {
-		eib++
-		bytes -= EIB_IN_BYTES
-	}
-	return cpworker.BytesStats{
-		Bytes: bytes,
-		Eib:   eib,
-	}
-}
-
-func diffBytesStats(stats cpworker.BytesStats, lastStats cpworker.BytesStats) (cpworker.BytesStats, bool) {
-	cmpRet := compareBytesStats(stats, lastStats)
-	isLess := cmpRet < 0
-
-	xStats := stats
-	yStats := lastStats
-	if isLess {
-		xStats = lastStats
-		yStats = stats
-	}
-
-	eib := xStats.Eib - yStats.Eib
-	var bytes uint64
-	if xStats.Bytes < yStats.Bytes {
-		eib--
-		bytes = EIB_IN_BYTES + xStats.Bytes - yStats.Bytes
-	} else {
-		bytes = xStats.Bytes - yStats.Bytes
-	}
-
-	return cpworker.BytesStats{
-		Bytes: bytes,
-		Eib:   eib,
-	}, isLess
-}
-
 func packetsStatsPerSec(stats cpworker.PacketsStats, secs float64) cpworker.PacketsStats {
 	packets := uint64(float64(stats.Packets) / secs)
 	peta := float64(stats.Peta) / secs
 	petaInt := math.Trunc(peta)
 	petaRem := peta - petaInt
-	packets += uint64(petaRem * PETA_IN_PACKETS)
+	packets += uint64(petaRem * cpworker.PETA_IN_PACKETS)
 	return cpworker.PacketsStats{
 		Packets: packets,
 		Peta:    uint64(petaInt),
@@ -292,7 +194,7 @@ func bytesStatsPerSec(stats cpworker.BytesStats, secs float64) cpworker.BytesSta
 	eib := float64(stats.Eib) / secs
 	eibInt := math.Trunc(eib)
 	eibRem := eib - eibInt
-	bytes += uint64(eibRem * EIB_IN_BYTES)
+	bytes += uint64(eibRem * cpworker.EIB_IN_BYTES)
 	return cpworker.BytesStats{
 		Bytes: bytes,
 		Eib:   uint64(eibInt),

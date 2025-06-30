@@ -12,7 +12,13 @@ typedef struct CaptureTask
     int num_outputs;
 } capture_task_t;
 
-capture_task_t *capture_task_new(TaskConfig *task_cfg, char *errbuf);
+typedef struct TaskStatsSummary
+{
+    capture_stats_t capture;
+    output_stats_t output;
+} task_stats_summary_t;
+
+capture_task_t *capture_task_new(TaskConfig *task_cfg, task_stats_summary_t *stats, char *errbuf);
 void capture_task_destory(capture_task_t *task);
 uint64_t capture_task_poll_packets(capture_task_t *task);
 
@@ -22,6 +28,5 @@ uint64_t task_manager_poll_packets();
 void task_manager_print_errors();
 void task_manager_update_stats();
 int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg, void *data);
-int task_manager_collect_stats_detail_command(cJSON *cmd_msg, cJSON *server_msg, void *data);
 
 #endif /* CPWORKER_TASK_H */

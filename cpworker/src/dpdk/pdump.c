@@ -280,8 +280,8 @@ uint64_t dpdk_do_capture(capturer_base_t *self, capture_packet_handler pkt_handl
         header.caplen = RTE_MIN(header.len, capturer->snaplen);
         uint8_t *pkt_data = rte_pktmbuf_read(m, 0, header.caplen, temp_data);
 
-        bytes_stats_add(&capturer->base.stats.cap_bytes, header.caplen);
-        packets_stats_add(&capturer->base.stats.cap_packets, 1);
+        bytes_stats_add(&capturer->base.stats->cap_bytes, header.caplen);
+        packets_stats_add(&capturer->base.stats->cap_packets, 1);
 
         int direction = PKT_DIR_UNKNOWN;
         if (capturer->req_pattern == NULL)
@@ -295,7 +295,7 @@ uint64_t dpdk_do_capture(capturer_base_t *self, capture_packet_handler pkt_handl
     return n;
 }
 
-dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
+dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *stats, char *errbuf)
 {
     req_pattern_t *req_pattern = req_pattern_new_from_cfg(opts.req_pattern, opts.interface, errbuf);
     if (!req_pattern)
@@ -365,6 +365,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
     }
     capturer->base.capture = dpdk_do_capture;
     capturer->base.destory = dpdk_capturer_destory;
+    capturer->base.stats = stats;
     capturer->port = port;
     capturer->promiscuous_mode = opts.promiscuous_mode;
     capturer->snaplen = opts.snaplen;
@@ -376,7 +377,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf)
     return capturer;
 }
 
-capturer_base_t *dpdk_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf)
+capturer_base_t *dpdk_capture_new_from_cfg(TaskConfig *task_cfg, capture_stats_t *stats, char *errbuf)
 {
     dpdk_pdump_options_t opts = {
         .interface = task_cfg->capturer.config.dpdk_pdump.interface,
@@ -392,7 +393,7 @@ capturer_base_t *dpdk_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf)
     log_info("dpdk_pdump options, interface %s, snaplen %d, ring_size: %d, num_mbufs: %d, bpf_filter: `%s`",
              opts.interface, opts.snaplen, opts.ring_size, opts.num_mbufs, opts.bpf_filter);
 
-    return (capturer_base_t *)dpdk_capturer_new(opts, errbuf);
+    return (capturer_base_t *)dpdk_capturer_new(opts, stats, errbuf);
 }
 
 void dpdk_capturer_destory(capturer_base_t *self)

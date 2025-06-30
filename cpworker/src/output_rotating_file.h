@@ -33,8 +33,9 @@ typedef struct RotatingFileOutput
     pcap_dumper_t *dumper;
 } rotating_file_output_t;
 
-output_base_t *rotating_file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf);
-rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, char *errbuf);
+output_base_t *rotating_file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, output_stats_t *stats,
+                                                 char *errbuf);
+rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, output_stats_t *stats, char *errbuf);
 void rotating_file_output_destory(output_base_t *self);
 
 #endif /* CPWORKER_OUTPUT_ROTATING_FILE_H */

@@ -107,10 +107,10 @@ int main(int argc, char **argv)
     {
         if (set_cpu_affinity(config->cpu_affinity) != 0)
         {
-            log_fatal("set cpu affinity fail: %s", config->cpu_affinity);
+            log_fatal("set cpu affinity to '%s' fail", config->cpu_affinity);
             exit(EXIT_FAILURE);
         }
-        log_info("set cpu affinity to %d", config->cpu_affinity);
+        log_info("set cpu affinity to '%s'", config->cpu_affinity);
     }
 
     int total_num_tasks = config->tasks_cfg->num_tasks;
@@ -143,7 +143,6 @@ int main(int argc, char **argv)
         log_info("listen on unix socket %s", config->control->config.unix_socket.path);
 
         unix_manager_register_command("collect_stats_summary", task_manager_collect_stats_summary_command, NULL);
-        unix_manager_register_command("collect_stats_detail", task_manager_collect_stats_detail_command, NULL);
 
         if (unix_manager_thread_spawn() != 0)
         {
@@ -157,7 +156,8 @@ int main(int argc, char **argv)
     signal(SIGPIPE, SIG_IGN);
 
     log_info("start poll packets");
-    time_t last_tm = time(NULL);
+    time_t last_stats_tm = time(NULL);
+    time_t last_error_tm = time(NULL);
     while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
     {
         uint64_t num_pkts = task_manager_poll_packets();
@@ -167,15 +167,18 @@ int main(int argc, char **argv)
         if (control_enabled || inited_num_tasks < total_num_tasks)
         {
             time_t now = time(NULL);
-            double delta = difftime(now, last_tm);
 
-            if (control_enabled && delta >= 5)
+            if (control_enabled && difftime(now, last_stats_tm) >= 5)
+            {
                 task_manager_update_stats();
+                last_stats_tm = now;
+            }
 
-            if (delta > 60)
+            if (difftime(now, last_error_tm) >= 60)
+            {
                 task_manager_print_errors();
-
-            last_tm = now;
+                last_error_tm = now;
+            }
         }
     }
 

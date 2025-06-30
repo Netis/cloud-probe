@@ -82,7 +82,6 @@ func (w *pipeWriter) addToRem(p []byte) {
 		p = p[:room]
 	}
 	w.rem = append(w.rem, p...)
-	return
 }
 
 func parseLogLine(line string) (time.Time, slog.Level, string, bool) {

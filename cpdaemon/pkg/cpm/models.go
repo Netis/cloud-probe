@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"slices"
+
+	"github.com/Netis/cloud-probe/cpgolib/cpworker"
 )
 
 const (
@@ -238,4 +240,13 @@ type MetricsEntry struct {
 	FwdBytes               uint64  `json:"fwdBytes"`
 	FwdPackets             uint64  `json:"fwdPackets"`
 	CapBuff                uint64  `json:"capBuff"`
+}
+
+func (m *MetricsEntry) SetTaskStats(stats cpworker.StatsSummary) {
+	// WARN: 存在溢出问题，需要CPM端配合处理
+	m.CapBytes += stats.Capture.CapBytes.Bytes
+	m.CapPackets += stats.Capture.CapPackets.Packets
+	m.CapDrop += stats.Capture.DropPackets.Packets
+	m.FwdBytes += stats.Output.FwdBytes.Bytes
+	m.FwdPackets += stats.Output.FwdPackets.Packets
 }

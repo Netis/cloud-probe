@@ -37,8 +37,8 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
         else
             direction = req_pattern_judge_pkt_direction(capturer->req_pattern, hdr, data);
 
-        bytes_stats_add(&capturer->base.stats.cap_bytes, hdr->caplen);
-        packets_stats_add(&capturer->base.stats.cap_packets, 1);
+        bytes_stats_add(&capturer->base.stats->cap_bytes, hdr->caplen);
+        packets_stats_add(&capturer->base.stats->cap_packets, 1);
         pkt_handler(hdr, data, direction, user);
         num_pkts = 1;
         break;
@@ -88,10 +88,10 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
     if (pcap_stats(capturer->p, &stat) == 0)
     {
         __u_int drop_diff = stat.ps_drop - capturer->prev_ps_drop;
-        packets_stats_add(&capturer->base.stats.drop_packets, drop_diff);
+        packets_stats_add(&capturer->base.stats->drop_packets, drop_diff);
 
         __u_int ifdrop_diff = stat.ps_ifdrop - capturer->prev_ps_ifdrop;
-        packets_stats_add(&capturer->base.stats.ifdrop_packets, ifdrop_diff);
+        packets_stats_add(&capturer->base.stats->ifdrop_packets, ifdrop_diff);
 
         capturer->prev_ps_drop = stat.ps_drop;
         capturer->prev_ps_ifdrop = stat.ps_ifdrop;
@@ -106,7 +106,7 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
     return num_pkts;
 }
 
-libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
+libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t *stats, char *errbuf)
 {
     bool has_netns = false;
     if (opts.netns && strcmp(opts.netns, "") != 0)
@@ -215,6 +215,8 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, char *errbuf)
     }
     capturer->base.capture = libpcap_do_capture;
     capturer->base.destory = libpcap_capturer_destory;
+    capturer->base.stats = stats;
+
     capturer->req_pattern = req_pattern;
     capturer->p = p;
     capturer->pcap_next_error[0] = '\0';
@@ -241,7 +243,7 @@ error3:
     return NULL;
 }
 
-capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf)
+capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, capture_stats_t *stats, char *errbuf)
 {
     char *bpf_filter = NULL;
     if (!task_cfg->capturer.config.libpcap.not_filter_output_hosts)
@@ -288,7 +290,7 @@ capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf
              "netns='%s'",
              opts.interface, opts.snaplen, opts.timeout_ms, opts.buffer_size, opts.bpf_filter, opts.netns);
 
-    capturer_base_t *capturer = (capturer_base_t *)libpcap_capturer_new(opts, errbuf);
+    capturer_base_t *capturer = (capturer_base_t *)libpcap_capturer_new(opts, stats, errbuf);
     free(bpf_filter);
     return capturer;
 }

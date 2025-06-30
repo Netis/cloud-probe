@@ -42,8 +42,8 @@ typedef struct DpdkCapturer
 } dpdk_capturer_t;
 
 int dpdk_init(char *errbuf);
-capturer_base_t *dpdk_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf);
-dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, char *errbuf);
+capturer_base_t *dpdk_capture_new_from_cfg(TaskConfig *task_cfg, capture_stats_t *stats, char *errbuf);
+dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *stats, char *errbuf);
 void dpdk_capturer_destory(capturer_base_t *capturer);
 
 #endif /* CPWORKER_DPDKDUMP_H */

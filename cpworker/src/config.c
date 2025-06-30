@@ -258,7 +258,7 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         // Timeout
         cJSON *timeout = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "timeout_ms");
         if (!timeout)
-            capturer->config.libpcap.timeout_ms = 3000;
+            capturer->config.libpcap.timeout_ms = 0;
         else if (cJSON_IsNumber(timeout) && timeout->valueint >= 0)
             capturer->config.libpcap.timeout_ms = timeout->valueint;
         else

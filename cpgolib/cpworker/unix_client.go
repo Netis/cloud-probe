@@ -103,19 +103,6 @@ func (c *UnixClient) handshake(conn net.Conn) error {
 	return nil
 }
 
-func (c *UnixClient) CollectStatsDetail(ctx context.Context) (StatsDetail, error) {
-	resp, err := c.RunCommand(ctx, "collect_stats_detail", nil)
-	if err != nil {
-		return StatsDetail{}, err
-	}
-
-	var stats StatsDetail
-	if err := mapstructure.Decode(resp, &stats); err != nil {
-		return StatsDetail{}, errors.Wrapf(err, "invalid stats detail")
-	}
-	return stats, nil
-}
-
 func (c *UnixClient) CollectStatsSummary(ctx context.Context) (StatsSummary, error) {
 	resp, err := c.RunCommand(ctx, "collect_stats_summary", nil)
 	if err != nil {

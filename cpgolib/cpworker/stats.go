@@ -1,12 +1,13 @@
 package cpworker
 
-type StatsDetail struct {
-	Time struct {
-		Sec  int64 `mapstructure:"sec"`
-		Nsec int64 `mapstructure:"nsec"`
-	} `mapstructure:"time"`
-	Tasks []TaskStats `mapstructure:"tasks"`
-}
+import (
+	"cmp"
+)
+
+const (
+	EIB_IN_BYTES    = 1024 * 1024 * 1024 * 1024 * 1024 * 1024 // 1 EiB = 2^60 bytes
+	PETA_IN_PACKETS = 10000000000000000                       // 1 Peta = 10^16 packets
+)
 
 type StatsSummary struct {
 	Time struct {
@@ -15,12 +16,6 @@ type StatsSummary struct {
 	} `mapstructure:"time"`
 	Capture CaptureStats `mapstructure:"capture"`
 	Output  OutputStats  `mapstructure:"output"`
-}
-
-type TaskStats struct {
-	Index   int           `mapstructure:"index"`
-	Capture CaptureStats  `mapstructure:"capture"`
-	Outputs []OutputStats `mapstructure:"outputs"`
 }
 
 type CaptureStats struct {
@@ -50,7 +45,73 @@ type BytesStats struct {
 	Eib   uint64 `mapstructure:"eib"`
 }
 
+func (s BytesStats) Compare(other BytesStats) int {
+	return cmp.Or(
+		cmp.Compare(s.Eib, other.Eib),
+		cmp.Compare(s.Bytes, other.Bytes),
+	)
+}
+
+func (s BytesStats) Sub(other BytesStats) (BytesStats, bool) {
+	cmpRet := s.Compare(other)
+	isLess := cmpRet < 0
+
+	xStats := s
+	yStats := other
+	if isLess {
+		xStats = other
+		yStats = s
+	}
+
+	eib := xStats.Eib - yStats.Eib
+	var bytes uint64
+	if xStats.Bytes < yStats.Bytes {
+		eib--
+		bytes = EIB_IN_BYTES + xStats.Bytes - yStats.Bytes
+	} else {
+		bytes = xStats.Bytes - yStats.Bytes
+	}
+
+	return BytesStats{
+		Bytes: bytes,
+		Eib:   eib,
+	}, isLess
+}
+
 type PacketsStats struct {
 	Packets uint64 `mapstructure:"packets"`
 	Peta    uint64 `mapstructure:"peta"`
+}
+
+func (s PacketsStats) Compare(other PacketsStats) int {
+	return cmp.Or(
+		cmp.Compare(s.Peta, other.Peta),
+		cmp.Compare(s.Packets, other.Packets),
+	)
+}
+
+func (s PacketsStats) Sub(other PacketsStats) (PacketsStats, bool) {
+	cmpRet := s.Compare(other)
+	isLess := cmpRet < 0
+
+	xStats := s
+	yStats := other
+	if isLess {
+		xStats = other
+		yStats = s
+	}
+
+	peta := xStats.Peta - yStats.Peta
+	var packets uint64
+	if xStats.Packets < yStats.Packets {
+		peta--
+		packets = PETA_IN_PACKETS + xStats.Packets - yStats.Packets
+	} else {
+		packets = xStats.Packets - yStats.Packets
+	}
+
+	return PacketsStats{
+		Packets: packets,
+		Peta:    peta,
+	}, isLess
 }

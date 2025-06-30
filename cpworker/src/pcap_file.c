@@ -28,8 +28,8 @@ uint64_t pcap_file_do_capture(capturer_base_t *self, capture_packet_handler pkt_
         else
             direction = req_pattern_judge_pkt_direction(capturer->req_pattern, hdr, data);
 
-        bytes_stats_add(&capturer->base.stats.cap_bytes, hdr->caplen);
-        packets_stats_add(&capturer->base.stats.cap_packets, 1);
+        bytes_stats_add(&capturer->base.stats->cap_bytes, hdr->caplen);
+        packets_stats_add(&capturer->base.stats->cap_packets, 1);
         pkt_handler(hdr, data, direction, user);
         num_pkts = 1;
         break;
@@ -48,7 +48,7 @@ uint64_t pcap_file_do_capture(capturer_base_t *self, capture_packet_handler pkt_
     return num_pkts;
 }
 
-pcap_file_capturer_t *pcap_file_capturer_new(pcap_file_options_t opts, char *errbuf)
+pcap_file_capturer_t *pcap_file_capturer_new(pcap_file_options_t opts, capture_stats_t *stats, char *errbuf)
 {
     req_pattern_t *req_pattern = req_pattern_new_from_cfg(opts.req_pattern, "", errbuf);
     if (!req_pattern)
@@ -102,6 +102,7 @@ pcap_file_capturer_t *pcap_file_capturer_new(pcap_file_options_t opts, char *err
     }
     capturer->base.capture = pcap_file_do_capture;
     capturer->base.destory = pcap_file_capturer_destory;
+    capturer->base.stats = stats;
     capturer->req_pattern = req_pattern;
     capturer->p = p;
     return capturer;
@@ -111,7 +112,7 @@ error:
     return NULL;
 }
 
-capturer_base_t *pcap_file_capture_new_from_cfg(TaskConfig *task_cfg, char *errbuf)
+capturer_base_t *pcap_file_capture_new_from_cfg(TaskConfig *task_cfg, capture_stats_t *stats, char *errbuf)
 {
     char *bpf_filter =
         bpf_filter_exclude_task_output_hosts(task_cfg->capturer.config.pcap_file.bpf_filter, task_cfg, errbuf);
@@ -123,7 +124,7 @@ capturer_base_t *pcap_file_capture_new_from_cfg(TaskConfig *task_cfg, char *errb
     };
     log_info("pcap_file capturer options: file_name=%s, bpf_filter='%s'", opts.file_name, opts.bpf_filter);
 
-    capturer_base_t *capturer = (capturer_base_t *)pcap_file_capturer_new(opts, errbuf);
+    capturer_base_t *capturer = (capturer_base_t *)pcap_file_capturer_new(opts, stats, errbuf);
     free(bpf_filter);
     return capturer;
 }

@@ -2,6 +2,7 @@ package cpm
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -87,6 +88,11 @@ type Client interface {
 	SyncMetrics(ctx context.Context, daemonId int64, req SyncMetricsRequest) error
 }
 
+type StatsWithPid struct {
+	pid   int
+	stats cpworker.StatsSummary
+}
+
 type Syncer struct {
 	client    Client
 	workerMgr IWorkerManager
@@ -101,6 +107,8 @@ type Syncer struct {
 	syncResp             *SyncStrategyResponse
 	syncActiveInstances  []string
 	workerCreateWarnings []error
+
+	lastStats [2]StatsWithPid
 
 	logBuf *SyncLogBuffer
 	lg     *slog.Logger
@@ -393,8 +401,8 @@ func (s *Syncer) syncLoop(ctx context.Context) error {
 	metricTimer := time.NewTimer(s.cfg.SyncMetricInterval)
 	defer metricTimer.Stop()
 
-	warningTimer := time.NewTimer(time.Minute)
-	defer warningTimer.Stop()
+	otherTimer := time.NewTimer(time.Minute)
+	defer otherTimer.Stop()
 
 	syncStrategyFailCount := 0
 	for {
@@ -431,8 +439,9 @@ func (s *Syncer) syncLoop(ctx context.Context) error {
 			strategyTimer.Reset(s.cfg.SyncStrategyInterval)
 		case <-metricTimer.C:
 			s.syncMetric(ctx)
+			s.logTaskStats()
 			metricTimer.Reset(s.cfg.SyncMetricInterval)
-		case <-warningTimer.C:
+		case <-otherTimer.C:
 			for _, warning := range s.workerCreateWarnings {
 				s.lg.Warn(warning.Error())
 			}
@@ -544,8 +553,51 @@ func (s *Syncer) activeInstancesIfRequired(resp *SyncStrategyResponse) ([]string
 	return s.tool.GetKvmInstances()
 }
 
+func (s *Syncer) updateTaskStats(pid int, stats cpworker.StatsSummary) {
+	s.lastStats[0] = s.lastStats[1]
+	s.lastStats[1] = StatsWithPid{
+		pid:   pid,
+		stats: stats,
+	}
+}
+
+func (s *Syncer) logTaskStats() {
+	if s.lastStats[1].pid == 0 || (s.lastStats[0].pid != s.lastStats[1].pid) {
+		return
+	}
+
+	formatPacketsStatsDiff := func(diff cpworker.PacketsStats, isLess bool) string {
+		if isLess {
+			return "-"
+		}
+		return formatPacketsStats(diff)
+	}
+
+	var attrs []any
+	{
+		t0 := time.Unix(s.lastStats[0].stats.Time.Sec, 0)
+		t1 := time.Unix(s.lastStats[1].stats.Time.Sec, 0)
+		attrs = append(attrs, slog.Duration("dur", t1.Sub(t0)))
+	}
+	cap0 := s.lastStats[0].stats.Capture
+	cap1 := s.lastStats[1].stats.Capture
+	out0 := s.lastStats[0].stats.Output
+	out1 := s.lastStats[1].stats.Output
+
+	attrs = append(attrs, slog.String("cap_pkts", formatPacketsStatsDiff(cap1.CapPackets.Sub(cap0.CapPackets))))
+	attrs = append(attrs, slog.String("drop_pkts", formatPacketsStatsDiff(cap1.DropPackets.Sub(cap0.DropPackets))))
+	attrs = append(attrs, slog.String("ifdrop_pkts", formatPacketsStatsDiff(cap1.IfdropPackets.Sub(cap0.IfdropPackets))))
+	attrs = append(attrs, slog.String("fwd_pkts", formatPacketsStatsDiff(out1.FwdPackets.Sub(out0.FwdPackets))))
+	attrs = append(attrs, slog.String("dir_drop_pkts", formatPacketsStatsDiff(out1.DirectionDropPackets.Sub(out0.DirectionDropPackets))))
+	attrs = append(attrs, slog.String("err_drop_pkts", formatPacketsStatsDiff(out1.ErrorDropPackets.Sub(out0.ErrorDropPackets))))
+	attrs = append(attrs, slog.String("limit_drop_pkts", formatPacketsStatsDiff(out1.RatelimitDropPackets.Sub(out0.RatelimitDropPackets))))
+
+	s.lg.Info("stats", attrs...)
+}
+
 func (s *Syncer) syncMetric(ctx context.Context) {
 	if s.regResp == nil {
+		s.updateTaskStats(0, cpworker.StatsSummary{})
 		return
 	}
 
@@ -570,10 +622,15 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 			SamplingTimestamp:      time.Now().Unix(),
 			SamplingMicroTimestamp: time.Now().UnixMicro() % 1e6,
 			CapBuff:                buffSizePerTask,
+			StartTime:              s.workerMgr.StartTime().Unix(),
 		}
 		workerBegin := time.Now()
-		if err := s.collectTaskStats(ctx, &metrics); err != nil {
+		stats, err := s.workerMgr.CollectStatsSummary(ctx)
+		if err != nil {
 			s.lg.Error("collect cpworker stats error", slogx.Error(err))
+		} else {
+			s.updateTaskStats(pid, stats)
+			metrics.SetTaskStats(stats)
 		}
 		durStats.worker = time.Since(workerBegin)
 
@@ -587,6 +644,8 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 
 		// 不上报 pid 表示: 未捕获状态
 		req.Pid = lo.ToPtr(int32(pid))
+	} else {
+		s.updateTaskStats(0, cpworker.StatsSummary{})
 	}
 
 	logs := s.logBuf.Clear()
@@ -609,23 +668,6 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 		slog.String("system_dur", durStats.system.String()),
 		slog.String("sync_dur", durStats.sync.String()),
 	)
-}
-
-func (s *Syncer) collectTaskStats(ctx context.Context, metrics *MetricsEntry) error {
-	metrics.StartTime = s.workerMgr.StartTime().Unix()
-
-	stats, err := s.workerMgr.CollectStatsSummary(ctx)
-	if err != nil {
-		return err
-	}
-
-	// WARN: 存在溢出问题，需要CPM端配合处理
-	metrics.CapBytes += stats.Capture.CapBytes.Bytes
-	metrics.CapPackets += stats.Capture.CapPackets.Packets
-	metrics.CapDrop += stats.Capture.DropPackets.Packets
-	metrics.FwdBytes += stats.Output.FwdBytes.Bytes
-	metrics.FwdPackets += stats.Output.FwdPackets.Packets
-	return nil
 }
 
 func (s *Syncer) collectSysStats(ctx context.Context, pid int32, metrics *MetricsEntry) error {
@@ -659,4 +701,12 @@ func (s *Syncer) collectSysStats(ctx context.Context, pid int32, metrics *Metric
 	metrics.MemUseRate = float64(metrics.MemUse) / float64(machineMemory.Total)
 
 	return nil
+}
+
+func formatPacketsStats(s cpworker.PacketsStats) string {
+	v := fmt.Sprintf("%d", s.Packets)
+	if s.Peta != 0 {
+		v = fmt.Sprintf("%d Peta, %s", s.Peta, v)
+	}
+	return v
 }

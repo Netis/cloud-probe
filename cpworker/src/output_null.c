@@ -18,8 +18,8 @@ int null_send_packet(output_base_t *self, const struct pcap_pkthdr *header, cons
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats.direction_drop_bytes, length);
-        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        packets_stats_add(&output->base.stats->direction_drop_packets, 1);
         return -1;
     }
 
@@ -27,17 +27,17 @@ int null_send_packet(output_base_t *self, const struct pcap_pkthdr *header, cons
     {
         if (!token_bucket_consume(&output->throttle, length, header->ts))
         {
-            bytes_stats_add(&output->base.stats.ratelimit_drop_bytes, length);
-            packets_stats_add(&output->base.stats.ratelimit_drop_packets, 1);
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, length);
+            packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
             return -1;
         }
     }
-    bytes_stats_add(&output->base.stats.fwd_bytes, length);
-    packets_stats_add(&output->base.stats.fwd_packets, 1);
+    bytes_stats_add(&output->base.stats->fwd_bytes, length);
+    packets_stats_add(&output->base.stats->fwd_packets, 1);
     return 0;
 }
 
-null_output_t *null_output_new(null_options_t opts, char *errbuf)
+null_output_t *null_output_new(null_options_t opts, output_stats_t *stats, char *errbuf)
 {
     null_output_t *output = (null_output_t *)calloc(1, sizeof(null_output_t));
     if (!output)
@@ -49,6 +49,7 @@ null_output_t *null_output_new(null_options_t opts, char *errbuf)
     output->base.send_packet = null_send_packet;
     output->base.heartbeat = NULL;
     output->base.destory = null_output_destory;
+    output->base.stats = stats;
 
     if (opts.rate_limit_mbps > 0)
     {
@@ -60,14 +61,15 @@ null_output_t *null_output_new(null_options_t opts, char *errbuf)
     return output;
 }
 
-output_base_t *null_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+output_base_t *null_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, output_stats_t *stats,
+                                        char *errbuf)
 {
     null_options_t opts = {
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
         .slice = output_cfg->slice,
     };
     log_info("null output options: rate_limit_mbps=%d, slice=%d", opts.rate_limit_mbps, opts.slice);
-    return (output_base_t *)null_output_new(opts, errbuf);
+    return (output_base_t *)null_output_new(opts, stats, errbuf);
 }
 
 void null_output_destory(output_base_t *self)

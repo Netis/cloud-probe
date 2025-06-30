@@ -18,8 +18,8 @@ int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     file_output_t *output = (file_output_t *)self;
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats.direction_drop_bytes, header->caplen);
-        packets_stats_add(&output->base.stats.direction_drop_packets, 1);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, header->caplen);
+        packets_stats_add(&output->base.stats->direction_drop_packets, 1);
         return -1;
     }
 
@@ -27,7 +27,7 @@ int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     return 0;
 }
 
-file_output_t *file_output_new(file_options_t opts, char *errbuf)
+file_output_t *file_output_new(file_options_t opts, output_stats_t *stats, char *errbuf)
 {
     FILE *fp = fopen(opts.name, "w+");
     if (!fp)
@@ -67,6 +67,7 @@ file_output_t *file_output_new(file_options_t opts, char *errbuf)
     output->base.send_packet = file_write_packet;
     output->base.heartbeat = NULL;
     output->base.destory = file_output_destory;
+    output->base.stats = stats;
 
     output->pcap = pcap;
     output->fp = fp;
@@ -74,7 +75,8 @@ file_output_t *file_output_new(file_options_t opts, char *errbuf)
     return output;
 }
 
-output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, char *errbuf)
+output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, output_stats_t *stats,
+                                        char *errbuf)
 {
     file_options_t opts = {
         .name = output_cfg->config.file.name,
@@ -82,7 +84,7 @@ output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outp
         .slice = output_cfg->slice,
     };
     log_info("file output options: name=%s, snaplen=%d, slice=%d", opts.name, opts.snaplen, output_cfg->slice);
-    return (output_base_t *)file_output_new(opts, errbuf);
+    return (output_base_t *)file_output_new(opts, stats, errbuf);
 }
 
 void file_output_destory(output_base_t *self)
