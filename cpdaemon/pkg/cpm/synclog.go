@@ -66,7 +66,7 @@ func formatSyncLogAttrs(base string, attrs []slog.Attr) []string {
 	return result
 }
 
-const SyncLogBufSize = 100
+const SyncLogBufSize = 200
 
 type SyncLogBuffer struct {
 	mu      sync.Mutex
@@ -97,7 +97,8 @@ func (b *SyncLogBuffer) Clear() []LogEntry {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	var result []LogEntry
+	n := (b.end - b.start + SyncLogBufSize) % SyncLogBufSize
+	result := make([]LogEntry, 0, n)
 	start := b.start
 	for start != b.end {
 		result = append(result, b.entries[start])

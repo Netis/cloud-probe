@@ -217,7 +217,6 @@ func (m *WorkerManager) createUnsafe(ctx context.Context, res *SyncStrategyRespo
 		tb.addStrategy(strategy)
 	}
 
-	// TODO: 周期性输出
 	for _, warning := range tb.warnings {
 		m.lg.Warn(warning.Error())
 	}

@@ -667,6 +667,7 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 		slog.String("worker_dur", durStats.worker.String()),
 		slog.String("system_dur", durStats.system.String()),
 		slog.String("sync_dur", durStats.sync.String()),
+		slog.Int("log_count", len(req.Logs)),
 	)
 }
 

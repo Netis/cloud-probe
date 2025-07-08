@@ -3,6 +3,8 @@ package slogx
 import (
 	"context"
 	"log/slog"
+
+	"go.uber.org/multierr"
 )
 
 var _ slog.Handler = (*MultipleHandler)(nil)
@@ -28,15 +30,15 @@ func (h *MultipleHandler) Enabled(ctx context.Context, l slog.Level) bool {
 }
 
 func (h *MultipleHandler) Handle(ctx context.Context, r slog.Record) error {
+	var errs []error
 	for i := range h.handlers {
 		if h.handlers[i].Enabled(ctx, r.Level) {
 			if err := h.handlers[i].Handle(ctx, r.Clone()); err != nil {
-				return err
+				errs = append(errs, err)
 			}
 		}
 	}
-
-	return nil
+	return multierr.Combine(errs...)
 }
 
 func (h *MultipleHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
