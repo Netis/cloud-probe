@@ -87,10 +87,10 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
     struct pcap_stat stat;
     if (pcap_stats(capturer->p, &stat) == 0)
     {
-        __u_int drop_diff = stat.ps_drop - capturer->prev_ps_drop;
+        u_int drop_diff = stat.ps_drop - capturer->prev_ps_drop;
         packets_stats_add(&capturer->base.stats->drop_packets, drop_diff);
 
-        __u_int ifdrop_diff = stat.ps_ifdrop - capturer->prev_ps_ifdrop;
+        u_int ifdrop_diff = stat.ps_ifdrop - capturer->prev_ps_ifdrop;
         packets_stats_add(&capturer->base.stats->ifdrop_packets, ifdrop_diff);
 
         capturer->prev_ps_drop = stat.ps_drop;

@@ -15,7 +15,7 @@ make install
 wget https://github.com/the-tcpdump-group/libpcap/archive/refs/tags/libpcap-1.6.2.tar.gz
 tar xzf libpcap-1.6.2.tar.gz
 cd /path/to/unziped/dir
-CFLAGS="-arch x86_64" ./configure --prefix=$CLOUD_PROBE_CXX_LIBS_SDK/darwin-amd64
+./configure --disable-universal --prefix=$CLOUD_PROBE_CXX_LIBS_SDK/darwin-amd64
 make
 make install
 ```

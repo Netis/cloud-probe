@@ -35,8 +35,8 @@ typedef struct LibpcapCapturer
 
     bool drop_stat_started;
     time_t drop_stat_prev_time;
-    __u_int prev_ps_drop;
-    __u_int prev_ps_ifdrop;
+    u_int prev_ps_drop;
+    u_int prev_ps_ifdrop;
 
     char pcap_next_error[ERROR_BUFFER_SIZE];
 

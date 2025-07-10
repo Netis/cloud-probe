@@ -10,7 +10,8 @@ import (
 )
 
 func GetContainerHostPidByDocker(containerId string) (int, error) {
-	cmd := exec.Command("docker", "inspect", "--format", "{{.State.Pid}}", containerId)
+	// cmd := exec.Command("docker", "inspect", "--format", "{{.State.Pid}}", containerId)
+	cmd := exec.Command("dockerpid", containerId)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

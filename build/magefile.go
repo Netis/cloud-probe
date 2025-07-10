@@ -460,30 +460,58 @@ func (Cpctl) DarwinARM64() error {
 	return buildCpctl(newGoBuildConfig("darwin", "arm64"))
 }
 
+func buildDockerPid(cfg GoBuildConfig) error {
+	cfg.OutputBinaryPath = filepath.Join(packageBinaryPath(cfg.OS, cfg.Arch), "dockerpid")
+	cfg.ModulePath = "../cptools/dockerpid"
+	return buildGoBinary(cfg)
+}
+
+type DockerPid mg.Namespace
+
+func (DockerPid) Linux() error {
+	return buildDockerPid(newGoBuildConfig("linux", "amd64"))
+}
+
+func (DockerPid) LinuxARM64() error {
+	return buildDockerPid(newGoBuildConfig("linux", "arm64"))
+}
+
+func (DockerPid) Windows() error {
+	return buildDockerPid(newGoBuildConfig("windows", "amd64"))
+}
+
+func (DockerPid) Darwin() error {
+	return buildDockerPid(newGoBuildConfig("darwin", "amd64"))
+}
+
+func (DockerPid) DarwinARM64() error {
+	return buildDockerPid(newGoBuildConfig("darwin", "arm64"))
+}
+
 type Make mg.Namespace
 
 func (Make) Linux() error {
-	mg.Deps(Cpworker.Linux, Cpdaemon.Linux, Cpctl.Linux)
+	mg.Deps(Cpworker.Linux, Cpdaemon.Linux, Cpctl.Linux, DockerPid.Linux)
 	return copyExamples("linux", "amd64")
 }
 
 func (Make) LinuxARM64() error {
-	mg.Deps(Cpworker.LinuxARM64, Cpdaemon.LinuxARM64, Cpctl.LinuxARM64)
+	mg.Deps(Cpworker.LinuxARM64, Cpdaemon.LinuxARM64, Cpctl.LinuxARM64, DockerPid.LinuxARM64)
 	return copyExamples("linux", "arm64")
 }
 
 func (Make) Windows() error {
-	mg.Deps(Cpworker.Windows, Cpdaemon.Windows, Cpctl.Windows)
+	mg.Deps(Cpworker.Windows, Cpdaemon.Windows, Cpctl.Windows, DockerPid.Windows)
 	return copyExamples("windows", "amd64")
 }
 
 func (Make) Darwin() error {
-	mg.Deps(Cpworker.Darwin, Cpdaemon.Darwin, Cpctl.Darwin)
+	mg.Deps(Cpworker.Darwin, Cpdaemon.Darwin, Cpctl.Darwin, DockerPid.Darwin)
 	return copyExamples("darwin", "amd64")
 }
 
 func (Make) DarwinARM64() error {
-	mg.Deps(Cpworker.DarwinARM64, Cpdaemon.DarwinARM64, Cpctl.DarwinARM64)
+	mg.Deps(Cpworker.DarwinARM64, Cpdaemon.DarwinARM64, Cpctl.DarwinARM64, DockerPid.DarwinARM64)
 	return copyExamples("darwin", "arm64")
 }
 
