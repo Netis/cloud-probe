@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
+	"syscall"
 	"time"
 )
 
@@ -133,4 +135,33 @@ func (r *CpworkerRunner) Kill() error {
 // WaitForCompletion waits for cpworker to complete or timeout
 func (r *CpworkerRunner) WaitForCompletion() error {
 	return r.Wait()
+}
+
+// Reload triggers an in-place config reload by sending SIGHUP. cpworker re-reads
+// the same config path it was started with.
+func (r *CpworkerRunner) Reload() error {
+	if r.cmd == nil || r.cmd.Process == nil {
+		return fmt.Errorf("cpworker not started")
+	}
+	return r.cmd.Process.Signal(syscall.SIGHUP)
+}
+
+// Running reports whether the process is alive (not exited, not a zombie).
+// Uses /proc so it is correct even when the child has not been reaped yet.
+func (r *CpworkerRunner) Running() bool {
+	if r.cmd == nil || r.cmd.Process == nil {
+		return false
+	}
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", r.cmd.Process.Pid))
+	if err != nil {
+		return false // process gone
+	}
+	// /proc/<pid>/stat: "pid (comm) state ...". comm may contain spaces/parens,
+	// so the state char is the second field after the final ')'.
+	s := string(data)
+	i := strings.LastIndexByte(s, ')')
+	if i < 0 || i+2 >= len(s) {
+		return false
+	}
+	return s[i+2] != 'Z' // 'Z' == zombie (exited, not yet reaped)
 }

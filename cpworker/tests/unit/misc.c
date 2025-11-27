@@ -645,7 +645,7 @@ void test_zmq_heartbeat_packet_generation(void)
     uint64_t total = stats.fwd_packets.packets + stats.error_drop_packets.packets;
     TEST_ASSERT_EQUAL_UINT64(1, total);
 
-    zmq_output_destory((output_base_t *)output);
+    zmq_output_destroy((output_base_t *)output);
 }
 
 void test_zmq_heartbeat_not_generated_when_disabled(void)
@@ -678,7 +678,7 @@ void test_zmq_heartbeat_not_generated_when_disabled(void)
 
     TEST_ASSERT_EQUAL_UINT64(0, stats.heartbeat_packets.packets);
 
-    zmq_output_destory((output_base_t *)output);
+    zmq_output_destroy((output_base_t *)output);
 }
 
 void test_zmq_heartbeat_not_generated_when_recent_packet(void)
@@ -710,7 +710,7 @@ void test_zmq_heartbeat_not_generated_when_recent_packet(void)
 
     TEST_ASSERT_EQUAL_UINT64(0, stats.heartbeat_packets.packets);
 
-    zmq_output_destory((output_base_t *)output);
+    zmq_output_destroy((output_base_t *)output);
 }
 
 #if defined(OS_LINUX)

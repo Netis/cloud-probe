@@ -7,7 +7,9 @@
                 "${env:CLOUD_PROBE_CXX_LIBS_PATH}/include",
                 "${env:DPDK_INSTALL_PATH}/include"
             ],
-            "defines": [],
+            "defines": [
+                "_GNU_SOURCE"
+            ],
             "cStandard": "gnu11",
             "cppStandard": "gnu++11",
             "compilerPath": "/usr/bin/gcc",

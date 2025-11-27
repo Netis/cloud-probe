@@ -2,19 +2,16 @@
 
 #if defined(CPU_AFFINITY_LINUX)
 
-#ifdef __linux__
-#define _GNU_SOURCE // 启用GNU扩展
 #include <sched.h>
-#endif
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-int cpu_set_parse(cpu_set_t *mask, char *value)
+int cpu_set_parse(cpu_set_t *mask, const char *value)
 {
     char *end = 0;
-    char *pos = value;
+    const char *pos = value;
     unsigned long v0, v1;
 
     CPU_ZERO(mask);
@@ -59,8 +56,11 @@ int cpu_set_parse(cpu_set_t *mask, char *value)
     return 0;
 }
 
-int set_cpu_affinity(char *value)
+int set_cpu_affinity(const char *value)
 {
+    if (value == NULL)
+        return -1;
+
     cpu_set_t mask;
     if (cpu_set_parse(&mask, value) != 0)
         return -1;

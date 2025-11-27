@@ -58,7 +58,18 @@
             "log_level": "INFO",
             "config_file": "cpm-worker.json",
             "unix_socket": "cpm-worker.sock",
-            "cpu_affinity": ""
+            "cpu_affinity": "",
+            "update_policy": "reload",
+            "execution_model": "pipeline",
+            "memory": {
+                "policy": "fixed_nic_buffer",
+                "libpcap": {
+                    "fixed_buffer_size_mb": 8
+                },
+                "pipeline": {
+                    "min_buffer_size_mb": 128
+                }
+            }
         }
     }
 }

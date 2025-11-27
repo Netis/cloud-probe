@@ -24,6 +24,6 @@ typedef struct PcapFileCapturer
 capturer_base_t *pcap_file_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskConfig *task_cfg, capture_stats_t *stats,
                                                 char *errbuf);
 pcap_file_capturer_t *pcap_file_capturer_new(pcap_file_options_t opts, capture_stats_t *stats, char *errbuf);
-void pcap_file_capturer_destory(capturer_base_t *capturer);
+void pcap_file_capturer_destroy(capturer_base_t *capturer);
 
 #endif /* CPWORKER_PCAP_FILE_H */

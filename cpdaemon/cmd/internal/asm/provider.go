@@ -169,6 +169,18 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 				Root:      vp.GetString(VKey.Cgroup.Root),
 				Hierarchy: vp.GetString(VKey.Cgroup.Hierarchy),
 			},
+			UpdatePolicy: vp.GetString(VKey.Cpm.Worker.UpdatePolicy),
+			Memory: cpm.MemoryConfig{
+				Policy:         vp.GetString(VKey.Cpm.Worker.Memory.Policy),
+				DefaultLimitMb: vp.GetUint64(VKey.Cpm.Worker.Memory.DefaultLimitMb),
+				Libpcap: cpm.LibpcapMemConfig{
+					FixedBufferSizeMb: vp.GetUint64(VKey.Cpm.Worker.Memory.Libpcap.FixedBufferSizeMb),
+				},
+			},
+			ExecutionModel: vp.GetString(VKey.Cpm.Worker.ExecutionModel),
+			Pipeline: cpm.PipelineConfig{
+				MinBufferSizeMb: vp.GetUint64(VKey.Cpm.Worker.Memory.Pipeline.MinBufferSizeMb),
+			},
 		},
 		tool.Tool{
 			GetContainerHostPidScript: vp.GetString(VKey.Tool.GetContainerHostPidScript),

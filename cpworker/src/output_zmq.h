@@ -86,6 +86,6 @@ typedef struct ZmqOutput
 output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, output_stats_t *stats,
                                        char *errbuf);
 zmq_output_t *zmq_output_new(zmq_options_t opts, output_stats_t *stats, char *errbuf);
-void zmq_output_destory(output_base_t *self);
+void zmq_output_destroy(output_base_t *self);
 
 #endif /* CPWORKER_OUTPUT_ZMQ_H */

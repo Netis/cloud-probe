@@ -89,7 +89,17 @@ static void parse_opts(int argc, char **argv)
     }
 }
 
-static void signal_handler(int sig_num) { __atomic_store_n(&quit_signal, true, __ATOMIC_RELAXED); }
+static void signal_quit_handler(int sig_num) { __atomic_store_n(&quit_signal, true, __ATOMIC_RELAXED); }
+
+static void signal_reload_handler(int sig_num) { task_manager_reload_signal(); }
+
+void register_signals()
+{
+    signal(SIGINT, signal_quit_handler);
+    signal(SIGTERM, signal_quit_handler);
+    signal(SIGHUP, signal_reload_handler);
+    signal(SIGPIPE, SIG_IGN);
+}
 
 int main(int argc, char **argv)
 {
@@ -113,18 +123,24 @@ int main(int argc, char **argv)
     }
 
     log_set_level(config->log_level);
-    if (strcmp(config->cpu_affinity, "") != 0)
+    char *cpu_affinity = strdup(config->cpu_affinity);
+    if (strcmp(cpu_affinity, "") != 0)
     {
-        if (set_cpu_affinity(config->cpu_affinity) != 0)
+        if (set_cpu_affinity(cpu_affinity) != 0)
         {
-            log_fatal("set cpu affinity to '%s' fail", config->cpu_affinity);
+            log_fatal("set cpu affinity to '%s' fail", cpu_affinity);
             exit(EXIT_FAILURE);
         }
-        log_info("set cpu affinity to '%s'", config->cpu_affinity);
+        log_info("set cpu affinity to '%s'", cpu_affinity);
     }
 
     int total_num_tasks = config->tasks_cfg->num_tasks;
-    int inited_num_tasks = task_manager_init(config->tasks_cfg);
+
+    ControlConfig *control = config->control;
+    config->control = NULL; // prevent free in task_manager_destroy
+
+    // config moved to task_manager
+    int inited_num_tasks = task_manager_init(config);
     if (inited_num_tasks < 0)
     {
         log_fatal("init tasks failed");
@@ -132,69 +148,82 @@ int main(int argc, char **argv)
     }
 
     log_info("init %d tasks, total %d tasks", inited_num_tasks, total_num_tasks);
-    if (inited_num_tasks == 0)
-    {
-        log_fatal("no task was successfully initialized");
-        exit(EXIT_FAILURE);
-    }
-    // tasks_cfg owned by task_manager
-    config->tasks_cfg = NULL;
 
-    bool control_enabled = config->control != NULL;
-    bool control_unix_enabled = control_enabled && strcmp(config->control->type, CONTROL_TYPE_UNIX) == 0;
+    bool control_enabled = control != NULL;
+    bool control_unix_enabled = control_enabled && strcmp(control->type, CONTROL_TYPE_UNIX) == 0;
     if (control_unix_enabled)
     {
-        if (unix_manager_init(config->control->config.unix_socket.path) != 0)
+        if (unix_manager_init(control->config.unix_socket.path) != 0)
         {
             log_fatal("init unix socket failed");
-            task_manager_destory();
+            task_manager_destroy();
             exit(EXIT_FAILURE);
         }
-        log_info("listen on unix socket %s", config->control->config.unix_socket.path);
+        log_info("listen on unix socket %s", control->config.unix_socket.path);
 
         unix_manager_register_command("collect_stats_summary", task_manager_collect_stats_summary_command, NULL);
         unix_manager_register_command("ping", unix_rpc_ping_command, NULL);
         unix_manager_register_command("info", unix_rpc_info_command, NULL);
+        unix_manager_register_command("reload_config", task_manager_reload_config_command, (void *)config_file);
 
         if (unix_manager_thread_spawn() != 0)
         {
             log_fatal("create unix socket thread failed");
-            task_manager_destory();
+            task_manager_destroy();
             exit(EXIT_FAILURE);
         }
     }
 
-    signal(SIGINT, signal_handler);
-    signal(SIGPIPE, SIG_IGN);
+    if (task_manager_start(cpu_affinity) != 0)
+    {
+        task_manager_destroy();
+        exit(EXIT_FAILURE);
+    }
+
+    if (task_manager_start_reload_thread(config_file) != 0)
+    {
+        task_manager_destroy();
+        exit(EXIT_FAILURE);
+    }
+
+    register_signals();
 
     log_info("start poll packets");
     time_t last_stats_tm = time(NULL);
     time_t last_error_tm = time(NULL);
+    time_t last_reload_tm = time(NULL);
     while (!__atomic_load_n(&quit_signal, __ATOMIC_RELAXED))
     {
         uint64_t num_pkts = task_manager_poll_packets();
         if (num_pkts == 0)
-            usleep(10);
-
-        if (control_enabled || inited_num_tasks < total_num_tasks)
         {
-            time_t now = time(NULL);
+            task_manager_reload_cycle();
+            usleep(10);
+        }
 
-            if (control_enabled && difftime(now, last_stats_tm) >= 5)
-            {
-                task_manager_update_stats();
-                last_stats_tm = now;
-            }
+        time_t now = time(NULL);
+        if (control_enabled && difftime(now, last_stats_tm) >= 5)
+        {
+            task_manager_update_stats();
+            last_stats_tm = now;
+        }
 
-            if (difftime(now, last_error_tm) >= 60)
-            {
-                task_manager_print_errors();
-                last_error_tm = now;
-            }
+        if (difftime(now, last_error_tm) >= 60)
+        {
+            task_manager_print_errors();
+            last_error_tm = now;
+        }
+
+        if (difftime(now, last_reload_tm) >= 1)
+        {
+            task_manager_reload_cycle();
+            last_reload_tm = now;
         }
     }
 
     log_info("quit");
-    task_manager_destory();
+    task_manager_stop_reload_thread();
+    task_manager_stop();
+    task_manager_destroy();
     return 0;
 }

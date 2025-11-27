@@ -14,27 +14,23 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cgroup"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
+
+type ResLimit struct {
+	Cpu *float64
+	Mem *int64
+}
 
 type ExecConfig struct {
 	PidFile    string
 	Executable string
 	Env        map[string]string
 	WorkDir    string
-
-	CpuAffinity string
-	LogLevel    string
-	Control     ControlConfig
-	Tasks       []TaskConfig
-	ConfigFile  string
-
-	CgroupCfg cgroup.CgroupCfg
-	CpuLimit  *float64
-	MemLimit  *int64
+	ConfigFile string
+	CgroupCfg  cgroup.CgroupCfg
 }
 
 type Worker struct {
@@ -42,10 +38,11 @@ type Worker struct {
 	cfg  ExecConfig
 	lg   *slog.Logger
 
-	mu        sync.Mutex
-	cmd       *exec.Cmd
-	waitDone  chan error
-	startTime time.Time
+	mu              sync.Mutex
+	cmd             *exec.Cmd
+	waitDone        chan error
+	startTime       time.Time
+	resLimitCleanup func() error
 }
 
 func NewWorker(name string, cfg ExecConfig) (*Worker, error) {
@@ -99,8 +96,17 @@ func (w *Worker) IsAlive(ctx context.Context) (bool, error) {
 	}
 }
 
-func (w *Worker) Start(ctx context.Context) error {
-	if err := w.startProcess(); err != nil {
+func (w *Worker) Start(ctx context.Context, wCfg *Config) error {
+	err := func() error {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+
+		if err := w.startProcess(wCfg); err != nil {
+			return err
+		}
+		return nil
+	}()
+	if err != nil {
 		return err
 	}
 
@@ -110,12 +116,6 @@ func (w *Worker) Start(ctx context.Context) error {
 				w.lg.Error("recovered", slog.Any("err", r))
 			}
 		}()
-
-		resLimitCleanup, err := w.createResLimit()
-		if err != nil {
-			w.lg.Error("create resource limit failed, stopping worker", slogx.Error(err))
-			w.Stop()
-		}
 
 		pidCleanup := w.createPidFile()
 
@@ -128,6 +128,11 @@ func (w *Worker) Start(ctx context.Context) error {
 		w.waitDone <- err
 		close(w.waitDone)
 
+		w.mu.Lock()
+		w.cmd = nil
+		resLimitCleanup := w.resLimitCleanup
+		w.mu.Unlock()
+
 		if resLimitCleanup != nil {
 			if err := resLimitCleanup(); err != nil {
 				w.lg.Error("clean resource limit failed", slogx.Error(err))
@@ -135,29 +140,22 @@ func (w *Worker) Start(ctx context.Context) error {
 				w.lg.Info("clean resource limit success")
 			}
 		}
+
 		if pidCleanup != nil {
 			pidCleanup()
 		}
-
-		w.mu.Lock()
-		w.cmd = nil
-		w.mu.Unlock()
 		w.lg.Info("worker exited")
 	}()
 
 	return nil
 }
 
-func (w *Worker) startProcess() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
+func (w *Worker) startProcess(wCfg *Config) error {
 	if w.cmd != nil {
 		return errors.Errorf("worker %s is already running", w.name)
 	}
 
-	cfg := w.newConfig()
-	if err := w.writeConfig(cfg); err != nil {
+	if err := w.writeConfig(wCfg); err != nil {
 		return err
 	}
 
@@ -182,7 +180,7 @@ func (w *Worker) startProcess() error {
 		slog.String("command", strings.Join(cmd.Args, " ")),
 	)
 
-	cfgStr, _ := json.Marshal(cfg)
+	cfgStr, _ := json.Marshal(wCfg)
 	w.lg.Info("worker config", slog.String("config", string(cfgStr)))
 
 	w.cmd = cmd
@@ -196,8 +194,13 @@ func (w *Worker) Stop() error {
 	cmd := w.cmd
 	w.mu.Unlock()
 
+	w.stopProcess(cmd)
+	return nil
+}
+
+func (w *Worker) stopProcess(cmd *exec.Cmd) {
 	if cmd == nil || cmd.Process == nil {
-		return nil
+		return
 	}
 
 	w.lg.Info("stopping worker, send SIGINT", slog.Int("pid", cmd.Process.Pid))
@@ -223,11 +226,33 @@ func (w *Worker) Stop() error {
 			w.lg.Error("wait timeout after force kill")
 		}
 	}
+}
+
+func (w *Worker) UpdateResLimit(resLimit ResLimit) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if resLimit.Cpu == nil || *resLimit.Cpu <= 0 {
+		if w.resLimitCleanup != nil {
+			w.lg.Info("removing previous cpu limit")
+			if err := w.resLimitCleanup(); err != nil {
+				return errors.WithMessage(err, "remove previous cpu limit failed")
+			}
+		}
+		w.resLimitCleanup = nil
+		return nil
+	}
+
+	resLimitCleanup, err := w.createResLimit(resLimit)
+	if err != nil {
+		return errors.WithMessage(err, "create cpu limit failed")
+	}
+	w.resLimitCleanup = resLimitCleanup
 	return nil
 }
 
-func (w *Worker) createResLimit() (func() error, error) {
-	if w.cfg.CpuLimit == nil || *w.cfg.CpuLimit <= 0 {
+func (w *Worker) createResLimit(resLimit ResLimit) (func() error, error) {
+	if resLimit.Cpu == nil || *resLimit.Cpu <= 0 {
 		w.lg.Info("cpu limit is not set, skip create cgroup")
 		return nil, nil
 	}
@@ -244,7 +269,7 @@ func (w *Worker) createResLimit() (func() error, error) {
 			CgroupCfg: w.cfg.CgroupCfg,
 		},
 		ResLimitQuota{
-			CpuLimit: w.cfg.CpuLimit,
+			CpuLimit: resLimit.Cpu,
 		},
 	)
 }
@@ -274,7 +299,11 @@ func (w *Worker) createPidFile() func() error {
 	}
 }
 
-func (w *Worker) writeConfig(cfg Config) error {
+func (w *Worker) UpdateConfig(cfg *Config) error {
+	return w.writeConfig(cfg)
+}
+
+func (w *Worker) writeConfig(cfg *Config) error {
 	fp, err := os.Create(w.cfg.ConfigFile)
 	if err != nil {
 		return errors.Wrapf(err, "create worker config file: %s", w.cfg.ConfigFile)
@@ -293,14 +322,19 @@ func (w *Worker) writeConfig(cfg Config) error {
 	return nil
 }
 
-func (w *Worker) newConfig() Config {
-	cfg := Config{
-		LogLevel: w.cfg.LogLevel,
-		Control:  w.cfg.Control,
-		Tasks:    w.cfg.Tasks,
+func (w *Worker) ReloadConfig(ctx context.Context) error {
+	w.mu.Lock()
+	cmd := w.cmd
+	w.mu.Unlock()
+
+	if cmd == nil || cmd.Process == nil {
+		return nil
 	}
-	if w.cfg.CpuAffinity != "" {
-		cfg.CpuAffinity = lo.ToPtr(w.cfg.CpuAffinity)
+
+	w.lg.Info("reloading worker config, send SIGHUP", slog.Int("pid", cmd.Process.Pid))
+
+	if err := cmd.Process.Signal(syscall.SIGHUP); err != nil {
+		return errors.Wrapf(err, "send SIGHUP to worker failed, pid=%d", cmd.Process.Pid)
 	}
-	return cfg
+	return nil
 }

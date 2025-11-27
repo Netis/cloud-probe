@@ -42,4 +42,5 @@ type Client interface {
 	CollectStatsSummary(context.Context) (StatsSummary, error)
 	Ping(context.Context) (PingResult, error)
 	Info(context.Context) (InfoSummary, error)
+	ReloadConfig(context.Context) error
 }

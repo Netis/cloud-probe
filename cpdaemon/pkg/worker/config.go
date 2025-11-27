@@ -1,5 +1,9 @@
 package worker
 
+import (
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/common"
+)
+
 const (
 	CapturerType_Libpcap = "libpcap"
 
@@ -11,13 +15,22 @@ const (
 
 	ReqPatternType_AUTO   = "auto"
 	ReqPatternType_CUSTOM = "custom"
+
+	EXECUTION_MODEL_RTC      = "rtc"
+	EXECUTION_MODEL_PIPELINE = "pipeline"
 )
 
 type Config struct {
-	CpuAffinity *string       `json:"cpu_affinity,omitempty"`
-	LogLevel    string        `json:"log_level"`
-	Control     ControlConfig `json:"control"`
-	Tasks       []TaskConfig  `json:"tasks"`
+	CpuAffinity    *string         `json:"cpu_affinity,omitempty"`
+	LogLevel       string          `json:"log_level"`
+	ExecutionModel string          `json:"execution_model"`
+	Pipeline       *PipelineConfig `json:"pipeline,omitempty"`
+	Control        ControlConfig   `json:"control"`
+	Tasks          []*TaskConfig   `json:"tasks"`
+}
+
+type PipelineConfig struct {
+	BufferSizeMB uint64 `json:"buffer_size_mb"`
 }
 
 type ControlConfig struct {
@@ -42,9 +55,14 @@ type ControlUnixConfig struct {
 }
 
 type TaskConfig struct {
-	ReqPattern *ReqPatternConfig `json:"req_pattern,omitempty"`
-	Capturer   CapturerConfig    `json:"capturer"`
-	Outputs    []OutputConfig    `json:"outputs"`
+	Fingerprint *string           `json:"fingerprint,omitempty" fingerprint:"-"`
+	ReqPattern  *ReqPatternConfig `json:"req_pattern,omitempty"`
+	Capturer    CapturerConfig    `json:"capturer"`
+	Outputs     []OutputConfig    `json:"outputs"`
+}
+
+func (c *TaskConfig) FingerPrintLables() map[string]string {
+	return common.StructFingerprintLabels(c)
 }
 
 type ReqPatternConfig struct {
@@ -106,10 +124,10 @@ type GreOutputConfig struct {
 }
 
 type ZmqOutputConfig struct {
-	Host       string  `json:"host"`
-	Port       int32   `json:"port"`
-	Hwm        *int    `json:"hwm,omitempty"`
-	ServiceTag *uint32 `json:"service_tag,omitempty"`
+	Host        string  `json:"host"`
+	Port        int32   `json:"port"`
+	Hwm         *int    `json:"hwm,omitempty"`
+	ServiceTag  *uint32 `json:"service_tag,omitempty"`
 	Uuid        string  `json:"uuid"`
 	HeartbeatMs *int32  `json:"heartbeat_ms,omitempty"`
 }
@@ -122,3 +140,4 @@ type RotatingFileOutputConfig struct {
 	FileRoot        string `json:"file_root"`
 	MaxFileInterval *int32 `json:"max_file_interval,omitempty"` // seconds
 }
+

@@ -80,17 +80,29 @@ var VKey = struct {
 			} `json:"uuid_gen"`
 		} `json:"reg"`
 		Worker struct {
-			PidFile     string `json:"pid_file"`
-			ConfigFile  string `json:"config_file"`
-			Executable  string `json:"executable"`
-			LogLevel    string `json:"log_level"`
-			CpuAffinity string `json:"cpu_affinity"`
-			Control     struct {
+			PidFile      string `json:"pid_file"`
+			ConfigFile   string `json:"config_file"`
+			Executable   string `json:"executable"`
+			LogLevel     string `json:"log_level"`
+			UpdatePolicy string `json:"update_policy"`
+			CpuAffinity  string `json:"cpu_affinity"`
+			Control      struct {
 				Type string `json:"type"`
 				Unix struct {
 					Path string `json:"path"`
 				} `json:"unix"`
 			} `json:"control"`
+			ExecutionModel string `json:"execution_model"`
+			Memory         struct {
+				Policy         string `json:"policy"`
+				DefaultLimitMb string `json:"default_limit_mb"`
+				Libpcap        struct {
+					FixedBufferSizeMb string `json:"fixed_buffer_size_mb"`
+				} `json:"libpcap"`
+				Pipeline struct {
+					MinBufferSizeMb string `json:"min_buffer_size_mb"`
+				} `json:"pipeline"`
+			} `json:"memory_policy"`
 		} `json:"worker"`
 	} `json:"cpm"`
 }{}
@@ -131,6 +143,17 @@ func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Cgroup.Version, "v1")
 	vp.SetDefault(VKey.Cgroup.Root, "/sys/fs/cgroup")
 	vp.SetDefault(VKey.Cgroup.Hierarchy, "cloud-probe")
+
+	// restart | reload
+	vp.SetDefault(VKey.Cpm.Worker.UpdatePolicy, "reload")
+
+	// rtc | pipeline
+	vp.SetDefault(VKey.Cpm.Worker.ExecutionModel, "pipeline")
+
+	vp.SetDefault(VKey.Cpm.Worker.Memory.Policy, "fixed_nic_buffer")
+	vp.SetDefault(VKey.Cpm.Worker.Memory.DefaultLimitMb, 512)
+	vp.SetDefault(VKey.Cpm.Worker.Memory.Libpcap.FixedBufferSizeMb, 8)
+	vp.SetDefault(VKey.Cpm.Worker.Memory.Pipeline.MinBufferSizeMb, 128)
 }
 
 func init() {

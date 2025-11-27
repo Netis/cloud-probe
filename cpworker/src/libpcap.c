@@ -271,7 +271,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
         goto error3;
     }
     capturer->base.capture = libpcap_do_capture;
-    capturer->base.destory = libpcap_capturer_destory;
+    capturer->base.destroy = libpcap_capturer_destroy;
     capturer->base.stats = stats;
 
     capturer->req_pattern = req_pattern;
@@ -283,7 +283,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
 error:
     pcap_close(p);
 error1:
-    req_pattern_destory(req_pattern);
+    req_pattern_destroy(req_pattern);
 error2:
     if (has_netns)
     {
@@ -302,7 +302,7 @@ error3:
         free(capturer);
     }
     pcap_close(p);
-    req_pattern_destory(req_pattern);
+    req_pattern_destroy(req_pattern);
     return NULL;
 }
 
@@ -359,7 +359,7 @@ capturer_base_t *libpcap_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskCon
     return capturer;
 }
 
-void libpcap_capturer_destory(capturer_base_t *self)
+void libpcap_capturer_destroy(capturer_base_t *self)
 {
     if (!self)
         return;
@@ -367,7 +367,7 @@ void libpcap_capturer_destory(capturer_base_t *self)
     libpcap_capturer_t *capturer = (libpcap_capturer_t *)self;
 
     log_info("free libpcap capturer");
-    req_pattern_destory(capturer->req_pattern);
+    req_pattern_destroy(capturer->req_pattern);
     pcap_close(capturer->p);
     free(capturer->interface);
     free(capturer->netns);

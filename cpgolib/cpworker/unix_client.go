@@ -161,6 +161,11 @@ func (c *UnixClient) Info(ctx context.Context) (InfoSummary, error) {
 	return info, nil
 }
 
+func (c *UnixClient) ReloadConfig(ctx context.Context) error {
+	_, err := c.RunCommand(ctx, "reload_config", nil)
+	return err
+}
+
 func (c *UnixClient) RunCommand(ctx context.Context, command string, arguments map[string]any) (map[string]any, error) {
 	var err error
 

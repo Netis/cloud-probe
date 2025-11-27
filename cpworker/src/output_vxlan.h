@@ -70,6 +70,6 @@ typedef struct VxlanOutput
 output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *output_cfg, output_stats_t *stats,
                                          char *errbuf);
 vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, char *errbuf);
-void vxlan_output_destory(output_base_t *output);
+void vxlan_output_destroy(output_base_t *output);
 
 #endif /* CPWORKER_OUTPUT_VXLAN_H */

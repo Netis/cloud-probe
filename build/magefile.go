@@ -27,6 +27,7 @@ const (
 	ENV_CPWORKER_VERSION              = "CPWORKER_VERSION"
 	ENV_CPWORKER_LIBRARY_ROOT         = "CPWORKER_LIBRARY_ROOT"
 	ENV_CPWORKER_CMAKE_TOOLCHAIN_FILE = "CPWORKER_CMAKE_TOOLCHAIN_FILE"
+	ENV_CPWORKER_CMAKE_BUILD_TYPE     = "CPWORKER_CMAKE_BUILD_TYPE"
 
 	ENV_CPDAEMON_VERSION = "CPDAEMON_VERSION"
 	ENV_CPCTL_VERSION    = "CPCTL_VERSION"
@@ -39,6 +40,7 @@ var allEnvCfg = []string{
 	ENV_CPWORKER_VERSION,
 	ENV_CPWORKER_LIBRARY_ROOT,
 	ENV_CPWORKER_CMAKE_TOOLCHAIN_FILE,
+	ENV_CPWORKER_CMAKE_BUILD_TYPE,
 
 	ENV_CPDAEMON_VERSION,
 	ENV_CPCTL_VERSION,
@@ -166,7 +168,7 @@ func Clean() error {
 
 func ListEnvCfg() {
 	for _, v := range allEnvCfg {
-		fmt.Println(v)
+		fmt.Printf("%s=%s\n", v, getEnvCfg(v))
 	}
 }
 
@@ -380,8 +382,11 @@ func buildCpworker(cfg CBuildConfig) error {
 		fmt.Sprintf("CPWORKER_VERSION=%s", version),
 		fmt.Sprintf("CMAKE_INSTALL_PREFIX=%s", installPrefix),
 	)
-	if tc := getEnvCfg(ENV_CPWORKER_CMAKE_TOOLCHAIN_FILE); tc != "" {
-		cfg.Defines = append(cfg.Defines, fmt.Sprintf("CMAKE_TOOLCHAIN_FILE=%s", tc))
+	if v := getEnvCfg(ENV_CPWORKER_CMAKE_TOOLCHAIN_FILE); v != "" {
+		cfg.Defines = append(cfg.Defines, fmt.Sprintf("CMAKE_TOOLCHAIN_FILE=%s", v))
+	}
+	if v := getEnvCfg(ENV_CPWORKER_CMAKE_BUILD_TYPE); v != "" {
+		cfg.Defines = append(cfg.Defines, fmt.Sprintf("CMAKE_BUILD_TYPE=%s", v))
 	}
 	cfg.RunInstall = true
 

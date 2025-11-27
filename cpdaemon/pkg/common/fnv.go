@@ -1,4 +1,4 @@
-package cpm
+package common
 
 const (
 	offset64 = 14695981039346656037

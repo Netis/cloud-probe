@@ -308,7 +308,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *s
     if (rte_eth_dev_get_port_by_name(opts.interface, &port) != 0)
     {
         error_format(errbuf, "interface %s not found", opts.interface);
-        req_pattern_destory(req_pattern);
+        req_pattern_destroy(req_pattern);
         return NULL;
     }
 
@@ -318,7 +318,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *s
         bpf_prm = compile_filter(opts.bpf_filter, opts.snaplen, errbuf);
         if (!bpf_prm)
         {
-            req_pattern_destory(req_pattern);
+            req_pattern_destroy(req_pattern);
             return NULL;
         }
     }
@@ -326,7 +326,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *s
     struct rte_ring *ring = create_ring(opts.ring_name, opts.ring_size, errbuf);
     if (!ring)
     {
-        req_pattern_destory(req_pattern);
+        req_pattern_destroy(req_pattern);
         return NULL;
     }
 
@@ -334,7 +334,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *s
     if (!mp)
     {
 
-        req_pattern_destory(req_pattern);
+        req_pattern_destroy(req_pattern);
         rte_free(bpf_prm);
         rte_ring_free(ring);
         return NULL;
@@ -342,7 +342,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *s
 
     if (enable_pdump(port, ring, mp, bpf_prm, opts.promiscuous_mode, opts.snaplen, false, errbuf) != 0)
     {
-        req_pattern_destory(req_pattern);
+        req_pattern_destroy(req_pattern);
         rte_free(bpf_prm);
         rte_ring_free(ring);
         rte_mempool_free(mp);
@@ -352,7 +352,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *s
     dpdk_capturer_t *capturer = (dpdk_capturer_t *)calloc(1, sizeof(dpdk_capturer_t));
     if (!capturer)
     {
-        req_pattern_destory(req_pattern);
+        req_pattern_destroy(req_pattern);
         rte_free(bpf_prm);
         rte_ring_free(ring);
         rte_mempool_free(mp);
@@ -364,7 +364,7 @@ dpdk_capturer_t *dpdk_capturer_new(dpdk_pdump_options_t opts, capture_stats_t *s
         return NULL;
     }
     capturer->base.capture = dpdk_do_capture;
-    capturer->base.destory = dpdk_capturer_destory;
+    capturer->base.destroy = dpdk_capturer_destroy;
     capturer->base.stats = stats;
     capturer->port = port;
     capturer->promiscuous_mode = opts.promiscuous_mode;
@@ -397,7 +397,7 @@ capturer_base_t *dpdk_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskConfig
     return (capturer_base_t *)dpdk_capturer_new(opts, stats, errbuf);
 }
 
-void dpdk_capturer_destory(capturer_base_t *self)
+void dpdk_capturer_destroy(capturer_base_t *self)
 {
     if (!self)
         return;

@@ -42,7 +42,7 @@ void req_pattern_custom_matcher_destroy(req_pattern_custom_matcher_t *matcher);
 bool req_pattern_custom_match_by_ipport(req_pattern_custom_matcher_t *matcher, const ip_addr_t *ip, uint16_t port);
 
 req_pattern_t *req_pattern_new_from_cfg(ReqPatternConfig cfg, const char *ifname, char *errbuf);
-void req_pattern_destory(req_pattern_t *req_pattern);
+void req_pattern_destroy(req_pattern_t *req_pattern);
 int req_pattern_judge_pkt_direction(req_pattern_t *req_pattern, const struct pcap_pkthdr *header,
                                     const uint8_t *pkt_data);
 

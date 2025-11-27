@@ -22,6 +22,14 @@ type ZMQCapturer struct {
 	stopOnce    sync.Once
 }
 
+// zmq_receiver is shared by parallel tests; serialize the build so we never
+// fork/exec a binary that another goroutine still has open for writing
+// (which would surface as ETXTBSY / "text file busy").
+var (
+	zmqReceiverBuildOnce sync.Once
+	zmqReceiverBuildErr  error
+)
+
 // ZMQStats contains statistics about captured ZMQ messages
 type ZMQStats struct {
 	MessageCount     int       `json:"message_count"`
@@ -44,29 +52,38 @@ func NewZMQCapturer(endpoint string, rawOutputPath, pcapOutputPath, statsOutputP
 		return nil, fmt.Errorf("zmq_receiver source not found at %s: %w", receiverSrcDir, err)
 	}
 
-	// Build the receiver if not already built or outdated
-	mainGo := filepath.Join(receiverSrcDir, "main.go")
-	needsBuild := false
+	// Build the receiver at most once per test process. Multiple parallel
+	// tests share the same binary path; without this guard a concurrent
+	// `go build` can race with `fork/exec` and trigger ETXTBSY.
+	zmqReceiverBuildOnce.Do(func() {
+		mainGo := filepath.Join(receiverSrcDir, "main.go")
+		needsBuild := false
 
-	if binStat, err := os.Stat(receiverBin); err != nil {
-		needsBuild = true
-	} else if srcStat, err := os.Stat(mainGo); err == nil {
-		// Rebuild if source is newer than binary
-		if srcStat.ModTime().After(binStat.ModTime()) {
+		if binStat, err := os.Stat(receiverBin); err != nil {
 			needsBuild = true
+		} else if srcStat, err := os.Stat(mainGo); err == nil {
+			if srcStat.ModTime().After(binStat.ModTime()) {
+				needsBuild = true
+			}
 		}
-	}
 
-	if needsBuild {
+		if !needsBuild {
+			return
+		}
+
 		fmt.Fprintf(os.Stderr, "[ZMQCapturer] Building zmq_receiver...\n")
 		buildCmd := exec.Command("go", "build", "-o", "zmq_receiver", ".")
 		buildCmd.Dir = receiverSrcDir
 		buildCmd.Stdout = os.Stderr
 		buildCmd.Stderr = os.Stderr
 		if err := buildCmd.Run(); err != nil {
-			return nil, fmt.Errorf("failed to build zmq_receiver: %w", err)
+			zmqReceiverBuildErr = fmt.Errorf("failed to build zmq_receiver: %w", err)
+			return
 		}
 		fmt.Fprintf(os.Stderr, "[ZMQCapturer] zmq_receiver built successfully\n")
+	})
+	if zmqReceiverBuildErr != nil {
+		return nil, zmqReceiverBuildErr
 	}
 
 	return &ZMQCapturer{

@@ -20,14 +20,22 @@ typedef struct TaskStatsSummary
 
 capture_task_t *capture_task_new(TasksAllConfig *tasks_cfg, TaskConfig *task_cfg, task_stats_summary_t *stats,
                                  char *errbuf);
-void capture_task_destory(capture_task_t *task);
-uint64_t capture_task_poll_packets(capture_task_t *task);
+void capture_task_destroy(capture_task_t *task);
 
-int task_manager_init(TasksAllConfig *config);
-void task_manager_destory();
+int task_manager_init(Config *config);
+void task_manager_destroy();
+int task_manager_start(const char *cpu_affinity);
+void task_manager_stop();
 uint64_t task_manager_poll_packets();
 void task_manager_print_errors();
 void task_manager_update_stats();
+
+void task_manager_reload_signal();
+int task_manager_reload_cycle();
+int task_manager_start_reload_thread(const char *config_file);
+void task_manager_stop_reload_thread();
+
 int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg, void *data);
+int task_manager_reload_config_command(cJSON *cmd_msg, cJSON *server_msg, void *data);
 
 #endif /* CPWORKER_TASK_H */

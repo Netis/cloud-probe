@@ -80,7 +80,6 @@ type IWorkerManager interface {
 	IsAlive(ctx context.Context) (bool, error)
 	StartTime() time.Time
 	Pid() int
-	BuffSizePerTask() uint64
 	CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error)
 	SetLogger(lg *slog.Logger)
 }
@@ -111,6 +110,7 @@ type Syncer struct {
 	syncResp             *SyncStrategyResponse
 	syncActiveInstances  []string
 	workerCreateWarnings []error
+	bufferSizePerTask    uint64
 
 	lastStats [2]StatsWithPid
 
@@ -322,6 +322,7 @@ func (s *Syncer) resetSyncState() {
 	s.syncResp = nil
 	s.syncActiveInstances = nil
 	s.workerCreateWarnings = nil
+	s.bufferSizePerTask = 0
 }
 
 func (s *Syncer) Run(ctx context.Context) error {
@@ -421,6 +422,11 @@ func (s *Syncer) doRegister(ctx context.Context) error {
 		return err
 	}
 
+	// RegisterResponse.Id 是数据库自增的，注册时会校验是否是同一个采集器，如果是同一个就复用，如果是新的就自增
+	// 采集器注册包不同平台的唯一标识
+	// 1. 云平台(PlatformId + PaUUID)
+	// 2. k8s daemonset(PlatformId + NodeName)
+	// 3. k8s deployment(PlatformId + PodName)
 	s.regResp = res
 	if s.syncResp != nil && s.regResp.Id != s.syncResp.DaemonId {
 		s.lg.Info("stop worker when daemon id changed")
@@ -520,6 +526,7 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 				return err
 			}
 			s.workerCreateWarnings = cr.Warnings
+			s.bufferSizePerTask = cr.BuffSizePerTask
 			s.syncActiveInstances = activeInstances
 			return nil
 		}
@@ -550,6 +557,7 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 	s.syncResp = res.Response
 	s.syncActiveInstances = activeInstances
 	s.workerCreateWarnings = cr.Warnings
+	s.bufferSizePerTask = cr.BuffSizePerTask
 	return nil
 }
 
@@ -590,6 +598,7 @@ func (s *Syncer) updateIfInstanceChanged(ctx context.Context) error {
 	}
 	s.syncActiveInstances = activeInstances
 	s.workerCreateWarnings = cr.Warnings
+	s.bufferSizePerTask = cr.BuffSizePerTask
 	return nil
 }
 
@@ -630,6 +639,7 @@ func (s *Syncer) logTaskStats() {
 	cap1 := s.lastStats[1].stats.Capture
 	out0 := s.lastStats[0].stats.Output
 	out1 := s.lastStats[1].stats.Output
+	pb1 := s.lastStats[1].stats.PipelineBuffer
 
 	attrs = append(attrs, slog.String("cap_pkts", formatPacketsStatsDiff(cap1.CapPackets.Sub(cap0.CapPackets))))
 	attrs = append(attrs, slog.String("drop_pkts", formatPacketsStatsDiff(cap1.DropPackets.Sub(cap0.DropPackets))))
@@ -639,6 +649,10 @@ func (s *Syncer) logTaskStats() {
 	attrs = append(attrs, slog.String("err_drop_pkts", formatPacketsStatsDiff(out1.ErrorDropPackets.Sub(out0.ErrorDropPackets))))
 	attrs = append(attrs, slog.String("limit_drop_pkts", formatPacketsStatsDiff(out1.RatelimitDropPackets.Sub(out0.RatelimitDropPackets))))
 	attrs = append(attrs, slog.String("heartbeat_pkts", formatPacketsStatsDiff(out1.HeartbeatPackets.Sub(out0.HeartbeatPackets))))
+	attrs = append(attrs, slog.Uint64("pipeline_buffer_mem_total", pb1.MemTotal))
+	attrs = append(attrs, slog.Uint64("pipeline_buffer_mem_used", pb1.MemUsed))
+	attrs = append(attrs, slog.Uint64("pipeline_buffer_ring_total", pb1.RingTotal))
+	attrs = append(attrs, slog.Uint64("pipeline_buffer_ring_used", pb1.RingUsed))
 
 	s.lg.Info("stats", attrs...)
 }
@@ -664,12 +678,10 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 	}
 	if isAlive {
 		pid := s.workerMgr.Pid()
-		buffSizePerTask := s.workerMgr.BuffSizePerTask()
-
 		metrics := MetricsEntry{
 			SamplingTimestamp:      time.Now().Unix(),
 			SamplingMicroTimestamp: time.Now().UnixMicro() % 1e6,
-			CapBuff:                buffSizePerTask,
+			CapBuff:                s.bufferSizePerTask,
 			StartTime:              s.workerMgr.StartTime().Unix(),
 		}
 		workerBegin := time.Now()

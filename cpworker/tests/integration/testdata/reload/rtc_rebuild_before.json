@@ -1,0 +1,9 @@
+{
+  "tasks": [
+    {
+      "fingerprint": "alpha",
+      "capturer": { "type": "pcap_file", "pcap_file": { "file_name": "testdata/pcaps/http.pcap" } },
+      "outputs": [ { "type": "file", "file": { "name": "testdata/output/reload/_scratch/cap.pcap" } } ]
+    }
+  ]
+}

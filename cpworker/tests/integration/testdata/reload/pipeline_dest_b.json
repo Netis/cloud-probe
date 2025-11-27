@@ -1,0 +1,11 @@
+{
+  "execution_model": "pipeline",
+  "pipeline": { "buffer_size_mb": 64 },
+  "tasks": [
+    {
+      "fingerprint": "dst-b",
+      "capturer": { "type": "libpcap", "libpcap": { "interface": "lo", "snaplen": 2048, "bpf": "udp and port 54321", "timeout_ms": 10 } },
+      "outputs": [ { "type": "file", "file": { "name": "testdata/output/reload/switch_pipeline/b.pcap" } } ]
+    }
+  ]
+}

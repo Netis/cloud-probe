@@ -308,7 +308,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, ch
 
     output->base.send_packet = vxlan_send_packet;
     output->base.heartbeat = NULL;
-    output->base.destory = vxlan_output_destory;
+    output->base.destroy = vxlan_output_destroy;
     output->base.stats = stats;
 
     if (opts.rate_limit_mbps > 0)
@@ -355,12 +355,12 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
     return (output_base_t *)vxlan_output_new(opts, stats, errbuf);
 }
 
-void vxlan_output_destory(output_base_t *self)
+void vxlan_output_destroy(output_base_t *self)
 {
     if (!self)
         return;
 
-    log_info("call vxlan_output_destory");
+    log_info("call vxlan_output_destroy");
     vxlan_output_t *output = (vxlan_output_t *)self;
 
     close(output->socket_fd);

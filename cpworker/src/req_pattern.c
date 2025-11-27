@@ -510,7 +510,7 @@ static int extract_ipport_from_maybe_vxlan_layer(const struct pcap_pkthdr *heade
                                            dport);
 }
 
-void req_pattern_destory(req_pattern_t *req_pattern)
+void req_pattern_destroy(req_pattern_t *req_pattern)
 {
     if (!req_pattern)
         return;
@@ -599,7 +599,7 @@ req_pattern_t *req_pattern_new_from_cfg_adv(ReqPatternConfig cfg, const char *if
     return req_pattern;
 
 error:
-    req_pattern_destory(req_pattern);
+    req_pattern_destroy(req_pattern);
     return NULL;
 }
 

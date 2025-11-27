@@ -1,0 +1,11 @@
+{
+  "execution_model": "pipeline",
+  "pipeline": { "buffer_size_mb": 64 },
+  "tasks": [
+    {
+      "fingerprint": "beta",
+      "capturer": { "type": "pcap_file", "pcap_file": { "file_name": "testdata/pcaps/http.pcap" } },
+      "outputs": [ { "type": "file", "file": { "name": "testdata/output/reload/_scratch/cap.pcap" } } ]
+    }
+  ]
+}

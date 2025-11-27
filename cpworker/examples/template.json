@@ -7,8 +7,13 @@
             "path": "cpworker.sock"
         }
     },
+    "execution_model": "rtc",
+    "pipeline": {
+        "buffer_size_mb": 256
+    },
     "tasks": [
         {
+            "fingerprint": "",
             "req_pattern": {
                 "type": "custom",
                 "custom": {

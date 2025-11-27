@@ -44,6 +44,14 @@ typedef struct OutputStats
     packets_stats_t heartbeat_packets;
 } output_stats_t;
 
+typedef struct PipelineBufferStats
+{
+    uint64_t ring_total;
+    uint64_t ring_used;
+    uint64_t mem_total;
+    uint64_t mem_used;
+} pipeline_buffer_stats_t;
+
 void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes);
 void bytes_stats_merge(bytes_stats_t *dst, bytes_stats_t *src);
 void packets_stats_add(packets_stats_t *stat, uint64_t packets);

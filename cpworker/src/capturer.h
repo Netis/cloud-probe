@@ -17,7 +17,7 @@ typedef struct CapturerBase
 {
     uint64_t (*capture)(struct CapturerBase *capturer, capture_packet_handler pkt_handler,
                         capture_heartbeat_handler heartbeat_handler, void *user);
-    void (*destory)(struct CapturerBase *capturer);
+    void (*destroy)(struct CapturerBase *capturer);
     capture_stats_t *stats;
 } capturer_base_t;
 
@@ -36,6 +36,6 @@ static inline uint64_t capture_packets(capturer_base_t *capturer, capture_packet
     return capturer->capture(capturer, pkt_handler, heartbeat_handler, user);
 }
 
-static inline void destory_capturer(capturer_base_t *capturer) { capturer->destory(capturer); }
+static inline void destroy_capturer(capturer_base_t *capturer) { capturer->destroy(capturer); }
 
 #endif /* CPWORKER_CAPTURER_H */

@@ -10,6 +10,7 @@
 
 #include "log.h"
 #include "queue.h"
+#include "thread_util.h"
 #include "unix-manager.h"
 
 #define UNIX_PROTO_VERSION_LENGTH 200
@@ -561,6 +562,8 @@ static int unix_manager_main(unix_manager_t *this)
 
 static void *unix_manager_run(void *arg)
 {
+    set_thread_name("unix_manager");
+
     while (1)
     {
         int ret = unix_manager_main(&unix_mgr);

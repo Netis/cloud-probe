@@ -39,11 +39,11 @@ func (t testTool) GetKvmInstanceNics(instanceName string) ([]string, error) {
 	return v, nil
 }
 
-func Test_workerTasksBuilder_1(t *testing.T) {
+func Test_workerTaskBuilder_1(t *testing.T) {
 	var res SyncStrategyResponse
 	require.NoError(t, testutils.LoadResultFromJSON("testdata/syncStrategy1.json", &res))
 
-	tb := &workerTasksBuilder{
+	tb := &workerTaskBuilder{
 		tool:            testTool{},
 		activeInstances: []string{},
 		daemonUUID:      "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
@@ -52,9 +52,11 @@ func Test_workerTasksBuilder_1(t *testing.T) {
 	for _, strategy := range res.Strategy {
 		tb.addStrategy(strategy)
 	}
-	assert.Len(t, tb.warnings, 0)
-	assert.Equal(t, []worker.TaskConfig{
+	tasks, warnings := tb.build()
+	assert.Len(t, warnings, 0)
+	assert.Equal(t, []*worker.TaskConfig{
 		{
+			Fingerprint: lo.ToPtr("64393037-6336-6262-3137-333739363234"),
 			Capturer: worker.CapturerConfig{
 				Type: "libpcap",
 				Libpcap: &worker.LibpcapConfig{
@@ -68,8 +70,8 @@ func Test_workerTasksBuilder_1(t *testing.T) {
 				{
 					Type: "zmq",
 					Zmq: &worker.ZmqOutputConfig{
-						Host: "127.0.0.1",
-						Port: 5555,
+						Host:        "127.0.0.1",
+						Port:        5555,
 						Hwm:         lo.ToPtr(2000),
 						Uuid:        "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
 						HeartbeatMs: lo.ToPtr[int32](2000),
@@ -77,14 +79,14 @@ func Test_workerTasksBuilder_1(t *testing.T) {
 				},
 			},
 		},
-	}, tb.tasks)
+	}, tasks)
 }
 
-func Test_workerTasksBuilder_2(t *testing.T) {
+func Test_workerTaskBuilder_2(t *testing.T) {
 	var res SyncStrategyResponse
 	require.NoError(t, testutils.LoadResultFromJSON("testdata/syncStrategy2.json", &res))
 
-	tb := &workerTasksBuilder{
+	tb := &workerTaskBuilder{
 		tool:            testTool{},
 		daemonUUID:      "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
 		activeInstances: []string{},
@@ -93,9 +95,11 @@ func Test_workerTasksBuilder_2(t *testing.T) {
 	for _, strategy := range res.Strategy {
 		tb.addStrategy(strategy)
 	}
-	assert.Len(t, tb.warnings, 0)
-	assert.Equal(t, []worker.TaskConfig{
+	tasks, warnings := tb.build()
+	assert.Len(t, warnings, 0)
+	assert.Equal(t, []*worker.TaskConfig{
 		{
+			Fingerprint: lo.ToPtr("37303236-3865-3063-6331-353864396635"),
 			ReqPattern: &worker.ReqPatternConfig{
 				Type: "custom",
 				Custom: &worker.CustomReqPatternConfig{
@@ -126,7 +130,35 @@ func Test_workerTasksBuilder_2(t *testing.T) {
 				},
 			},
 		},
-	}, tb.tasks)
+	}, tasks)
+}
+
+func Test_workerTaskBuilder_dedupFingerprint(t *testing.T) {
+	// Two structurally-identical tasks (same capturer + outputs) must still get
+	// distinct fingerprints, otherwise cpworker rejects the config with
+	// "duplicate fingerprint". This reproduces the DaemonSet multi-instance case
+	// where two tasks resolve to the same interface/output.
+	newTask := func() *worker.TaskConfig {
+		return &worker.TaskConfig{
+			Capturer: worker.CapturerConfig{
+				Type:    worker.CapturerType_Libpcap,
+				Libpcap: &worker.LibpcapConfig{Interface: "eth0"},
+			},
+			Outputs: []worker.OutputConfig{
+				{Type: worker.OutputType_Gre, Gre: &worker.GreOutputConfig{Host: "2.2.2.2"}},
+			},
+		}
+	}
+
+	tb := &workerTaskBuilder{tasks: []*worker.TaskConfig{newTask(), newTask()}}
+	tasks, warnings := tb.build()
+
+	assert.Len(t, warnings, 0)
+	require.Len(t, tasks, 2)
+	require.NotNil(t, tasks[0].Fingerprint)
+	require.NotNil(t, tasks[1].Fingerprint)
+	assert.NotEqual(t, *tasks[0].Fingerprint, *tasks[1].Fingerprint,
+		"structurally identical tasks must receive distinct fingerprints")
 }
 
 func Test_parseStartup(t *testing.T) {

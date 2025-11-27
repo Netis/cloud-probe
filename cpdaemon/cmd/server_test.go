@@ -22,8 +22,6 @@ func Test_runSvr(t *testing.T) {
 	vp.Set(asm.VKey.Cpm.BaseUrl, "https://127.0.0.1:48018")
 	vp.Set(asm.VKey.Cpm.Reg.PlatformId, "test")
 	vp.Set(asm.VKey.Cpm.Reg.DeployEnv, "INSTANCE")
-	// Write the uuid file under a writable temp dir so the test does not depend
-	// on permission to the default /usr/local/bin/uuid path.
 	vp.Set(asm.VKey.Cpm.Reg.UuidFile, filepath.Join(t.TempDir(), "uuid"))
 
 	ctx, cancel := context.WithCancel(context.Background())

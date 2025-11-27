@@ -107,13 +107,6 @@ func (r *testWorkerManagerRecoder) Pid() int {
 	return 0
 }
 
-func (r *testWorkerManagerRecoder) BuffSizePerTask() uint64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.calls = append(r.calls, "BuffSizePerTask")
-	return 256
-}
-
 func (r *testWorkerManagerRecoder) kill() {
 	r.mu.Lock()
 	defer r.mu.Unlock()

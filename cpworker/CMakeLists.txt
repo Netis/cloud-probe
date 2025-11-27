@@ -47,6 +47,10 @@ elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSD$")
     endif()
 endif()
 
+if(OS_LINUX)
+    add_compile_definitions(_GNU_SOURCE)
+endif()
+
 execute_process(
     COMMAND git rev-parse --short HEAD
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}

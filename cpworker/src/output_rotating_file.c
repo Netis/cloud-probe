@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include "errorf.h"
 #include "log.h"
@@ -15,12 +16,10 @@
 static int generate_path(const char *root_dir, struct tm *ptm, char *filepath)
 {
     char date[15];
-    snprintf(date, sizeof(date), "%04d%02d%02d%02d%02d%02d", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday,
-             ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
+    strftime(date, sizeof(date), "%Y%m%d%H%M%S", ptm);
 
     char subPath[11];
-    snprintf(subPath, sizeof(subPath), "%04d%02d%02d%02d", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday,
-             ptm->tm_hour);
+    strftime(subPath, sizeof(subPath), "%Y%m%d%H", ptm);
 
     size_t root_len = strlen(root_dir);
     const char *separator =
@@ -172,7 +171,7 @@ rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, o
     }
     output->base.send_packet = rotating_file_write_packet;
     output->base.heartbeat = NULL;
-    output->base.destory = rotating_file_output_destory;
+    output->base.destroy = rotating_file_output_destroy;
     output->base.stats = stats;
 
     output->slice = opts.slice;
@@ -196,12 +195,12 @@ output_base_t *rotating_file_output_new_from_cfg(TaskConfig *task_cfg, OutputCon
     return (output_base_t *)rotating_file_output_new(opts, stats, errbuf);
 }
 
-void rotating_file_output_destory(output_base_t *self)
+void rotating_file_output_destroy(output_base_t *self)
 {
     if (!self)
         return;
 
-    log_info("call rotating_file_output_destory");
+    log_info("call rotating_file_output_destroy");
     rotating_file_output_t *output = (rotating_file_output_t *)self;
 
     free(output->file_root);

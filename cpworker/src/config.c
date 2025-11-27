@@ -63,7 +63,7 @@ static void free_control(ControlConfig *control)
     return;
 }
 
-static void req_pattern_destory(ReqPatternConfig *req_pattern)
+static void req_pattern_destroy(ReqPatternConfig *req_pattern)
 {
     if (!req_pattern)
         return;
@@ -112,7 +112,7 @@ static void free_task(TaskConfig *task)
     free(task->outputs);
 
     // free req_pattern
-    req_pattern_destory(&task->req_pattern);
+    req_pattern_destroy(&task->req_pattern);
 
     free(task);
 }
@@ -134,10 +134,12 @@ void free_config(Config *config)
     if (!config)
         return;
 
+    if (config->cpu_affinity)
+        free(config->cpu_affinity);
+
     if (config->tasks_cfg)
         free_tasks_config(config->tasks_cfg);
 
-    free(config->cpu_affinity);
     free_control(config->control);
     free(config);
 }
@@ -959,6 +961,26 @@ static int parse_req_pattern_config(cJSON *req_pattern_obj, ReqPatternConfig *re
 
 static int parse_task_config(cJSON *task_obj, TaskConfig *task, cJSONParseError *err)
 {
+    // Parse fingerprint
+    cJSON *fingerprint = cJSON_GetObjectItemCaseSensitive(task_obj, "fingerprint");
+    if (fingerprint)
+    {
+        if (!cJSON_IsString(fingerprint))
+        {
+            cjson_set_parse_error(err, "invalid fingerprint");
+            return PARSE_ERROR;
+        }
+
+        if (strcmp(fingerprint->valuestring, "") == 0)
+            task->fingerprint = NULL;
+        else
+            task->fingerprint = strdup(fingerprint->valuestring);
+    }
+    else
+    {
+        task->fingerprint = NULL;
+    }
+
     // Parse req_pattern
     cJSON *req_pattern = cJSON_GetObjectItemCaseSensitive(task_obj, "req_pattern");
     if (!req_pattern)
@@ -1086,6 +1108,20 @@ static TasksAllConfig *parse_tasks_json(cJSON *json, cJSONParseError *err)
             free_task(task);
             cjson_wrap_parse_error(err, "parse task %d error", i);
             goto error;
+        }
+
+        // check fingerprint
+        if (task->fingerprint != NULL)
+        {
+            for (int j = 0; j < config->num_tasks; j++)
+            {
+                if (config->tasks[j]->fingerprint != NULL &&
+                    strcmp(task->fingerprint, config->tasks[j]->fingerprint) == 0)
+                {
+                    cjson_set_parse_error(err, "duplicate fingerprint '%s'", task->fingerprint);
+                    goto error;
+                }
+            }
         }
         config->tasks[config->num_tasks++] = task;
     }
@@ -1264,6 +1300,61 @@ static Config *parse_config_json(cJSON *json, cJSONParseError *err)
     {
         cjson_set_parse_error(err, "invalid cpu_affinity");
         goto error;
+    }
+
+    cJSON *execution_model = cJSON_GetObjectItemCaseSensitive(json, "execution_model");
+    if (!execution_model)
+    {
+        config->execution_model = EXECUTION_MODEL_RTC;
+    }
+    else if (cJSON_IsString(execution_model))
+    {
+        if (strcmp(execution_model->valuestring, "rtc") == 0)
+            config->execution_model = EXECUTION_MODEL_RTC;
+        else if (strcmp(execution_model->valuestring, "pipeline") == 0)
+            config->execution_model = EXECUTION_MODEL_PIPELINE;
+        else
+        {
+            cjson_set_parse_error(err, "invalid execution_model");
+            goto error;
+        }
+    }
+    else
+    {
+        cjson_set_parse_error(err, "invalid execution_model");
+        goto error;
+    }
+
+    if (config->execution_model == EXECUTION_MODEL_PIPELINE)
+    {
+        cJSON *pipeline_obj = cJSON_GetObjectItemCaseSensitive(json, "pipeline");
+        if (!pipeline_obj)
+        {
+            cjson_set_parse_error(err, "missing pipeline config");
+            goto error;
+        }
+        if (!cJSON_IsObject(pipeline_obj))
+        {
+            cjson_set_parse_error(err, "invalid pipeline config");
+            goto error;
+        }
+
+        cJSON *pipeline_buffer_size = cJSON_GetObjectItemCaseSensitive(pipeline_obj, "buffer_size_mb");
+        if (!pipeline_buffer_size)
+        {
+            cjson_set_parse_error(err, "missing pipeline.buffer_size_mb");
+            goto error;
+        }
+        else if (!cJSON_IsNumber(pipeline_buffer_size) || pipeline_buffer_size->valueint <= 0)
+        {
+            cjson_set_parse_error(err, "invalid pipeline.buffer_size_mb");
+            goto error;
+        }
+        config->pipeline.buffer_size_mb = pipeline_buffer_size->valueint;
+    }
+    else
+    {
+        config->pipeline.buffer_size_mb = 0;
     }
 
     cJSON *control_obj = cJSON_GetObjectItemCaseSensitive(json, "control");

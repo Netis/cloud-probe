@@ -11,7 +11,7 @@
         {
           "type": "file",
           "file": {
-            "name": "testdata/output/case1_file_basic/output.pcap"
+            "name": "testdata/output/file_basic/output.pcap"
           }
         }
       ]

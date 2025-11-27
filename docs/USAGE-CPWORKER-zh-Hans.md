@@ -14,6 +14,10 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
             "path": "/var/run/cloud-probe/cpworker.sock"
         }
     },
+    "execution_model": "rtc",
+    "pipeline": {
+        "buffer_size_mb": 256
+    },
     "tasks": [
         {
             "req_pattern": {
@@ -76,13 +80,15 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 更多配置示例，请查看: [examples](../cpworker/examples)
 
 ## 顶层参数列表
-| 参数	             | 类型	   | 默认值	  | 说明  |
-|-------------------|---------|---------|-----|
-| cpu_affinity      | string  | -       | 设置cpu亲和性 |
-| log_level         | string  | INFO    | 日志级别，可选值：DEBUG, INFO, WARN, ERROR |
-| control           | object  | -       | 控制面通信接口 |
-| control.type      | string  | -       | 控制面通信接口类型，当前支持：unix |
-| control.unix.path | string  | -       | unix socket 文件 |
+| 参数	                   | 类型	   | 默认值	  | 说明  |
+|-------------------------|---------|---------|-----|
+| cpu_affinity            | string  | -       | 设置cpu亲和性 |
+| log_level               | string  | INFO    | 日志级别，可选值：DEBUG, INFO, WARN, ERROR |
+| control                 | object  | -       | 控制面通信接口 |
+| control.type            | string  | -       | 控制面通信接口类型，当前支持：unix |
+| control.unix.path       | string  | -       | unix socket 文件 |
+| execution_model         | string  | rtc     | 处理数据包的执行模式 (rtc, pipeline) |
+| pipeline.buffer_size_mb | int     | -       | 当使用 pipeline 执行模式时，设置 pipeline 的缓冲区大小 |
 
 
 ## task参数列表
@@ -93,7 +99,7 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 | req_pattern.type	          | string  | -        | 数据包方向识别模式 (auto/custom)，未配置时方向为 NONCHECK |
 | req_pattern.custom.pattern  | string	| -	       | 使用 nic.eth0 是会被替换为 eth0 的IP |
 | capturer                    | object  | -	       | 数据包捕获参数 |
-| capturer.type               | string  | -       | 当前支持: libpcap |
+| capturer.type               | string  | -        | 当前支持: libpcap |
 
 ## capturer.libpcap 参数列表
 | 参数	             | 类型	   | 默认值	  | 说明  |

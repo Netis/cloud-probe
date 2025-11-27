@@ -17,13 +17,22 @@ func TestWorkerManager(t *testing.T) {
 
 	mgr := NewWorkerManager(
 		WorkerConfig{
-			PidFile:    "testdata/tmp/cpm-worker.pid",
-			ConfigFile: "testdata/tmp/cpm-worker.json",
-			Executable: "../worker/fakeworker",
+			PidFile:        "testdata/tmp/cpm-worker.pid",
+			ConfigFile:     "testdata/tmp/cpm-worker.json",
+			Executable:     "../worker/fakeworker",
+			ExecutionModel: "rtc",
 			Control: worker.ControlConfig{
 				Type: "unix",
 				Unix: &worker.ControlUnixConfig{
 					Path: "testdata/tmp/cpm-worker.sock",
+				},
+			},
+			UpdatePolicy: UpdatePolicyRestart,
+			Memory: MemoryConfig{
+				Policy:         MemoryPolicyAutoNicBuffer,
+				DefaultLimitMb: 256,
+				Libpcap: LibpcapMemConfig{
+					FixedBufferSizeMb: 4,
 				},
 			},
 		},

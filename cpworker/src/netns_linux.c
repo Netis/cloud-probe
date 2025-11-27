@@ -2,12 +2,8 @@
 
 #if defined(NETNS_LINUX)
 
-#ifdef __linux__
-#define _GNU_SOURCE // 启用GNU扩展
-#include <sched.h>
-#endif
-
 #include <fcntl.h>
+#include <sched.h>
 #include <unistd.h>
 
 #include "errorf.h"

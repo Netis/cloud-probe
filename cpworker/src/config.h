@@ -28,6 +28,9 @@
 
 #define CONTROL_TYPE_UNIX "unix"
 
+#define EXECUTION_MODEL_RTC 0
+#define EXECUTION_MODEL_PIPELINE 1
+
 typedef struct
 {
     uint16_t max_payload_size; // 0 = disabled
@@ -128,6 +131,7 @@ typedef struct
 
 typedef struct
 {
+    char *fingerprint;
     ReqPatternConfig req_pattern;
     CapturerConfig capturer;
 
@@ -157,6 +161,11 @@ typedef struct
 {
     int log_level;
     char *cpu_affinity;
+    int execution_model;
+    struct
+    {
+        int buffer_size_mb;
+    } pipeline;
     ControlConfig *control;
     TasksAllConfig *tasks_cfg;
 } Config;

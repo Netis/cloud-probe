@@ -15,13 +15,17 @@ func TestWorker(t *testing.T) {
 	cfg := ExecConfig{
 		Executable: "./fakeworker",
 		ConfigFile: "testdata/tmp/test-tasks.json",
+	}
+
+	wCfg := &Config{
+		LogLevel: "info",
 		Control: ControlConfig{
 			Type: "unix",
 			Unix: &ControlUnixConfig{
 				Path: "testdata/tmp/test.sock",
 			},
 		},
-		Tasks: []TaskConfig{
+		Tasks: []*TaskConfig{
 			{
 				Capturer: CapturerConfig{
 					Type: "libpcap",
@@ -44,7 +48,6 @@ func TestWorker(t *testing.T) {
 			},
 		},
 	}
-
 	w, err := NewWorker("test", cfg)
 	require.NoError(t, err)
 
@@ -58,7 +61,10 @@ func TestWorker(t *testing.T) {
 	}
 
 	{
-		err := w.Start(context.Background())
+		err := w.Start(context.Background(), wCfg)
+		require.NoError(t, err)
+
+		err = w.UpdateResLimit(ResLimit{})
 		require.NoError(t, err)
 
 		isAlive, err := w.IsAlive(context.Background())

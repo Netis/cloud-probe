@@ -48,7 +48,7 @@ null_output_t *null_output_new(null_options_t opts, output_stats_t *stats, char 
 
     output->base.send_packet = null_send_packet;
     output->base.heartbeat = NULL;
-    output->base.destory = null_output_destory;
+    output->base.destroy = null_output_destroy;
     output->base.stats = stats;
 
     if (opts.rate_limit_mbps > 0)
@@ -72,12 +72,12 @@ output_base_t *null_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outp
     return (output_base_t *)null_output_new(opts, stats, errbuf);
 }
 
-void null_output_destory(output_base_t *self)
+void null_output_destroy(output_base_t *self)
 {
     if (!self)
         return;
 
-    log_info("call null_output_destory");
+    log_info("call null_output_destroy");
     null_output_t *output = (null_output_t *)self;
     free(output);
 }

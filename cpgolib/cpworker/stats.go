@@ -14,8 +14,16 @@ type StatsSummary struct {
 		Sec  int64 `mapstructure:"sec"`
 		Nsec int64 `mapstructure:"nsec"`
 	} `mapstructure:"time"`
-	Capture CaptureStats `mapstructure:"capture"`
-	Output  OutputStats  `mapstructure:"output"`
+	Capture        CaptureStats        `mapstructure:"capture"`
+	Output         OutputStats         `mapstructure:"output"`
+	PipelineBuffer PipelineBufferStats `mapstructure:"pipeline_buffer"`
+}
+
+type PipelineBufferStats struct {
+	MemTotal  uint64 `mapstructure:"mem_total"`
+	MemUsed   uint64 `mapstructure:"mem_used"`
+	RingTotal uint64 `mapstructure:"ring_total"`
+	RingUsed  uint64 `mapstructure:"ring_used"`
 }
 
 type CaptureStats struct {

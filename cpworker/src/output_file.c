@@ -68,7 +68,7 @@ file_output_t *file_output_new(file_options_t opts, output_stats_t *stats, char 
 
     output->base.send_packet = file_write_packet;
     output->base.heartbeat = NULL;
-    output->base.destory = file_output_destory;
+    output->base.destroy = file_output_destroy;
     output->base.stats = stats;
 
     output->pcap = pcap;
@@ -89,12 +89,12 @@ output_base_t *file_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outp
     return (output_base_t *)file_output_new(opts, stats, errbuf);
 }
 
-void file_output_destory(output_base_t *self)
+void file_output_destroy(output_base_t *self)
 {
     if (!self)
         return;
 
-    log_info("call file_output_destory");
+    log_info("call file_output_destroy");
     file_output_t *output = (file_output_t *)self;
 
     pcap_dump_close(output->dumper);

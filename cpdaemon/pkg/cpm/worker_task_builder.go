@@ -12,22 +12,27 @@ import (
 	"github.com/samber/lo"
 	flag "github.com/spf13/pflag"
 
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/common"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/worker"
 )
 
-type workerTasksBuilder struct {
+type workerTaskBuilder struct {
 	tool            Tool
 	daemonUUID      string
 	activeInstances []string
 	buffSize        uint64
 
 	warnings []error
-	tasks    []worker.TaskConfig
+	tasks    []*worker.TaskConfig
 }
 
-func (b *workerTasksBuilder) addStrategy(strategy StrategyEntry) {
+func (b *workerTaskBuilder) addStrategy(strategy StrategyEntry) {
 	// check strategy is valid
-	_, err := b.newTaskConfig(strategy, taskItem{nicName: "eth0", obsIdx: 0, typ: TaskTypeInterface})
+	_, err := b.newTaskConfig(strategy, taskItem{
+		nicName: "eth0",
+		obsIdx:  0,
+		typ:     TaskTypeInterface,
+	})
 	if err != nil {
 		b.warnings = append(b.warnings, err)
 		return
@@ -47,7 +52,7 @@ func (b *workerTasksBuilder) addStrategy(strategy StrategyEntry) {
 	}
 }
 
-func (b *workerTasksBuilder) addContainerIds(strategy StrategyEntry) {
+func (b *workerTaskBuilder) addContainerIds(strategy StrategyEntry) {
 	var idx int
 	for _, cId := range strategy.ContainerIds {
 		containerId, nics := decodeContainerId(cId)
@@ -70,7 +75,7 @@ func (b *workerTasksBuilder) addContainerIds(strategy StrategyEntry) {
 	}
 }
 
-func (b *workerTasksBuilder) addContainerId(strategy StrategyEntry, hostPid int, nic string, obsIdx int) {
+func (b *workerTaskBuilder) addContainerId(strategy StrategyEntry, hostPid int, nic string, obsIdx int) {
 	item := taskItem{
 		typ:         TaskTypeContainer,
 		nicName:     nic,
@@ -84,10 +89,10 @@ func (b *workerTasksBuilder) addContainerId(strategy StrategyEntry, hostPid int,
 		b.warnings = append(b.warnings, err)
 		return
 	}
-	b.tasks = append(b.tasks, *task)
+	b.tasks = append(b.tasks, task)
 }
 
-func (b *workerTasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceName string, obsIdx int) {
+func (b *workerTaskBuilder) addInterfaceName(strategy StrategyEntry, interfaceName string, obsIdx int) {
 	item := taskItem{
 		typ:         TaskTypeInterface,
 		nicName:     interfaceName,
@@ -101,10 +106,10 @@ func (b *workerTasksBuilder) addInterfaceName(strategy StrategyEntry, interfaceN
 		return
 	}
 
-	b.tasks = append(b.tasks, *task)
+	b.tasks = append(b.tasks, task)
 }
 
-func (b *workerTasksBuilder) addInstanceName(strategy StrategyEntry, instanceName string, obsIdx int) {
+func (b *workerTaskBuilder) addInstanceName(strategy StrategyEntry, instanceName string, obsIdx int) {
 	if !slices.Contains(b.activeInstances, instanceName) {
 		b.warnings = append(b.warnings, errors.Errorf("instance name not found: %s", instanceName))
 		return
@@ -132,10 +137,10 @@ func (b *workerTasksBuilder) addInstanceName(strategy StrategyEntry, instanceNam
 		return
 	}
 
-	b.tasks = append(b.tasks, *task)
+	b.tasks = append(b.tasks, task)
 }
 
-func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*worker.TaskConfig, error) {
+func (b *workerTaskBuilder) newTaskConfig(strategy StrategyEntry, item taskItem) (*worker.TaskConfig, error) {
 	task := worker.TaskConfig{
 		Capturer: worker.CapturerConfig{
 			Type: worker.CapturerType_Libpcap,
@@ -327,6 +332,26 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 		task.Capturer.Libpcap.Netns = lo.ToPtr(item.netns)
 	}
 	return &task, nil
+}
+
+func (b *workerTaskBuilder) build() ([]*worker.TaskConfig, []error) {
+	fingerprints := make(map[string]struct{})
+	for _, task := range b.tasks {
+		labels := task.FingerPrintLables()
+		seq := 1
+		for {
+			fingerprint := common.LabelsToFingerprint(labels).UUID().String()
+			_, exists := fingerprints[fingerprint]
+			if !exists {
+				fingerprints[fingerprint] = struct{}{}
+				task.Fingerprint = lo.ToPtr(fingerprint)
+				break
+			}
+			labels["_seq"] = fmt.Sprintf("%d", seq)
+			seq++
+		}
+	}
+	return b.tasks, b.warnings
 }
 
 func decodeContainerId(containerId string) (string, []string) {

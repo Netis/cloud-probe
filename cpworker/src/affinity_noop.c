@@ -2,6 +2,6 @@
 
 #if defined(CPU_AFFINITY_NOOP)
 
-int set_cpu_affinity(char *value) { return 0; }
+int set_cpu_affinity(const char *value) { return 0; }
 
 #endif

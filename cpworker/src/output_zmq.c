@@ -426,7 +426,7 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, output_stats_t *stats, char *er
 
     output->base.send_packet = zmq_send_packet;
     output->base.heartbeat = zmq_heartbeat;
-    output->base.destory = zmq_output_destory;
+    output->base.destroy = zmq_output_destroy;
     output->base.stats = stats;
 
     output->context = context;
@@ -480,12 +480,12 @@ output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
     return (output_base_t *)zmq_output_new(opts, stats, errbuf);
 }
 
-void zmq_output_destory(output_base_t *self)
+void zmq_output_destroy(output_base_t *self)
 {
     if (!self)
         return;
 
-    log_info("call zmq_output_destory");
+    log_info("call zmq_output_destroy");
     zmq_output_t *output = (zmq_output_t *)self;
 
     if (output->pusher)

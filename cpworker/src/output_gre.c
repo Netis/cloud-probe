@@ -190,7 +190,7 @@ gre_output_t *gre_output_new(gre_options_t opts, output_stats_t *stats, char *er
 
     output->base.send_packet = gre_send_packet;
     output->base.heartbeat = NULL;
-    output->base.destory = gre_output_destory;
+    output->base.destroy = gre_output_destroy;
     output->base.stats = stats;
 
     if (opts.rate_limit_mbps > 0)
@@ -224,12 +224,12 @@ output_base_t *gre_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
     return (output_base_t *)gre_output_new(opts, stats, errbuf);
 }
 
-void gre_output_destory(output_base_t *self)
+void gre_output_destroy(output_base_t *self)
 {
     if (!self)
         return;
 
-    log_info("call gre_output_destory");
+    log_info("call gre_output_destroy");
     gre_output_t *output = (gre_output_t *)self;
 
     close(output->socket_fd);

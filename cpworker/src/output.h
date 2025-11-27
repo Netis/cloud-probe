@@ -14,7 +14,7 @@ typedef struct OutputBase
     int (*send_packet)(struct OutputBase *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
                        int direct);
     void (*heartbeat)(struct OutputBase *output, time_t now);
-    void (*destory)(struct OutputBase *output);
+    void (*destroy)(struct OutputBase *output);
     output_stats_t *stats;
 } output_base_t;
 
@@ -39,6 +39,6 @@ static inline void output_heartbeat(output_base_t *output, time_t now)
         output->heartbeat(output, now);
 }
 
-static inline void destory_output(output_base_t *output) { output->destory(output); }
+static inline void destroy_output(output_base_t *output) { output->destroy(output); }
 
 #endif /* CPWORKER_OUTPUT_H */

@@ -1,13 +1,12 @@
 package cpm
 
 import (
-	"fmt"
 	"os"
-	"sort"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
+
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/common"
 )
 
 const UUIDGenTypeEnv = "env"
@@ -37,43 +36,9 @@ func (c UuidGenConfig) Generate() (string, error) {
 			}
 			labels[key] = val
 		}
-		fingerprint := LabelsToFingerprint(labels)
+		fingerprint := common.LabelsToFingerprint(labels)
 		return fingerprint.UUID().String(), nil
 	default:
 		return uuid.New().String(), nil
 	}
-}
-
-var emptyLabelSignature = hashNew()
-
-const SeparatorByte byte = 255
-
-type Fingerprint uint64
-
-func (f Fingerprint) String() string {
-	return fmt.Sprintf("%016x", uint64(f))
-}
-
-func (f Fingerprint) UUID() uuid.UUID {
-	var id uuid.UUID
-	copy(id[:], fmt.Sprintf("%016x", uint64(f)))
-	return id
-}
-
-func LabelsToFingerprint(labels map[string]string) Fingerprint {
-	if len(labels) == 0 {
-		return Fingerprint(emptyLabelSignature)
-	}
-
-	keys := lo.Keys(labels)
-	sort.Strings(keys)
-
-	sum := hashNew()
-	for _, key := range keys {
-		sum = hashAdd(sum, key)
-		sum = hashAddByte(sum, SeparatorByte)
-		sum = hashAdd(sum, labels[key])
-		sum = hashAddByte(sum, SeparatorByte)
-	}
-	return Fingerprint(sum)
 }

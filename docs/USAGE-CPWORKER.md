@@ -14,6 +14,10 @@ cpworker is a network packet capture tool built on libpcap, supporting multiple 
             "path": "/var/run/cloud-probe/cpworker.sock"
         }
     },
+    "execution_model": "rtc",
+    "pipeline": {
+        "buffer_size_mb": 256
+    },
     "tasks": [
         {
             "req_pattern": {
@@ -84,6 +88,8 @@ For more configuration examples, see: [examples](../cpworker/examples)
 | control            | object   | -       | Control plane communication interface |
 | control.type       | string   | -       | Control interface type (currently supports: unix) |
 | control.unix.path  | string   | -       | Unix socket file path |
+| execution_model    | string   | rtc     | Packet process execution model (rtc, pipeline) |
+| pipeline.buffer_size_mb | int | -       | Pipeline buffer size if execution_mode is pipeline |
 
 ## Task Parameters
 | Parameter                     | Type     | Default | Description |

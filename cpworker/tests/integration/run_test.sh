@@ -1,22 +1,28 @@
 #!/bin/bash
 
 # Integration test runner script for cpworker
-# Usage: ./run_test.sh <test_case_name|all>
-# Example: ./run_test.sh case2_vxlan_basic
-# Example: ./run_test.sh testdata/cases/case2_vxlan_basic
+# Usage: ./run_test.sh <test_case_name|all|reload>
+# Example: ./run_test.sh vxlan_basic
+# Example: ./run_test.sh testdata/cases/vxlan_basic
 # Example: ./run_test.sh all
+# Example: ./run_test.sh reload
 
 set -e
 
 # Parse test case name
 if [ $# -eq 0 ]; then
-    echo "Usage: $0 <test_case_name|all>"
-    echo "Example: $0 case2_vxlan_basic"
-    echo "Example: $0 testdata/cases/case2_vxlan_basic"
+    echo "Usage: $0 <test_case_name|all|reload>"
+    echo "Example: $0 vxlan_basic"
+    echo "Example: $0 testdata/cases/vxlan_basic"
     echo "Example: $0 all"
+    echo "Example: $0 reload"
     echo ""
     echo "Available test cases:"
     ls -1 testdata/cases/ 2>/dev/null | grep -v README.md || echo "  No test cases found"
+    echo ""
+    echo "Special targets:"
+    echo "  all     (runs every TestIntegration case and TestReload)"
+    echo "  reload  (runs TestReload only: config reload, rtc & pipeline)"
     exit 1
 fi
 
@@ -66,7 +72,7 @@ if [ "$1" = "all" ]; then
     echo "Running all tests with sudo (required for packet capture)..."
     sudo -E CPWORKER_BIN="$CPWORKER_BIN" \
          LD_LIBRARY_PATH="$ENV_LD_LIBRARY_PATH" \
-         "$GO_BIN" test -v -run "TestIntegration"
+         "$GO_BIN" test -v -run "TestIntegration|TestReload"
 
     TEST_EXIT_CODE=$?
 
@@ -88,6 +94,46 @@ if [ "$1" = "all" ]; then
         echo "All tests PASSED!"
     else
         echo "Some tests FAILED!"
+    fi
+    echo "========================================="
+
+    exit $TEST_EXIT_CODE
+fi
+
+# Check if running only the reload test (a standalone TestReload, not a
+# testdata/cases discovery case — needs two configs + a runtime SIGHUP).
+if [ "$1" = "reload" ]; then
+    echo "========================================="
+    echo "cpworker Integration Test Runner"
+    echo "========================================="
+    echo "Mode: Running TestReload (config reload)"
+    echo "cpworker Binary: $CPWORKER_BIN"
+    echo "Running as: $CURRENT_USER (will use sudo for packet capture)"
+    echo "========================================="
+    echo ""
+
+    echo "Running TestReload with sudo (required for packet capture)..."
+    sudo -E CPWORKER_BIN="$CPWORKER_BIN" \
+         LD_LIBRARY_PATH="$ENV_LD_LIBRARY_PATH" \
+         "$GO_BIN" test -v -run "TestReload"
+
+    TEST_EXIT_CODE=$?
+
+    # Change ownership of reload output back to current user
+    OUTPUT_DIR="testdata/output/reload"
+    if [ -d "$OUTPUT_DIR" ]; then
+        echo ""
+        echo "Changing ownership of output files to $CURRENT_USER..."
+        sudo chown -R "$CURRENT_UID:$CURRENT_GID" "$OUTPUT_DIR"
+        echo "Output directory: $OUTPUT_DIR"
+    fi
+
+    echo ""
+    echo "========================================="
+    if [ $TEST_EXIT_CODE -eq 0 ]; then
+        echo "Test PASSED!"
+    else
+        echo "Test FAILED!"
     fi
     echo "========================================="
 

@@ -62,7 +62,7 @@ pcap_file_capturer_t *pcap_file_capturer_new(pcap_file_options_t opts, capture_s
     if (p == NULL)
     {
         error_format(errbuf, "could not load file %s: %s", opts.file_name, error_buffer);
-        req_pattern_destory(req_pattern);
+        req_pattern_destroy(req_pattern);
         return NULL;
     }
 
@@ -103,14 +103,14 @@ pcap_file_capturer_t *pcap_file_capturer_new(pcap_file_options_t opts, capture_s
         goto error;
     }
     capturer->base.capture = pcap_file_do_capture;
-    capturer->base.destory = pcap_file_capturer_destory;
+    capturer->base.destroy = pcap_file_capturer_destroy;
     capturer->base.stats = stats;
     capturer->req_pattern = req_pattern;
     capturer->p = p;
     return capturer;
 error:
     pcap_close(p);
-    req_pattern_destory(req_pattern);
+    req_pattern_destroy(req_pattern);
     return NULL;
 }
 
@@ -134,7 +134,7 @@ capturer_base_t *pcap_file_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskC
     return capturer;
 }
 
-void pcap_file_capturer_destory(capturer_base_t *self)
+void pcap_file_capturer_destroy(capturer_base_t *self)
 {
     if (!self)
         return;
@@ -142,7 +142,7 @@ void pcap_file_capturer_destory(capturer_base_t *self)
     pcap_file_capturer_t *capturer = (pcap_file_capturer_t *)self;
 
     log_info("free pcap_file capturer");
-    req_pattern_destory(capturer->req_pattern);
+    req_pattern_destroy(capturer->req_pattern);
     pcap_close(capturer->p);
     free(capturer);
 }
