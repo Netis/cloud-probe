@@ -30,6 +30,12 @@
 
 typedef struct
 {
+    uint16_t max_payload_size;      // 0 = disabled
+    bool recalculate_checksum;      // Whether to recalculate checksums after splitting (default: false)
+} SplitConfig;
+
+typedef struct
+{
     char *type;
     uint64_t rate_limit_mbps;
     int slice;
@@ -44,6 +50,7 @@ typedef struct
             uint32_t vni;
             char *bind_device;
             int pmtudisc;
+            SplitConfig split;
         } vxlan;
 
         struct

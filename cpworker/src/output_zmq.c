@@ -75,6 +75,12 @@ static void flush_error_info(zmq_output_t *output)
 {
     output->error_info.first_pktsec = 0;
 
+    if (output->error_info.nb_too_small_packets > 0)
+    {
+        log_warn("zmq output: nb_too_small_packets=%lu (dropped)", output->error_info.nb_too_small_packets);
+        output->error_info.nb_too_small_packets = 0;
+    }
+
     if (output->error_info.nb_drop_batches > 0 || output->error_info.nb_drop_packets > 0)
     {
         log_error("zmq output error: nb_drop_batches=%lu, nb_drop_packets=%lu, detail: %s",
@@ -91,7 +97,7 @@ int zmq_flush_packet(zmq_output_t *output)
 {
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
 
-    uint64_t send_num = pkts_buf->batch_hdr.pkts_num;
+    uint16_t send_num = pkts_buf->batch_hdr.pkts_num;
     pkts_buf->batch_hdr.pkts_num = htons(send_num);
     memcpy((&(pkts_buf->buf[0])), &pkts_buf->batch_hdr, sizeof(pkts_buf->batch_hdr));
 
@@ -135,6 +141,14 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     int32_t caplen = header->caplen;
     if (output->slice > 0 && output->slice < caplen)
         caplen = output->slice;
+
+    // Minimum caplen: ethernet header (14) + optional VLAN tag (4) must fit
+    // to avoid underflow in payload_copy_len calculation
+    if (caplen < (int32_t)(sizeof(struct ether_header) + sizeof(struct vlan_tag)))
+    {
+        output->error_info.nb_too_small_packets++;
+        return -1;
+    }
 
     uint16_t length = (uint16_t)(caplen <= 65531 ? caplen : 65531) + sizeof(mpls_header);
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
@@ -201,26 +215,29 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     memcpy(&(pkts_buf->buf[buff_pos]), &pkt_hdr, sizeof(pkt_hdr));
     buff_pos += sizeof(pkt_hdr);
 
-    struct ether_header *eth_hdr = (struct ether_header *)pkt_data;
-    struct vlan_tag *vlan_hdr = NULL;
+    // Copy ethernet header locally to avoid modifying the caller's packet data
+    struct ether_header eth_hdr_copy;
+    memcpy(&eth_hdr_copy, pkt_data, sizeof(struct ether_header));
 
-    const bool has_vlan = (ntohs(eth_hdr->ether_type) == ETHERTYPE_VLAN);
+    const bool has_vlan = (ntohs(eth_hdr_copy.ether_type) == ETHERTYPE_VLAN);
+
+    struct vlan_tag vlan_hdr_copy;
     if (has_vlan)
     {
-        vlan_hdr = (struct vlan_tag *)(pkt_data + sizeof(struct ether_header));
-        vlan_hdr->vlan_tci = htons(ETHER_TYPE_MPLS);
+        memcpy(&vlan_hdr_copy, pkt_data + sizeof(struct ether_header), sizeof(struct vlan_tag));
+        vlan_hdr_copy.vlan_tci = htons(ETHER_TYPE_MPLS);
     }
     else
     {
-        eth_hdr->ether_type = htons(ETHER_TYPE_MPLS);
+        eth_hdr_copy.ether_type = htons(ETHER_TYPE_MPLS);
     }
 
-    memcpy(&(pkts_buf->buf[buff_pos]), pkt_data, sizeof(struct ether_header));
+    memcpy(&(pkts_buf->buf[buff_pos]), &eth_hdr_copy, sizeof(struct ether_header));
     buff_pos += sizeof(struct ether_header);
 
     if (has_vlan)
     {
-        memcpy(&(pkts_buf->buf[buff_pos]), vlan_hdr, sizeof(struct vlan_tag));
+        memcpy(&(pkts_buf->buf[buff_pos]), &vlan_hdr_copy, sizeof(struct vlan_tag));
         buff_pos += sizeof(struct vlan_tag);
     }
 

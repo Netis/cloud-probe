@@ -11,6 +11,7 @@
 #include "ip.h"
 #include "log.h"
 #include "output_vxlan.h"
+#include "packet_split.h"
 #include "pkt_dir.h"
 #include "stats.h"
 #include "vxlan.h"
@@ -92,43 +93,17 @@ static void flush_error_info(vxlan_output_t *output)
     }
 }
 
-int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
+static int do_send_packet(vxlan_output_t *output, const struct timeval ts, const uint8_t *pkt_data, size_t length,
+                          int direct)
 {
-    vxlan_output_t *output = (vxlan_output_t *)self;
-
-    int32_t caplen = header->caplen;
-    if (output->slice > 0 && output->slice < caplen)
-    {
-        caplen = output->slice;
-    }
-
-    size_t length = (size_t)(caplen <= 65535 ? caplen : 65535);
-
-    if (direct == PKT_DIR_UNKNOWN)
-    {
-        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
-        packets_stats_add(&output->base.stats->direction_drop_packets, 1);
-        return -1;
-    }
-
-    if (output->rate_limit_mbps > 0)
-    {
-        if (!token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length, header->ts))
-        {
-            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
-            packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
-            return -1;
-        }
-    }
-
     struct vxlan_header *vxlan_hdr = (struct vxlan_header *)output->buf;
     memcpy(&(output->buf[VXLAN_HEADER_LEN]), pkt_data, length);
 
-    uint32_t tv_sec = htonl(header->ts.tv_sec);
-    // 注意：通过libpcap获取的捕获时间精度为微秒，而数据包中附加的时间为纳秒，所以需要*1000
-    uint32_t tv_nsec = htonl(header->ts.tv_usec * 1000);
     if (output->capture_time)
     {
+        uint32_t tv_sec = htonl(ts.tv_sec);
+        // 注意：通过libpcap获取的捕获时间精度为微秒，而数据包中附加的时间为纳秒，所以需要*1000
+        uint32_t tv_nsec = htonl(ts.tv_usec * 1000);
         memcpy(&(output->buf[VXLAN_HEADER_LEN + length]), &tv_sec, 4);
         length += 4;
         memcpy(&(output->buf[VXLAN_HEADER_LEN + length]), &tv_nsec, 4);
@@ -151,15 +126,6 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     else
     {
         vxlan_hdr->vx_vni = htonl(output->vni + direct);
-    }
-
-    // check error_info
-    if (output->error_info.first_pktsec == 0)
-        output->error_info.first_pktsec = header->ts.tv_sec;
-    else if (header->ts.tv_sec > output->error_info.first_pktsec + ERROR_INFO_FLUSH_MAX_DUR_SEC)
-    {
-        flush_error_info(output);
-        output->error_info.first_pktsec = header->ts.tv_sec;
     }
 
     int retry_count = 0;
@@ -215,6 +181,76 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     } while (true);
 }
 
+int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
+{
+    vxlan_output_t *output = (vxlan_output_t *)self;
+
+    int32_t caplen = header->caplen;
+    if (output->slice > 0 && output->slice < caplen)
+    {
+        caplen = output->slice;
+    }
+
+    size_t length = (size_t)(caplen <= 65535 ? caplen : 65535);
+
+    if (direct == PKT_DIR_UNKNOWN)
+    {
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        packets_stats_add(&output->base.stats->direction_drop_packets, 1);
+        return -1;
+    }
+
+    if (output->rate_limit_mbps > 0)
+    {
+        if (!token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length, header->ts))
+        {
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
+            packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
+            return -1;
+        }
+    }
+
+    // check error_info
+    if (output->error_info.first_pktsec == 0)
+        output->error_info.first_pktsec = header->ts.tv_sec;
+    else if (header->ts.tv_sec > output->error_info.first_pktsec + ERROR_INFO_FLUSH_MAX_DUR_SEC)
+    {
+        flush_error_info(output);
+        output->error_info.first_pktsec = header->ts.tv_sec;
+    }
+
+    // Fast path
+    if (output->split.max_payload_size <= 0 || length <= (size_t)output->split.max_payload_size)
+    {
+        return do_send_packet(output, header->ts, pkt_data, length, direct);
+    }
+
+    packet_parse_result_t parse_result;
+    if (!parse_packet(pkt_data, caplen, &parse_result))
+    {
+        return do_send_packet(output, header->ts, pkt_data, length, direct);
+    }
+
+    int fragment_count = calculate_fragment_count(&parse_result, output->split.max_payload_size);
+    if (fragment_count == 1)
+    {
+        return do_send_packet(output, header->ts, pkt_data, length, direct);
+    }
+
+    for (int i = 0; i < fragment_count; i++)
+    {
+        int frag_len = build_fragment(&parse_result, pkt_data, i, output->split.max_payload_size,
+                                      output->split.recalculate_checksum, output->split.fragment_buf);
+        if (frag_len <= 0)
+            return 0;
+
+        int ret = do_send_packet(output, header->ts, output->split.fragment_buf, frag_len, direct);
+        if (ret != 0)
+            return ret;
+    }
+    return 0;
+}
+
 vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, char *errbuf)
 {
     struct sockaddr_in remote_addr;
@@ -222,7 +258,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, ch
 
     if (inet_pton(AF_INET, opts.host, &remote_addr.sin_addr) != 1)
     {
-        error_format("invalid vxlan host: %s", opts.host);
+        error_format(errbuf, "invalid vxlan host: %s", opts.host);
         return NULL;
     }
     remote_addr.sin_family = AF_INET;
@@ -231,7 +267,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, ch
     int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd == -1)
     {
-        error_format("create socket error: %s", strerror(errno));
+        error_format(errbuf, "create socket error: %s", strerror(errno));
         return NULL;
     }
 
@@ -240,6 +276,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, ch
         if (setsockopt(socket_fd, SOL_SOCKET, SO_BINDTODEVICE, opts.bind_device, strlen(opts.bind_device) + 1) == -1)
         {
             error_format(errbuf, "set SO_BINDTODEVICE for device %s error: %s", opts.bind_device, strerror(errno));
+            close(socket_fd);
             return NULL;
         }
     }
@@ -250,6 +287,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, ch
         if (setsockopt(socket_fd, SOL_IP, IP_MTU_DISCOVER, &opts.pmtudisc, sizeof(opts.pmtudisc)) == -1)
         {
             error_format(errbuf, "set IP_MTU_DISCOVER error: %s", strerror(errno));
+            close(socket_fd);
             return NULL;
         }
     }
@@ -259,6 +297,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, ch
     if (!output)
     {
         error_format(errbuf, "failed to allocate memory for vxlan_output_t");
+        close(socket_fd);
         return NULL;
     }
 
@@ -284,6 +323,8 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, ch
     output->capture_time = opts.capture_time;
     output->remote_addr = remote_addr;
     output->socket_fd = socket_fd;
+    output->split.max_payload_size = opts.split.max_payload_size;
+    output->split.recalculate_checksum = opts.split.recalculate_checksum;
     output->error_info.other_send_error[0] = '\0';
     return output;
 }
@@ -301,11 +342,16 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
         .pmtudisc = output_cfg->config.vxlan.pmtudisc,
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
         .slice = output_cfg->slice,
+        .split =
+            {
+                .max_payload_size = output_cfg->config.vxlan.split.max_payload_size,
+                .recalculate_checksum = output_cfg->config.vxlan.split.recalculate_checksum,
+            },
     };
     log_info("vxlan output options: host=%s, port=%d, capture_time=%d, vni_version=%d, vni=%d, bind_device=%s, "
-             "pmtudisc=%d, rate_limit_mbps=%d, slice=%d",
+             "pmtudisc=%d, rate_limit_mbps=%d, slice=%d, split.max_payload_size=%u, split.recalculate_checksum=%d",
              opts.host, opts.port, opts.capture_time, opts.vni_version, opts.vni, opts.bind_device, opts.pmtudisc,
-             opts.rate_limit_mbps, opts.slice);
+             opts.rate_limit_mbps, opts.slice, opts.split.max_payload_size, opts.split.recalculate_checksum);
     return (output_base_t *)vxlan_output_new(opts, stats, errbuf);
 }
 

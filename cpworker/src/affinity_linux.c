@@ -7,6 +7,7 @@
 #include <sched.h>
 #endif
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -20,7 +21,11 @@ int cpu_set_parse(cpu_set_t *mask, char *value)
 
     while (*pos)
     {
+        if (!isdigit((unsigned char)*pos))
+            return -1;
         v0 = strtoul(pos, &end, 0);
+        if (end == pos)
+            return -1;
         v1 = v0;
         pos = end;
         if (!*pos)
@@ -32,6 +37,8 @@ int cpu_set_parse(cpu_set_t *mask, char *value)
         {
             ++pos;
             v1 = strtoul(pos, &end, 0);
+            if (end == pos)
+                return -1;
             if (v0 > v1)
                 return -1;
             pos = end;
@@ -43,6 +50,8 @@ int cpu_set_parse(cpu_set_t *mask, char *value)
             if (!*pos)
                 return 0;
             ++pos;
+            if (!*pos)
+                return -1;
         }
         else if (*pos)
             return -1;

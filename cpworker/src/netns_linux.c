@@ -47,10 +47,8 @@ int enter_netns_by_fd(int fd, char *errbuf)
     if (setns(fd, CLONE_NEWNET) == -1)
     {
         error_format(errbuf, "call setns error");
-        close(fd);
         return -1;
     }
-    close(fd);
     return 0;
 }
 

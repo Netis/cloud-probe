@@ -1,0 +1,6 @@
+# Ignore test output directory
+testdata/output/
+
+# Go build artifacts
+*.test
+*.out

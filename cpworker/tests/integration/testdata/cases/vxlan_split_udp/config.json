@@ -1,0 +1,25 @@
+{
+  "tasks": [
+    {
+      "capturer": {
+        "type": "pcap_file",
+        "pcap_file": {
+          "file_name": "testdata/pcaps/dns.pcap"
+        }
+      },
+      "outputs": [
+        {
+          "type": "vxlan",
+          "vxlan": {
+            "host": "127.0.0.1",
+            "port": 4789,
+            "vni1": 100,
+            "split": {
+              "max_payload_size": 1200
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

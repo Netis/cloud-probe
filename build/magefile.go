@@ -373,7 +373,7 @@ func buildCpworker(cfg CBuildConfig) error {
 	}
 
 	installPrefix, _ := filepath.Abs(packageRoot(cfg.OS, cfg.Arch))
-	cfg.BuildPath = filepath.Join(tmpDir, fmt.Sprintf("build-%s-%s", cfg.OS, cfg.Arch))
+	cfg.BuildPath = filepath.Join(tmpDir, fmt.Sprintf("cpworker-%s-%s", cfg.OS, cfg.Arch))
 	cfg.ProjectPath = "../cpworker"
 	cfg.Defines = append(cfg.Defines,
 		fmt.Sprintf("LIBRARY_ROOT=%s", libRoot),

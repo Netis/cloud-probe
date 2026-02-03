@@ -231,6 +231,14 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 		}
 		output.Vxlan.BindDevice = startupArgs.BindDevice
 		output.Vxlan.Pmtudisc = startupArgs.Pmtudisc
+		if strategy.HasPacketSplit {
+			output.Vxlan.Split = &worker.PacketSplitConfig{
+				MaxPayloadSize: strategy.PacketSplitBytes,
+			}
+			if strategy.RecalculateChecksum {
+				output.Vxlan.Split.RecalculateChecksum = lo.ToPtr(strategy.RecalculateChecksum)
+			}
+		}
 
 		if strategy.ApiVersion == nil || *strategy.ApiVersion == "v1" {
 			if strategy.HasServiceTag && strategy.ServiceTag != nil {

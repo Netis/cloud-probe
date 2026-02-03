@@ -1,0 +1,84 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Configure cpworker",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DENABLE_NO_PIE=ON",
+                ".."
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/cpworker/build"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build cpworker",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "-j4"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/cpworker/build"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "dependsOn": [
+                "Configure cpworker"
+            ]
+        },
+        {
+            "label": "Start cpworker QEMU gdbserver",
+            "type": "shell",
+            "command": "/home/timmy/qemu/bin/qemu-x86_64",
+            "args": [
+                "-g",
+                "5678",
+                "${workspaceFolder}/cpworker/build/cpworker",
+                "-c",
+                "${input:cpconfig}"
+            ],
+            "isBackground": true,
+            "dependsOn": [
+                "Build cpworker"
+            ],
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "."
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Kill cpworker QEMU",
+            "type": "shell",
+            "command": "pkill -f 'qemu-x86_64.*5678.*cpworker'",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "cpconfig",
+            "type": "promptString",
+            "description": "Configuration file for cpworker"
+        }
+    ]
+}

@@ -2,6 +2,8 @@ package cpm
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"slices"
 	"sync"
@@ -178,9 +180,10 @@ func TestSyncer(t *testing.T) {
 			PlatformId: "test",
 			UuidFile:   "testdata/uuid",
 		},
-		RegRetryInterval:     100 * time.Millisecond,
-		SyncStrategyInterval: 100 * time.Millisecond,
-		SyncMetricInterval:   100 * time.Millisecond,
+		RegRetryInterval:        100 * time.Millisecond,
+		SyncStrategyInterval:    100 * time.Millisecond,
+		SyncMetricInterval:      100 * time.Millisecond,
+		NicChangeDetectInterval: 100 * time.Millisecond,
 	})
 	require.NoError(t, err)
 
@@ -294,4 +297,13 @@ func TestSyncer(t *testing.T) {
 
 	cancel()
 	<-exitCh
+}
+
+func TestNetworkInterfaces(t *testing.T) {
+	nics, err := networkInterfaces()
+	require.NoError(t, err)
+
+	data, err := json.MarshalIndent(nics, "", "  ")
+	require.NoError(t, err)
+	fmt.Println(string(data))
 }

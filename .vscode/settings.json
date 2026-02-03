@@ -1,5 +1,4 @@
 {
-    "go.formatTool": "goimports",
     "go.useLanguageServer": true,
     "gopls": {
         "formatting.local": "github.com/Netis",
@@ -14,7 +13,8 @@
     ],
     "go.lintTool": "golangci-lint",
     "go.lintFlags": [
-        "--fast"
+        "--path-mode=abs",
+        "--fast-only"
     ],
     "[c]": {
         "editor.formatOnSave": true

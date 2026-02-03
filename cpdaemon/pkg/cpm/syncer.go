@@ -2,6 +2,7 @@ package cpm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -62,6 +63,8 @@ type SyncerConfig struct {
 	SyncStrategyMaxRetries         int
 	SyncMetricInterval             time.Duration
 	StopWorkerAfterRegFailMuinutes int
+	NicChangeDetectEnable          bool
+	NicChangeDetectInterval        time.Duration
 }
 
 type Tool interface {
@@ -99,9 +102,10 @@ type Syncer struct {
 	tool      Tool
 	cfg       SyncerConfig
 
-	daemonUUID        string
-	startTime         time.Time
-	networkInterfaces []NicEntry
+	daemonUUID  string
+	startTime   time.Time
+	regNics     []NicEntry
+	nicsChanged chan []NicEntry
 
 	regResp              *RegisterResponse
 	syncResp             *SyncStrategyResponse
@@ -194,10 +198,11 @@ func newSyncer(
 	workerMgr.SetLogger(lg)
 
 	s := &Syncer{
-		client:    client,
-		workerMgr: workerMgr,
-		tool:      tool,
-		cfg:       cfg,
+		client:      client,
+		workerMgr:   workerMgr,
+		tool:        tool,
+		cfg:         cfg,
+		nicsChanged: make(chan []NicEntry),
 
 		logBuf: logBuf,
 		lg:     lg.With(slogx.LoggerName("cpm.syncer")),
@@ -214,9 +219,11 @@ func (s *Syncer) init() error {
 	if err := s.initUuid(); err != nil {
 		return err
 	}
-	if err := s.initNetworkInterfaces(); err != nil {
+	nics, err := s.getRegNics()
+	if err != nil {
 		return err
 	}
+	s.regNics = nics
 	return nil
 }
 
@@ -254,33 +261,61 @@ func (s *Syncer) initUuid() error {
 	return nil
 }
 
-func (s *Syncer) initNetworkInterfaces() error {
-	ifs, err := net.Interfaces()
+func (s *Syncer) getRegNics() ([]NicEntry, error) {
+	nics, err := networkInterfaces()
 	if err != nil {
-		return errors.Wrap(err, "get network interfaces")
+		return nil, err
 	}
-
-	for _, intf := range ifs {
-		nic := NicEntry{
-			Index:         intf.Index,
-			Name:          intf.Name,
-			Mac:           intf.HardwareAddr.String(),
-			Flags:         int(intf.Flags),
-			Mtu:           intf.MTU,
-			InetAddresses: []string{}, // 不能为nil，可以为空数组
-		}
-
-		addrs, err := intf.Addrs()
-		if err != nil {
-			return errors.Wrapf(err, "get interface %q addresses", intf.Name)
-		}
-
-		for _, addr := range addrs {
-			nic.InetAddresses = append(nic.InetAddresses, addr.String())
-		}
-		s.networkInterfaces = append(s.networkInterfaces, nic)
+	if len(s.cfg.RegCfg.IncludingNICs) > 0 {
+		nics = lo.Filter(nics, func(nic NicEntry, _ int) bool {
+			return lo.Contains(s.cfg.RegCfg.IncludingNICs, nic.Name)
+		})
 	}
-	return nil
+	return nics, nil
+}
+
+func (s *Syncer) detectNicChange(ctx context.Context) {
+	tm := time.NewTimer(s.cfg.NicChangeDetectInterval)
+	defer tm.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tm.C:
+			nics, err := s.getRegNics()
+			if err != nil {
+				s.lg.Error("get interfaces error", slogx.Error(err))
+				tm.Reset(s.cfg.NicChangeDetectInterval)
+				continue
+			}
+			// 忽略Index比较
+			isEqual := func() bool {
+				if len(s.regNics) != len(nics) {
+					return false
+				}
+				v1 := slices.Clone(s.regNics)
+				v2 := slices.Clone(nics)
+				cmp := func(a, b NicEntry) int {
+					return strings.Compare(a.Name, b.Name)
+				}
+				slices.SortFunc(v1, cmp)
+				slices.SortFunc(v2, cmp)
+				return slices.EqualFunc(v1, v2, func(a, b NicEntry) bool {
+					return a.Name == b.Name &&
+						a.Mac == b.Mac &&
+						a.Flags == b.Flags &&
+						a.Mtu == b.Mtu &&
+						slices.Equal(a.InetAddresses, b.InetAddresses)
+				})
+			}()
+
+			if !isEqual {
+				s.lg.Info("interfaces changed, will re-register")
+				s.nicsChanged <- nics
+			}
+			tm.Reset(s.cfg.NicChangeDetectInterval)
+		}
+	}
 }
 
 func (s *Syncer) resetSyncState() {
@@ -290,6 +325,10 @@ func (s *Syncer) resetSyncState() {
 }
 
 func (s *Syncer) Run(ctx context.Context) error {
+	if s.cfg.NicChangeDetectEnable {
+		go s.detectNicChange(ctx)
+	}
+
 	for {
 		err := s.registerLoop(ctx)
 		switch {
@@ -329,6 +368,12 @@ func (s *Syncer) registerLoop(ctx context.Context) error {
 				slog.String("platform_id", s.cfg.RegCfg.PlatformId),
 			)
 
+			select {
+			case nics := <-s.nicsChanged:
+				s.regNics = nics
+			default:
+			}
+
 			err := s.doRegister(ctx)
 			if err == nil {
 				lg.Info("register success", slog.Int64("daemonId", s.regResp.Id))
@@ -351,13 +396,6 @@ func (s *Syncer) registerLoop(ctx context.Context) error {
 }
 
 func (s *Syncer) doRegister(ctx context.Context) error {
-	nics := s.networkInterfaces
-	if len(s.cfg.RegCfg.IncludingNICs) > 0 {
-		nics = lo.Filter(nics, func(nic NicEntry, _ int) bool {
-			return slices.Contains(s.cfg.RegCfg.IncludingNICs, nic.Name)
-		})
-	}
-
 	res, err := s.client.Register(ctx, RegisterRequest{
 		Name:               s.cfg.RegCfg.Name,
 		UUID:               s.daemonUUID,
@@ -377,7 +415,7 @@ func (s *Syncer) doRegister(ctx context.Context) error {
 		Labels: lo.Map(s.cfg.RegCfg.Labels, func(label string, _ int) LabelEntry {
 			return LabelEntry{Value: label}
 		}),
-		NetworkInterfaces: nics,
+		NetworkInterfaces: s.regNics,
 	})
 	if err != nil {
 		return err
@@ -445,6 +483,10 @@ func (s *Syncer) syncLoop(ctx context.Context) error {
 			for _, warning := range s.workerCreateWarnings {
 				s.lg.Warn(warning.Error())
 			}
+		case nics := <-s.nicsChanged:
+			s.regNics = nics
+			s.lg.Info("interfaces changed, exit syncLoop and enter registerLoop")
+			return nil
 		}
 	}
 }
@@ -495,6 +537,11 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 		slog.Int("version", int(res.Response.Version)),
 		slog.Int("numItems", res.Response.NumItems(activeInstances)),
 	)
+	if b, err := json.Marshal(res.Response); err == nil {
+		s.lg.Debug("strategy", slog.String("strategy", string(b)))
+	} else {
+		s.lg.Debug("strategy", slog.Any("strategy", res.Response))
+	}
 
 	cr, err := s.workerMgr.Update(ctx, res.Response, s.daemonUUID, activeInstances)
 	if err != nil {
@@ -710,4 +757,34 @@ func formatPacketsStats(s cpworker.PacketsStats) string {
 		v = fmt.Sprintf("%d Peta, %s", s.Peta, v)
 	}
 	return v
+}
+
+func networkInterfaces() ([]NicEntry, error) {
+	ifs, err := net.Interfaces()
+	if err != nil {
+		return nil, errors.Wrap(err, "get network interfaces")
+	}
+
+	result := make([]NicEntry, 0, len(ifs))
+	for _, intf := range ifs {
+		nic := NicEntry{
+			Index:         intf.Index,
+			Name:          intf.Name,
+			Mac:           intf.HardwareAddr.String(),
+			Flags:         int(intf.Flags),
+			Mtu:           intf.MTU,
+			InetAddresses: []string{}, // 不能为nil，可以为空数组
+		}
+
+		addrs, err := intf.Addrs()
+		if err != nil {
+			return nil, errors.Wrapf(err, "get interface %q addresses", intf.Name)
+		}
+
+		for _, addr := range addrs {
+			nic.InetAddresses = append(nic.InetAddresses, addr.String())
+		}
+		result = append(result, nic)
+	}
+	return result, nil
 }

@@ -57,6 +57,7 @@ static void free_control(ControlConfig *control)
         {
             free(control->config.unix_socket.path);
         }
+        free(control->type);
     }
     free(control);
     return;
@@ -136,6 +137,7 @@ void free_config(Config *config)
     if (config->tasks_cfg)
         free_tasks_config(config->tasks_cfg);
 
+    free(config->cpu_affinity);
     free_control(config->control);
     free(config);
 }
@@ -409,6 +411,48 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
     return 0;
 }
 
+static int parse_split_config(cJSON *split_obj, SplitConfig *split, cJSONParseError *err)
+{
+    if (!split_obj)
+    {
+        split->max_payload_size = 0;
+        return 0;
+    }
+
+    cJSON *max_payload_size = cJSON_GetObjectItemCaseSensitive(split_obj, "max_payload_size");
+    if (!max_payload_size)
+        split->max_payload_size = 0;
+    else if (cJSON_IsNumber(max_payload_size))
+    {
+        int val = (int)max_payload_size->valuedouble;
+        if (val < 0 || val > 65535)
+        {
+            cjson_set_parse_error(err, "invalid max_payload_size: must be 0-65535");
+            return PARSE_ERROR;
+        }
+        split->max_payload_size = (uint16_t)val;
+    }
+    else
+    {
+        cjson_set_parse_error(err, "invalid max_payload_size");
+        return PARSE_ERROR;
+    }
+
+    // Parse recalculate_checksum (optional, default: false)
+    cJSON *recalc_checksum = cJSON_GetObjectItemCaseSensitive(split_obj, "recalculate_checksum");
+    if (!recalc_checksum)
+        split->recalculate_checksum = false;
+    else if (cJSON_IsBool(recalc_checksum))
+        split->recalculate_checksum = cJSON_IsTrue(recalc_checksum);
+    else
+    {
+        cjson_set_parse_error(err, "invalid recalculate_checksum: must be boolean");
+        return PARSE_ERROR;
+    }
+
+    return 0;
+}
+
 static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONParseError *err)
 {
     cJSON *type = cJSON_GetObjectItemCaseSensitive(output_obj, "type");
@@ -589,6 +633,13 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         else
         {
             cjson_set_parse_error(err, "invalid vxlan.pmtudisc");
+            return PARSE_ERROR;
+        }
+
+        cJSON *split_obj = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "split");
+        if (parse_split_config(split_obj, &output->config.vxlan.split, err) != 0)
+        {
+            cjson_wrap_parse_error(err, "parse vxlan.split error");
             return PARSE_ERROR;
         }
     }

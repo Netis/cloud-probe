@@ -202,6 +202,8 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 			SyncStrategyMaxRetries:         vp.GetInt(VKey.Cpm.Syncer.SyncStrategyMaxRetries),
 			SyncMetricInterval:             vp.GetDuration(VKey.Cpm.Syncer.SyncMetricInterval),
 			StopWorkerAfterRegFailMuinutes: vp.GetInt(VKey.Cpm.Syncer.StopWorkerAfterRegFailMuinutes),
+			NicChangeDetectEnable:          vp.GetBool(VKey.Cpm.Syncer.NicChangeDetectEnable),
+			NicChangeDetectInterval:        vp.GetDuration(VKey.Cpm.Syncer.NicChangeDetectInterval),
 		})
 	if err != nil {
 		return nil, err

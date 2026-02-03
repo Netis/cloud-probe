@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 
 #include "config.h"
+#include "errorf.h"
 #include "output.h"
 #include "ratelimit.h"
 
@@ -24,6 +25,12 @@ typedef struct VxlanOptions
     uint64_t rate_limit_mbps;
     int slice;
 
+    // Packet splitting options
+    struct
+    {
+        uint16_t max_payload_size;
+        bool recalculate_checksum;  // Whether to recalculate checksums after splitting (default: false)
+    } split;
 } vxlan_options_t;
 
 typedef struct VxlanOutput
@@ -41,6 +48,14 @@ typedef struct VxlanOutput
 
     int socket_fd;
     char buf[VXLAN_OUTPUT_BUFSIZE];
+
+    // Packet splitting state
+    struct
+    {
+        uint16_t max_payload_size;
+        bool recalculate_checksum;
+        uint8_t fragment_buf[VXLAN_OUTPUT_BUFSIZE];
+    } split;
 
     struct
     {

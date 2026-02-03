@@ -185,14 +185,18 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
         if (pcap_setfilter(p, &bpf_prog) != 0)
         {
             error_format(errbuf, "call pcap_setfilter error: %s", pcap_geterr(p));
+            pcap_freecode(&bpf_prog);
             goto error;
         }
+        pcap_freecode(&bpf_prog);
     }
 
-    if (has_netns && enter_netns_by_fd(self_netns_fd, errbuf) != 0)
+    if (has_netns)
     {
+        int ret = enter_netns_by_fd(self_netns_fd, errbuf);
         close_netns_fd(self_netns_fd);
-        goto error3;
+        if (ret != 0)
+            goto error3;
     }
 
     libpcap_capturer_t *capturer = (libpcap_capturer_t *)calloc(1, sizeof(libpcap_capturer_t));
@@ -238,6 +242,12 @@ error2:
     }
     return NULL;
 error3:
+    if (capturer)
+    {
+        free(capturer->netns);
+        free(capturer->interface);
+        free(capturer);
+    }
     pcap_close(p);
     req_pattern_destory(req_pattern);
     return NULL;
@@ -305,5 +315,7 @@ void libpcap_capturer_destory(capturer_base_t *self)
     log_info("free libpcap capturer");
     req_pattern_destory(capturer->req_pattern);
     pcap_close(capturer->p);
+    free(capturer->interface);
+    free(capturer->netns);
     free(capturer);
 }

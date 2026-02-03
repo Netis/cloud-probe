@@ -30,7 +30,6 @@ char *bpf_filter_replace_nic(const char *bpf, get_if_ip_addr_fn get_ip, char *er
         strncpy(ifname, in_ptr + 4, ifname_len);
         ifname[ifname_len] = '\0';
 
-        char errbuf[ERROR_BUFFER_SIZE];
         ip_addr_t addr;
         if (get_ip(ifname, &addr, errbuf) != 0)
         {

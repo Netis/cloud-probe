@@ -141,6 +141,8 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
     }
 
     pcap_dump((u_char *)output->dumper, header, pkt_data);
+    bytes_stats_add(&output->base.stats->fwd_bytes, header->caplen);
+    packets_stats_add(&output->base.stats->fwd_packets, 1);
     return 0;
 }
 
@@ -165,6 +167,7 @@ rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, o
     if (!output)
     {
         error_format(errbuf, "failed to allocate memory for rotating_file_output_t");
+        pcap_close(pcap);
         return NULL;
     }
     output->base.send_packet = rotating_file_write_packet;

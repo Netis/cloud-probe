@@ -24,6 +24,8 @@ int file_write_packet(output_base_t *self, const struct pcap_pkthdr *header, con
     }
 
     pcap_dump((u_char *)output->dumper, header, pkt_data);
+    bytes_stats_add(&output->base.stats->fwd_bytes, header->caplen);
+    packets_stats_add(&output->base.stats->fwd_packets, 1);
     return 0;
 }
 
@@ -49,9 +51,9 @@ file_output_t *file_output_new(file_options_t opts, output_stats_t *stats, char 
     pcap_dumper_t *dumper = pcap_dump_fopen(pcap, fp);
     if (!dumper)
     {
+        error_format(errbuf, "pcap_dump_fopen failed: %s", pcap_geterr(pcap));
         fclose(fp);
         pcap_close(pcap);
-        error_format(errbuf, "pcap_dump_fopen failed: %s", pcap_geterr(pcap));
         return NULL;
     }
 

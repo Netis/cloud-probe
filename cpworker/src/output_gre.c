@@ -140,7 +140,7 @@ gre_output_t *gre_output_new(gre_options_t opts, output_stats_t *stats, char *er
 
     if (inet_pton(AF_INET, opts.host, &remote_addr.sin_addr) != 1)
     {
-        error_format("invalid gre host: %s", opts.host);
+        error_format(errbuf, "invalid gre host: %s", opts.host);
         return NULL;
     }
     remote_addr.sin_family = AF_INET;
@@ -148,7 +148,7 @@ gre_output_t *gre_output_new(gre_options_t opts, output_stats_t *stats, char *er
     int socket_fd = socket(AF_INET, SOCK_RAW, IPPROTO_GRE);
     if (socket_fd == -1)
     {
-        error_format("create socket error: %s", strerror(errno));
+        error_format(errbuf, "create socket error: %s", strerror(errno));
         return NULL;
     }
 
@@ -157,6 +157,7 @@ gre_output_t *gre_output_new(gre_options_t opts, output_stats_t *stats, char *er
         if (setsockopt(socket_fd, SOL_SOCKET, SO_BINDTODEVICE, opts.bind_device, strlen(opts.bind_device) + 1) == -1)
         {
             error_format(errbuf, "set SO_BINDTODEVICE for device %s error: %s", opts.bind_device, strerror(errno));
+            close(socket_fd);
             return NULL;
         }
     }
@@ -167,6 +168,7 @@ gre_output_t *gre_output_new(gre_options_t opts, output_stats_t *stats, char *er
         if (setsockopt(socket_fd, SOL_IP, IP_MTU_DISCOVER, &opts.pmtudisc, sizeof(opts.pmtudisc)) == -1)
         {
             error_format(errbuf, "set IP_MTU_DISCOVER error: %s", strerror(errno));
+            close(socket_fd);
             return NULL;
         }
     }
@@ -176,6 +178,7 @@ gre_output_t *gre_output_new(gre_options_t opts, output_stats_t *stats, char *er
     if (!output)
     {
         error_format(errbuf, "failed to allocate memory for gre_output_t");
+        close(socket_fd);
         return NULL;
     }
 

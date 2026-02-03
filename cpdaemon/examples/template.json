@@ -34,13 +34,21 @@
                 "pkcs12_cert_password": ""
             }
         },
+        "syncer": {
+            "nic_change_detect_enable": false
+        },
         "reg": {
             "name": "",
             "uuid_file": "/usr/local/bin/uuid",
             "platform_id": "george-ali",
             "deploy_env": "INSTANCE",
-            "labels": ["daemonset"],
-            "including_nics": ["eth0", "eth1"],
+            "labels": [
+                "daemonset"
+            ],
+            "including_nics": [
+                "eth0",
+                "eth1"
+            ],
             "pod_name": "test",
             "namespace": "cloud-probe",
             "node_name": "test"

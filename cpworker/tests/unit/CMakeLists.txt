@@ -3,8 +3,8 @@ add_library(unity STATIC unity/src/unity.c)
 
 # 获取主项目源文件（排除main.c）
 file(GLOB MAIN_SRCS
-    "../src/*.c"
-    "../src/cJSON/cJSON.c"
+    "${cpworker_SOURCE_DIR}/src/*.c"
+    "${cpworker_SOURCE_DIR}/src/cJSON/cJSON.c"
 )
 set(NORMALIZED_MAIN_SRCS)
 foreach(src ${MAIN_SRCS})
@@ -14,11 +14,11 @@ endforeach()
 set(MAIN_SRCS "${NORMALIZED_MAIN_SRCS}")
 
 # 确保移除包含main函数的文件
-get_filename_component(MAIN_C_ABS_PATH "../src/main.c" ABSOLUTE)
+get_filename_component(MAIN_C_ABS_PATH "${cpworker_SOURCE_DIR}/src/main.c" ABSOLUTE)
 list(REMOVE_ITEM MAIN_SRCS "${MAIN_C_ABS_PATH}")
 
 if(ENABLE_DPDK)
-    file(GLOB DPDK_FILES "../src/dpdk/*.c")
+    file(GLOB DPDK_FILES "${cpworker_SOURCE_DIR}/src/dpdk/*.c")
     list(APPEND MAIN_SRCS ${DPDK_FILES})
 endif()
 
@@ -26,6 +26,7 @@ set(MAIN_CONFIG_DIR "${CMAKE_BINARY_DIR}")
 
 set(unity_tests
     misc
+    packet_split
 )
 
 foreach(unity_test ${unity_tests})
@@ -35,7 +36,7 @@ foreach(unity_test ${unity_tests})
     )
 
     target_include_directories("${unity_test}" PRIVATE
-        "../src"
+        "${cpworker_SOURCE_DIR}/src"
         "${MAIN_CONFIG_DIR}"
         ${LIBRARY_ROOT}/include
     )

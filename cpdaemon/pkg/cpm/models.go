@@ -175,6 +175,10 @@ type StrategyEntry struct {
 	HasServiceTag bool   `json:"hasServiceTag"`
 	ServiceTag    *int32 `json:"serviceTag"`
 
+	HasPacketSplit      bool   `json:"hasPacketSplit"`
+	PacketSplitBytes    *int32 `json:"packetSplitBytes"`
+	RecalculateChecksum bool   `json:"recalculateChecksum"`
+
 	HasReqPattern  bool    `json:"hasReqPattern"`
 	ReqPattern     *string `json:"reqPattern"`
 	ReqPatternType *string `json:"reqPatternType"`

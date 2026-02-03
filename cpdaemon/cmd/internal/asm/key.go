@@ -57,6 +57,8 @@ var VKey = struct {
 			SyncStrategyMaxRetries         string `json:"sync_strategy_max_retries"`
 			SyncMetricInterval             string `json:"sync_metric_interval"`
 			StopWorkerAfterRegFailMuinutes string `json:"stop_worker_after_reg_fail_minutes"`
+			NicChangeDetectEnable          string `json:"nic_change_detect_enable"`
+			NicChangeDetectInterval        string `json:"nic_change_detect_interval"`
 		} `json:"syncer"`
 		Reg struct {
 			Name          string `json:"name"`
@@ -107,6 +109,7 @@ func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Cpm.Syncer.SyncStrategyMaxRetries, 3)
 	vp.SetDefault(VKey.Cpm.Syncer.SyncMetricInterval, 15*time.Second)
 	vp.SetDefault(VKey.Cpm.Syncer.StopWorkerAfterRegFailMuinutes, 30)
+	vp.SetDefault(VKey.Cpm.Syncer.NicChangeDetectInterval, 15*time.Second)
 
 	// 兼容旧的C++版本
 	vp.SetDefault(VKey.Cpm.Reg.UuidFile, "/usr/local/bin/uuid")

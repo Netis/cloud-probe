@@ -34,6 +34,9 @@ void cjson_wrap_parse_error(cJSONParseError *err, const char *format, ...)
     int written = vsnprintf(err->message, sizeof(err->message), format, args);
     va_end(args);
 
+    if (written < 0)
+        return;
+
     if (old_msg[0] == '\0')
         return;
 

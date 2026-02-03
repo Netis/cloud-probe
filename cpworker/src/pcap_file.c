@@ -90,8 +90,10 @@ pcap_file_capturer_t *pcap_file_capturer_new(pcap_file_options_t opts, capture_s
         if (pcap_setfilter(p, &bpf_prog) != 0)
         {
             error_format(errbuf, "call pcap_setfilter error: %s", pcap_geterr(p));
+            pcap_freecode(&bpf_prog);
             goto error;
         }
+        pcap_freecode(&bpf_prog);
     }
 
     pcap_file_capturer_t *capturer = (pcap_file_capturer_t *)calloc(1, sizeof(pcap_file_capturer_t));
@@ -116,6 +118,8 @@ capturer_base_t *pcap_file_capture_new_from_cfg(TaskConfig *task_cfg, capture_st
 {
     char *bpf_filter =
         bpf_filter_exclude_task_output_hosts(task_cfg->capturer.config.pcap_file.bpf_filter, task_cfg, errbuf);
+    if (bpf_filter == NULL)
+        return NULL;
 
     pcap_file_options_t opts = {
         .file_name = task_cfg->capturer.config.pcap_file.file_name,

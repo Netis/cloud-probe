@@ -1,0 +1,5 @@
+{
+  "rule": "packet_count_range",
+  "min_packets": 22,
+  "max_packets": 22
+}

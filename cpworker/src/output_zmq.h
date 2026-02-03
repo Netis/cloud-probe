@@ -37,7 +37,7 @@ typedef struct
     zmq_pkt_batch_hdr_t batch_hdr;
     // buf format as below:
     // | batch_hdr | (pkt_data length  + pkt_hdr  + pkt_data) | (pkt_data_length  + pkt_hdr  + pkt_data) | ...
-    // | 8 bytes   | (2 bytes          + 16 bytes + n bytes ) | (2 bytes          + 16 bytes + n bytes ) | ...
+    // | 24 bytes  | (2 bytes          + 16 bytes + n bytes ) | (2 bytes          + 16 bytes + n bytes ) | ...
     char buf[ZMQ_MAX_BATCH_BUF_SIZE];
     uint32_t batch_bufpos;
     long int first_pktsec;
@@ -72,6 +72,7 @@ typedef struct ZmqOutput
         long int first_pktsec;
         uint64_t nb_drop_packets;
         uint64_t nb_drop_batches;
+        uint64_t nb_too_small_packets;
         char send_error[ERROR_BUFFER_SIZE];
     } error_info;
 } zmq_output_t;

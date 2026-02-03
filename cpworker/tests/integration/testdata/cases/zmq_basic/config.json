@@ -1,0 +1,23 @@
+{
+  "tasks": [
+    {
+      "capturer": {
+        "type": "pcap_file",
+        "pcap_file": {
+          "file_name": "testdata/pcaps/http.pcap"
+        }
+      },
+      "outputs": [
+        {
+          "type": "zmq",
+          "zmq": {
+            "host": "127.0.0.1",
+            "port": 19002,
+            "hwm": 1000,
+            "uuid": "796d506a-46a1-4f4e-bd9a-6075a49ac9f8"
+          }
+        }
+      ]
+    }
+  ]
+}

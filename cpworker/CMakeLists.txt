@@ -5,6 +5,7 @@ project(cpworker VERSION "0.9.0" LANGUAGES C)
 option(ENABLE_DPDK "Enable DPDK support" OFF)
 option(ENABLE_LINK_STATIC_LIBPCAP "Enable link static libpcap library" OFF)
 option(ENABLE_UNIT_TESTS "Enable building unit test" ON)
+option(ENABLE_NO_PIE "Enable -no-pie link option for QEMU debugging" OFF)
 
 # 设置C标准
 set(CMAKE_C_STANDARD 11)
@@ -26,6 +27,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(OS_UNIX 1)
     set(OS_LINUX 1)
+    # Disable PIE for QEMU debugging support
+    if(ENABLE_NO_PIE)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -no-pie")
+    endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(OS_UNIX 1)
     set(OS_MACOS 1)
@@ -128,7 +133,7 @@ target_link_libraries(cpworker
 
 if(ENABLE_UNIT_TESTS)
     enable_testing()
-    add_subdirectory(tests)
+    add_subdirectory(tests/unit)
 endif()
 
 install(TARGETS cpworker RUNTIME DESTINATION bin COMPONENT cpworker)

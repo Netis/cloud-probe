@@ -126,9 +126,12 @@ static Token get_next_token(char **input)
 
     // 读取值
     char *start = *input;
-    while (**input && !isspace(**input) && **input != '(' && **input != ')' && strncmp(*input, "and", 3) != 0 &&
-           strncmp(*input, "or", 2) != 0)
+    while (**input && !isspace(**input) && **input != '(' && **input != ')')
     {
+        if (strncmp(*input, "and", 3) == 0 && !isalnum((*input)[3]))
+            break;
+        if (strncmp(*input, "or", 2) == 0 && !isalnum((*input)[2]))
+            break;
         (*input)++;
     }
     size_t len = *input - start;
@@ -143,7 +146,7 @@ static Node *create_condition_node(ConditionType type, const char *value, get_if
     Node *node = malloc(sizeof(Node));
     node->type = NODE_CONDITION;
     node->data.condition.cond_type = type;
-    if (type == TOKEN_HOST)
+    if (type == COND_HOST)
     {
         if (strlen(value) >= 4 && strncmp(value, "nic.", 4) == 0)
         {
@@ -170,16 +173,20 @@ static Node *create_condition_node(ConditionType type, const char *value, get_if
             node->data.condition.addr.type = IP_TYPE_IPv6;
             return node;
         }
+
+        log_error("invalid host address: %s", value);
     }
-    else if (type == TOKEN_PORT)
+    else if (type == COND_PORT)
     {
-        int port = atoi(value);
-        if (port < 0 || port > 65535)
+        char *endptr;
+        errno = 0;
+        long port = strtol(value, &endptr, 10);
+        if (errno != 0 || *endptr != '\0' || port < 0 || port > 65535)
         {
             log_error("invalid port: %s", value);
             goto error;
         }
-        node->data.condition.port = port;
+        node->data.condition.port = (uint16_t)port;
         return node;
     }
 
@@ -537,7 +544,20 @@ int req_pattern_custom_matcher_init(req_pattern_custom_matcher_t *matcher, const
     next_token(&pos, &token);
     Node *ast = parse_expression(&pos, &token, get_ip);
     if (!ast)
+    {
+        if (token.value)
+            free(token.value);
         return -1;
+    }
+
+    if (token.type != TOKEN_EOF)
+    {
+        log_error("unexpected trailing content in pattern");
+        if (token.value)
+            free(token.value);
+        free_ast(ast);
+        return -1;
+    }
 
     matcher->node = ast;
     return 0;
@@ -546,7 +566,7 @@ int req_pattern_custom_matcher_init(req_pattern_custom_matcher_t *matcher, const
 req_pattern_t *req_pattern_new_from_cfg_adv(ReqPatternConfig cfg, const char *ifname, get_if_mac_addr_fn get_mac,
                                             get_if_ip_addr_fn get_ip, char *errbuf)
 {
-    req_pattern_t *req_pattern = (req_pattern_t *)calloc(1, sizeof(req_pattern_t *));
+    req_pattern_t *req_pattern = (req_pattern_t *)calloc(1, sizeof(req_pattern_t));
     if (!req_pattern)
     {
         error_format(errbuf, "failed to allocate memory for req_pattern_t");

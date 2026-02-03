@@ -1,0 +1,35 @@
+{
+    "log_level": "info",
+    "tasks": [
+        {
+            "req_pattern": {
+                "type": "auto"
+            },
+            "capturer": {
+                "type": "libpcap",
+                "libpcap": {
+                    "interface": "eth0",
+                    "snaplen": 65535,
+                    "buffer_size_mb": 256
+                }
+            },
+            "outputs": [
+                {
+                    "type": "vxlan",
+                    "rate_limit_mbps": 10,
+                    "slice": 0,
+                    "vxlan": {
+                        "host": "2.2.2.2",
+                        "port": 4789,
+                        "capture_time": false,
+                        "vni1": 1,
+                        "bind_device": "eth1",
+                        "split": {
+                            "max_payload_size": 1400
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

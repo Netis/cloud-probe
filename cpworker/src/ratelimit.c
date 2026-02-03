@@ -1,4 +1,4 @@
-#include <ratelimit.h>
+#include "ratelimit.h"
 
 static double timeval_diff(const struct timeval *a, const struct timeval *b)
 {
@@ -7,7 +7,7 @@ static double timeval_diff(const struct timeval *a, const struct timeval *b)
     if (usec < 0)
     {
         sec -= 1;
-        usec += 1e6;
+        usec += 1000000L;
     }
     return (double)sec + (double)usec / 1e6;
 }

@@ -123,7 +123,7 @@ int get_if_ip_addr(const char *ifname, ip_addr_t *addr, char *errbuf)
 
     if (!found)
     {
-        error_format(errbuf, "No IPv4 address found for %s", ifname);
+        error_format(errbuf, "No IP address found for %s", ifname);
         return -1;
     }
     return 0;

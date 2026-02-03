@@ -82,14 +82,20 @@ type OutputConfig struct {
 	RotatingFile  *RotatingFileOutputConfig `json:"rotating_file,omitempty"`
 }
 
+type PacketSplitConfig struct {
+	MaxPayloadSize      *int32 `json:"max_payload_size,omitempty"`
+	RecalculateChecksum *bool  `json:"recalculate_checksum,omitempty"`
+}
+
 type VxlanOutputConfig struct {
-	Host        string  `json:"host"`
-	Port        *int32  `json:"port,omitempty"`
-	CaptureTime *bool   `json:"capture_time,omitempty"`
-	Vni1        *uint32 `json:"vni1,omitempty"`
-	Vni2        *uint32 `json:"vni2,omitempty"`
-	BindDevice  *string `json:"bind_device,omitempty"`
-	Pmtudisc    *string `json:"pmtudisc,omitempty"`
+	Host        string             `json:"host"`
+	Port        *int32             `json:"port,omitempty"`
+	CaptureTime *bool              `json:"capture_time,omitempty"`
+	Vni1        *uint32            `json:"vni1,omitempty"`
+	Vni2        *uint32            `json:"vni2,omitempty"`
+	BindDevice  *string            `json:"bind_device,omitempty"`
+	Pmtudisc    *string            `json:"pmtudisc,omitempty"`
+	Split       *PacketSplitConfig `json:"split,omitempty"`
 }
 
 type GreOutputConfig struct {

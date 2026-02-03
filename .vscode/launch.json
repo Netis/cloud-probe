@@ -9,12 +9,37 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/cpworker/build/cpworker",
-            "args": ["-c", "xxx.json"],
+            "args": [
+                "-c",
+                "xxx.json"
+            ],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}/cpworker",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Debug cpworker (QEMU)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/cpworker/build/cpworker",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/cpworker",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerServerAddress": "localhost:5678",
+            "preLaunchTask": "Start cpworker QEMU gdbserver",
+            "postDebugTask": "Kill cpworker QEMU",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
