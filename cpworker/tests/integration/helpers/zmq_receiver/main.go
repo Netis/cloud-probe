@@ -35,6 +35,7 @@ type zmqPktHdr struct {
 type ZMQStats struct {
 	MessageCount     int       `json:"message_count"`
 	PacketCount      int       `json:"packet_count"`
+	HeartbeatCount   int       `json:"heartbeat_count"`
 	TotalBytes       int64     `json:"total_bytes"`
 	AvgPacketsPerMsg float64   `json:"avg_packets_per_message"`
 	FirstTimestamp   time.Time `json:"first_timestamp,omitempty"`
@@ -149,7 +150,8 @@ func main() {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "[zmq_receiver] Shutdown complete. Messages: %d, Packets: %d\n", stats.MessageCount, stats.PacketCount)
+	fmt.Fprintf(os.Stderr, "[zmq_receiver] Shutdown complete. Messages: %d, Packets: %d, Heartbeats: %d\n",
+		stats.MessageCount, stats.PacketCount, stats.HeartbeatCount)
 }
 
 func saveRawMessage(rawFile *os.File, msgData []byte) error {
@@ -162,6 +164,22 @@ func saveRawMessage(rawFile *os.File, msgData []byte) error {
 	// Write message data
 	_, err := rawFile.Write(msgData)
 	return err
+}
+
+// isHeartbeatPacket detects ZMQ heartbeat packets.
+// Heartbeat: 14-byte Ethernet frame with all-zero MACs and EtherType=0xFFFF.
+func isHeartbeatPacket(data []byte) bool {
+	if len(data) != 14 {
+		return false
+	}
+	// Check first 12 bytes (dst+src MAC) are all zeros
+	for i := 0; i < 12; i++ {
+		if data[i] != 0 {
+			return false
+		}
+	}
+	// Check EtherType = 0xFFFF
+	return data[12] == 0xFF && data[13] == 0xFF
 }
 
 func parseAndExtractPackets(pcapWriter *pcapgo.Writer, msgData []byte, stats *ZMQStats) error {
@@ -208,8 +226,9 @@ func parseAndExtractPackets(pcapWriter *pcapgo.Writer, msgData []byte, stats *ZM
 		pktData := msgData[offset : offset+pktDataLen]
 		offset += pktDataLen
 
-		// Write to pcap file
 		timestamp := time.Unix(int64(pktHdr.TvSec), int64(pktHdr.TvUsec)*1000)
+
+		// Write packet to pcap file
 		captureInfo := gopacket.CaptureInfo{
 			Timestamp:     timestamp,
 			CaptureLength: int(pktHdr.Caplen),
@@ -220,7 +239,12 @@ func parseAndExtractPackets(pcapWriter *pcapgo.Writer, msgData []byte, stats *ZM
 			return fmt.Errorf("failed to write packet to pcap: %w", err)
 		}
 
-		stats.PacketCount++
+		// Track heartbeat vs regular packet counts
+		if isHeartbeatPacket(pktData) {
+			stats.HeartbeatCount++
+		} else {
+			stats.PacketCount++
+		}
 
 		// Update timestamp stats
 		if stats.FirstTimestamp.IsZero() {

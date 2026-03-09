@@ -27,7 +27,7 @@ type PacketDifference struct {
 	File2Value  interface{}
 }
 
-// CountPackets counts the number of packets in a PCAP file
+// CountPackets counts the number of packets in a PCAP file, excluding heartbeat packets.
 func CountPackets(pcapFile string) (int, error) {
 	handle, err := pcap.OpenOffline(pcapFile)
 	if err != nil {
@@ -37,11 +37,27 @@ func CountPackets(pcapFile string) (int, error) {
 
 	count := 0
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	for range packetSource.Packets() {
-		count++
+	for packet := range packetSource.Packets() {
+		if !isHeartbeatPacket(packet.Data()) {
+			count++
+		}
 	}
 
 	return count, nil
+}
+
+// isHeartbeatPacket detects ZMQ heartbeat packets.
+// Heartbeat: 14-byte Ethernet frame with all-zero MACs and EtherType=0xFFFF.
+func isHeartbeatPacket(data []byte) bool {
+	if len(data) != 14 {
+		return false
+	}
+	for i := 0; i < 12; i++ {
+		if data[i] != 0 {
+			return false
+		}
+	}
+	return data[12] == 0xFF && data[13] == 0xFF
 }
 
 // ComparePCAPsExact compares two PCAP files packet by packet

@@ -138,6 +138,8 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 | port              | int     | -       | 目的端口 |
 | hwm               | int     | -       | zmq水位值 |
 | service_tag       | int     | -       | 服务标签 |
+| uuid              | string  | ""      | 探针 UUID，用于心跳包标识 |
+| heartbeat_ms      | int     | 0       | 心跳间隔（毫秒），范围 0–60000，0 表示禁用心跳 |
 
 ## output.file 参数列表
 | 参数	             | 类型	   | 默认值	  | 说明  |

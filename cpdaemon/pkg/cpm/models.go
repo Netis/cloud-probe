@@ -202,6 +202,8 @@ type StrategyEntry struct {
 	ObservationPointIds  []uint8  `json:"observationPointIds"`
 	HasExtensionFlag     bool     `json:"hasExtensionFlag"`
 	ExtensionFlag        *int8    `json:"extensionFlag"`
+
+	ZmqHeartbeatMs *int32 `json:"zmqHeartbeatMs"`
 }
 
 type SyncMetricsRequest struct {

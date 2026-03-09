@@ -11,6 +11,7 @@
 #include "config.h"
 #include "errorf.h"
 #include "ip.h"
+#include "output_zmq.h"
 #include "req_pattern.h"
 
 void setUp(void) {}
@@ -21,6 +22,24 @@ const char *config_libpcap_gre =
     "{\"tasks\": [{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
     "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, \"outputs\": [{\"type\": \"gre\", "
     "\"rate_limit_mbps\": 10, \"gre\": {\"host\": \"172.16.1.201\", \"bind_device\": \"eth1\"}}]}]}";
+
+const char *config_libpcap_zmq_heartbeat =
+    "{\"tasks\": [{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, \"outputs\": [{\"type\": \"zmq\", "
+    "\"zmq\": {\"host\": \"10.0.0.1\", \"port\": 5555, \"hwm\": 100, \"service_tag\": 1, "
+    "\"uuid\": \"550e8400-e29b-41d4-a716-446655440000\", \"heartbeat_ms\": 2000}}]}]}";
+
+const char *config_libpcap_zmq_heartbeat_default =
+    "{\"tasks\": [{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, \"outputs\": [{\"type\": \"zmq\", "
+    "\"zmq\": {\"host\": \"10.0.0.1\", \"port\": 5555, \"hwm\": 100, \"service_tag\": 1, "
+    "\"uuid\": \"550e8400-e29b-41d4-a716-446655440000\"}}]}]}";
+
+const char *config_libpcap_zmq_heartbeat_disabled =
+    "{\"tasks\": [{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, \"outputs\": [{\"type\": \"zmq\", "
+    "\"zmq\": {\"host\": \"10.0.0.1\", \"port\": 5555, \"hwm\": 100, \"service_tag\": 1, "
+    "\"uuid\": \"550e8400-e29b-41d4-a716-446655440000\", \"heartbeat_ms\": 0}}]}]}";
 
 const char *config_libpcap_gre_vxlan =
     "{\"tasks\": [{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
@@ -511,6 +530,142 @@ void test_req_pattern_custom_extra_whitespace(void)
     req_pattern_custom_matcher_destroy(&matcher);
 }
 
+void test_parse_zmq_heartbeat_ms_explicit(void)
+{
+    cJSONParseError err;
+    Config *config = parse_config_data(config_libpcap_zmq_heartbeat, &err);
+    TEST_ASSERT_NOT_NULL(config);
+    OutputConfig *zmq_output = config->tasks_cfg->tasks[0]->outputs[0];
+    TEST_ASSERT_EQUAL_INT(2000, zmq_output->config.zmq.heartbeat_ms);
+    free_config(config);
+}
+
+void test_parse_zmq_heartbeat_ms_default(void)
+{
+    cJSONParseError err;
+    Config *config = parse_config_data(config_libpcap_zmq_heartbeat_default, &err);
+    TEST_ASSERT_NOT_NULL(config);
+    OutputConfig *zmq_output = config->tasks_cfg->tasks[0]->outputs[0];
+    TEST_ASSERT_EQUAL_INT(0, zmq_output->config.zmq.heartbeat_ms);
+    free_config(config);
+}
+
+void test_parse_zmq_heartbeat_ms_disabled(void)
+{
+    cJSONParseError err;
+    Config *config = parse_config_data(config_libpcap_zmq_heartbeat_disabled, &err);
+    TEST_ASSERT_NOT_NULL(config);
+    OutputConfig *zmq_output = config->tasks_cfg->tasks[0]->outputs[0];
+    TEST_ASSERT_EQUAL_INT(0, zmq_output->config.zmq.heartbeat_ms);
+    free_config(config);
+}
+
+void test_zmq_heartbeat_packet_generation(void)
+{
+    output_stats_t stats;
+    memset(&stats, 0, sizeof(stats));
+
+    char errbuf[256];
+    zmq_options_t opts = {
+        .host = "127.0.0.1",
+        .port = 15555,
+        .hwm = 100,
+        .service_tag = 42,
+        .uuid = "550e8400-e29b-41d4-a716-446655440000",
+        .rate_limit_mbps = 0,
+        .slice = 0,
+        .heartbeat_ms = 1000,
+    };
+
+    zmq_output_t *output = zmq_output_new(opts, &stats, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+    TEST_ASSERT_EQUAL_INT(1000, output->heartbeat_ms);
+
+    // Simulate heartbeat: set last_pkt_tv to 2 seconds ago
+    struct timeval now_tv;
+    gettimeofday(&now_tv, NULL);
+    output->last_pkt_tv.tv_sec = now_tv.tv_sec - 2;
+    output->last_pkt_tv.tv_usec = now_tv.tv_usec;
+
+    // Call heartbeat - should generate a heartbeat packet
+    output_heartbeat((output_base_t *)output, now_tv.tv_sec);
+
+    // Verify heartbeat stats were incremented
+    TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
+
+    // The ZMQ send may fail (no receiver) but the packet was still generated
+    // Either forwarded or error-dropped (depends on ZMQ connection state)
+    uint64_t total = stats.fwd_packets.packets + stats.error_drop_packets.packets;
+    TEST_ASSERT_EQUAL_UINT64(1, total);
+
+    zmq_output_destory((output_base_t *)output);
+}
+
+void test_zmq_heartbeat_not_generated_when_disabled(void)
+{
+    output_stats_t stats;
+    memset(&stats, 0, sizeof(stats));
+
+    char errbuf[256];
+    zmq_options_t opts = {
+        .host = "127.0.0.1",
+        .port = 15556,
+        .hwm = 100,
+        .service_tag = 42,
+        .uuid = "550e8400-e29b-41d4-a716-446655440000",
+        .rate_limit_mbps = 0,
+        .slice = 0,
+        .heartbeat_ms = 0,
+    };
+
+    zmq_output_t *output = zmq_output_new(opts, &stats, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    // Set last_pkt_tv to 10 seconds ago
+    struct timeval now_tv;
+    gettimeofday(&now_tv, NULL);
+    output->last_pkt_tv.tv_sec = now_tv.tv_sec - 10;
+
+    // Call heartbeat - should NOT generate a heartbeat packet (disabled)
+    output_heartbeat((output_base_t *)output, now_tv.tv_sec);
+
+    TEST_ASSERT_EQUAL_UINT64(0, stats.heartbeat_packets.packets);
+
+    zmq_output_destory((output_base_t *)output);
+}
+
+void test_zmq_heartbeat_not_generated_when_recent_packet(void)
+{
+    output_stats_t stats;
+    memset(&stats, 0, sizeof(stats));
+
+    char errbuf[256];
+    zmq_options_t opts = {
+        .host = "127.0.0.1",
+        .port = 15557,
+        .hwm = 100,
+        .service_tag = 42,
+        .uuid = "550e8400-e29b-41d4-a716-446655440000",
+        .rate_limit_mbps = 0,
+        .slice = 0,
+        .heartbeat_ms = 1000,
+    };
+
+    zmq_output_t *output = zmq_output_new(opts, &stats, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    // last_pkt_tv was just set by zmq_output_new (gettimeofday), so elapsed < 1000ms
+    struct timeval now_tv;
+    gettimeofday(&now_tv, NULL);
+
+    // Call heartbeat - should NOT generate (interval not exceeded)
+    output_heartbeat((output_base_t *)output, now_tv.tv_sec);
+
+    TEST_ASSERT_EQUAL_UINT64(0, stats.heartbeat_packets.packets);
+
+    zmq_output_destory((output_base_t *)output);
+}
+
 #if defined(OS_LINUX)
 void test_cpu_set_parse(void)
 {
@@ -583,6 +738,14 @@ int main(void)
     RUN_TEST(test_req_pattern_custom_port_65535);
     RUN_TEST(test_req_pattern_custom_and_precedence_over_or);
     RUN_TEST(test_req_pattern_custom_extra_whitespace);
+
+    RUN_TEST(test_parse_zmq_heartbeat_ms_explicit);
+    RUN_TEST(test_parse_zmq_heartbeat_ms_default);
+    RUN_TEST(test_parse_zmq_heartbeat_ms_disabled);
+
+    RUN_TEST(test_zmq_heartbeat_packet_generation);
+    RUN_TEST(test_zmq_heartbeat_not_generated_when_disabled);
+    RUN_TEST(test_zmq_heartbeat_not_generated_when_recent_packet);
 
 #if defined(OS_LINUX)
     RUN_TEST(test_cpu_set_parse);

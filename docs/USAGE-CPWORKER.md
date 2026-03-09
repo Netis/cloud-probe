@@ -137,6 +137,8 @@ For more configuration examples, see: [examples](../cpworker/examples)
 | port              | int      | -       | Destination port |
 | hwm               | int      | -       | ZMQ high watermark |
 | service_tag       | int      | -       | Service tag |
+| uuid              | string   | ""      | Probe UUID carried in heartbeat packets |
+| heartbeat_ms      | int      | 0       | Heartbeat interval in ms (0–60000); 0 disables heartbeat |
 
 ## output.file Parameters
 | Parameter         | Type     | Default | Description |

@@ -81,6 +81,7 @@ func TestIntegration(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc // Capture range variable
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			runTestCase(t, tc)
 		})
 	}
@@ -192,6 +193,11 @@ func runTestCase(t *testing.T, tc *TestCase) {
 	switch outputType {
 	case "file":
 		outputPCAP = getFileOutputPath(tc.Config.Tasks[0].Outputs[0].Config)
+		if dir := filepath.Dir(outputPCAP); dir != "" {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				t.Fatalf("Failed to create output directory %s: %v", dir, err)
+			}
+		}
 
 	case "vxlan":
 		// VXLAN output - capture from network
@@ -292,9 +298,10 @@ func runTestCase(t *testing.T, tc *TestCase) {
 		t.Logf("Failed to stop cpworker gracefully: %v", err)
 	}
 
-	// Wait for packets to be captured
+	// Stop capturer before verification so output files (e.g. zmq_stats.json) are flushed
 	if capturer != nil {
 		time.Sleep(1 * time.Second)
+		capturer.Stop()
 	}
 
 	// Load verify config
@@ -329,7 +336,11 @@ func generateReport(tc *TestCase, result *helpers.VerifyResult, config *helpers.
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("Test Case: %s\n", tc.Name))
-	sb.WriteString(fmt.Sprintf("Verify Rule: %s\n", config.Rule))
+	var ruleNames []string
+	for _, r := range config.Rules {
+		ruleNames = append(ruleNames, string(r.Rule))
+	}
+	sb.WriteString(fmt.Sprintf("Verify Rules: %s\n", strings.Join(ruleNames, ", ")))
 	sb.WriteString(fmt.Sprintf("Status: %s\n\n", map[bool]string{true: "PASSED", false: "FAILED"}[result.Passed]))
 
 	sb.WriteString(fmt.Sprintf("Input Packets: %d\n", result.InputPackets))

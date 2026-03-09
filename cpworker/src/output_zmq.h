@@ -2,6 +2,7 @@
 #define CPWORKER_OUTPUT_ZMQ_H
 
 #include <stdint.h>
+#include <sys/time.h>
 
 #include <zmq.h>
 
@@ -15,6 +16,7 @@
 #define ZMQ_PKTS_FLUSH_MAX_NUM 65535
 #define ZMQ_BATCH_PKTS_VERSION 2
 #define ZMQ_PKT_DATA_LEN_SIZE 2
+#define ZMQ_HEARTBEAT_ETHER_TYPE 0xFFFF
 
 typedef struct
 {
@@ -52,6 +54,7 @@ typedef struct ZmqOptions
     char *uuid;
     uint64_t rate_limit_mbps;
     int slice;
+    int heartbeat_ms;
 } zmq_options_t;
 
 typedef struct ZmqOutput
@@ -66,6 +69,9 @@ typedef struct ZmqOutput
     void *pusher;  // zmq_socket(context, ZMQ_PUSH);
     uint16_t service_tag;
     zmq_pkts_buf_t pkts_buf;
+
+    int heartbeat_ms;
+    struct timeval last_pkt_tv;
 
     struct
     {

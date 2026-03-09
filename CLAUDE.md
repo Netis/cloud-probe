@@ -4,193 +4,138 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Netis Cloud Probe (formerly Packet Agent) is a network packet capture and forwarding system designed to capture packets on one device and forward them to another for analysis. The project consists of multiple components written in C and Go, with the core packet capture engine in C and management tools in Go.
+Netis Cloud Probe is a network packet capture and forwarding system. Captures packets on one device and forwards them (via GRE, VXLAN, ZMQ, or file) to another for analysis. Core packet capture engine in C (`cpworker`), management tools in Go (`cpdaemon`, `cpctl`, `dockerpid`).
 
 ## Build System
 
-The project uses **Mage** (a Make/rake-like build tool using Go) as the primary build system. The cpworker component uses CMake.
+Uses **Mage** (Go-based build tool) as the primary build system. cpworker uses CMake internally.
 
 ### Build Commands
 
-Build all components for Linux:
+All commands run from the `build/` directory:
+
 ```bash
 cd build
+
+# Build all components for Linux
 go run mage.go build:linux
-```
 
-Build individual components:
-```bash
-go run mage.go cpworker:linux      # C-based packet capture worker
-go run mage.go cpdaemon:linux      # Go-based daemon
-go run mage.go cpctl:linux         # Go-based control utility
-go run mage.go dockerpid:linux     # Go-based Docker PID tool
-```
+# Build individual components
+go run mage.go cpworker:linux
+go run mage.go cpdaemon:linux
+go run mage.go cpctl:linux
+go run mage.go dockerpid:linux
 
-Build for other platforms:
-```bash
-go run mage.go build:linuxARM64
-go run mage.go build:darwin
-go run mage.go build:darwinARM64
-go run mage.go build:windows
-```
+# Other platforms: build:linuxARM64, build:darwin, build:darwinARM64, build:windows
 
-Clean build artifacts:
-```bash
+# Clean
 go run mage.go clean
 ```
 
-Output location: `./build/dist/cloud-probe-<version>-<os>-<arch>.tar.gz`
+### Required Environment Variables
+
+- `CLOUD_PROBE_VERSION` - Required for final package creation
+- `CPWORKER_LIBRARY_ROOT` - Root path for C library dependencies (libpcap, libzmq)
+- `CPWORKER_CMAKE_TOOLCHAIN_FILE` - Optional, for cross-compilation
+- `CPWORKER_CMAKE_BUILD_TYPE` - Optional, e.g. Release/Debug
+
+### CMake Options (cpworker)
+
+- `ENABLE_DPDK` (OFF) - Enable DPDK high-performance packet I/O
+- `ENABLE_UNIT_TESTS` (ON) - Build with Unity test framework
+- `ENABLE_LINK_STATIC_LIBPCAP` (OFF) - Static link libpcap
+- `ENABLE_NO_PIE` (OFF) - For QEMU debugging
 
 ### Testing
 
-Run cpworker tests (uses Unity test framework):
+**Unit tests** (C, Unity framework):
 ```bash
-cd cpworker/build
-cmake ../
-make test
+cd build && go run mage.go cpworker:linux
+cd build/tmp/cpworker-linux-amd64 && make test
 ```
+
+Unit test sources are in `cpworker/tests/unit/`. Each test file links all cpworker sources (except main.c). Add new tests by adding to the `unity_tests` list in `cpworker/tests/unit/CMakeLists.txt`.
+
+**Integration tests** (Go):
+```bash
+cd cpworker/tests/integration
+./build_cpworker.sh
+./run_test.sh
+```
+
+Integration tests use Go's testing framework with helpers in `helpers/` for running cpworker, capturing output, and comparing pcap files. Test data in `testdata/`.
+
+### Code Formatting
+
+cpworker uses clang-format (`cpworker/.clang-format`): Allman braces, IndentWidth=4, ColumnLimit=120.
 
 ## Architecture
 
 ### Components
 
-1. **cpworker** (C, ~66 source files)
-   - Core packet capture engine built on libpcap
-   - Located in `cpworker/src/`
-   - Dependencies: libpcap, libzmq, pthread
-   - Main entry: `cpworker/src/main.c`
-   - Configuration-driven via JSON files
-
-2. **cpdaemon** (Go)
-   - Management daemon for cpworker processes
-   - Located in `cpdaemon/`
-   - Integrates with CPM (Cloud Probe Manager)
-   - Packages: cgroup, cpm, httpmix, tool, worker, version
-
-3. **cpctl** (Go)
-   - Command-line control utility
-   - Located in `cpctl/`
-   - Used to interact with cpworker or cpdaemon
-
-4. **dockerpid** (Go)
-   - Utility for getting Docker container PIDs
-   - Located in `cptools/dockerpid/`
-
-5. **cpgolib** (Go)
-   - Shared Go libraries
-   - Contains cpworker client library and logging utilities (slogx)
+- **cpworker** (C) - Core packet capture engine. Entry: `cpworker/src/main.c`. Config-driven via JSON.
+- **cpdaemon** (Go) - Management daemon that supervises cpworker processes, integrates with CPM (Cloud Probe Manager). Uses Cobra CLI, Viper config, Wire DI.
+- **cpctl** (Go) - CLI control utility for cpworker/cpdaemon.
+- **cpgolib** (Go) - Shared library: cpworker client, slogx logging utilities.
+- **dockerpid** (Go, `cptools/dockerpid/`) - Docker container PID utility.
 
 ### cpworker Architecture
 
-The cpworker component follows a modular design:
+Modular pipeline design: **Capturer** -> **Task** -> **Output(s)**
 
-- **Capturer Layer**: `libpcap.c`, `capturer.h` - Packet capture interface
-  - Supports libpcap for packet capture
-  - Optional DPDK support (compile-time flag)
-  - Network namespace support via `netns_linux.c`
+- **Capturer**: Packet source abstraction (libpcap, pcap_file, dpdk_pdump). Network namespace support via `netns_linux.c`.
+- **Task** (`task.c`, ~1600 lines): Central orchestration. Each task has one capturer and multiple outputs. Handles rate limiting, statistics, and the config reload lifecycle.
+- **Output modules**: `output_gre.c`, `output_vxlan.c`, `output_zmq.c`, `output_file.c`, `output_rotating_file.c`, `output_null.c`. All implement a common init/write/close interface.
+- **Request Pattern** (`req_pattern.c`): Detects traffic direction (request vs response) via auto-detection or custom BPF.
+- **Control Plane** (`unix-manager.c`): Unix socket for runtime commands from cpdaemon/cpctl.
+- **Config** (`config.c`, `cjson_utils.c`): JSON parsing. Examples in `cpworker/examples/`, `template.json` shows all fields.
 
-- **Request Pattern**: `req_pattern.c` - Traffic direction detection
-  - Auto-detection or custom BPF patterns
-  - Determines if packets are requests or responses
+### Config Reload System
 
-- **Output Modules**: Multiple output formats
-  - `output_gre.c` - GRE encapsulation
-  - `output_vxlan.c` - VXLAN encapsulation
-  - `output_zmq.c` - ZeroMQ streaming
-  - `output_file.c` - PCAP file output
-  - `output_rotating_file.c` - Rotating PCAP files
-  - `output_null.c` - Null output (testing)
+cpworker supports live config reload without restarting:
 
-- **Task Management**: `task.c` - Manages capture tasks
-  - Each task has one capturer and multiple outputs
-  - Rate limiting via `ratelimit.c`
-  - Statistics tracking via `stats.c`
+- **Trigger**: SIGHUP signal or `reload_config` command via unix socket
+- **Mechanism**: Dedicated reload thread communicates with main thread via mailbox protocol (message types: START, REUSED, REUSED_ACK, EXCHANGE, DESTROY, DONE)
+- **Task identity**: Tasks use `fingerprint` field to match across reloads, allowing reuse of unchanged tasks
+- **Ring buffer** (`ring_buffer.c`): SPSC queue with mempool for pipeline execution model
 
-- **Control Plane**: `unix-manager.c` - Unix socket interface
-  - Receives commands from cpdaemon/cpctl
-  - Runtime configuration updates
+### Signal Handling
 
-- **Utilities**:
-  - `bpf_util.c` - BPF filter helpers
-  - `if_util.c` - Network interface utilities
-  - `affinity_linux.c` - CPU affinity management
-  - Protocol headers: `ip.h`, `tcp.h`, `udp.h`, `gre.h`, `vxlan.h`, `vlan.h`, `mpls.h`
+- `SIGHUP` - Triggers config reload (`task_manager_reload_signal()`)
+- `SIGINT`/`SIGTERM` - Graceful shutdown
+- `SIGPIPE` - Ignored
 
-### Configuration System
+### Configuration Schema
 
-cpworker uses JSON configuration files (`config.c`, `cjson_utils.c`):
-- Top-level: log level, CPU affinity, control socket path
-- Tasks array: Each task defines capturer + outputs
-- Examples located in `cpworker/examples/`
+Top-level fields: `log_level`, `cpu_affinity`, `control` (unix socket), `execution_model` (e.g. "rtc"), `pipeline` (`buffer_size_mb`)
 
-## Running cpworker
-
-Basic usage:
-```bash
-cpworker -c <config-file.json>
-```
-
-Example configurations in `cpworker/examples/`:
-- libpcap with GRE output
-- libpcap with VXLAN output
-- libpcap with ZMQ output
-- File output with rotation
-
-### Key Configuration Concepts
-
-1. **Capturer**: Defines packet source (interface, BPF filter, snaplen, buffer size)
-2. **Outputs**: One or more destinations (GRE/VXLAN/ZMQ/file)
-3. **Request Pattern**: Traffic direction detection (auto or custom)
-4. **Rate Limiting**: Per-output bandwidth limits
-5. **CPU Affinity**: Pin to specific CPUs for performance
-
-## Dependencies
-
-### C/C++ Libraries (cpworker)
-- libpcap 1.6.2+ (packet capture)
-- libzmq 4.3.3+ (ZeroMQ messaging)
-- pthread (threading)
-- Optional: DPDK (high-performance packet I/O)
-
-Install to `$CLOUD_PROBE_CXX_LIBS_SDK/linux-amd64/` before building.
-
-### Go Modules
-- Uses Go modules (go.mod in cpdaemon/, cpctl/, cptools/dockerpid/)
-- Magefile dependency for build system
-- See individual go.mod files for specific dependencies
+Task-level: `fingerprint`, `req_pattern`, `capturer`, `outputs[]`
 
 ## Development Workflow
 
 1. **Modifying cpworker (C code)**:
    - Edit sources in `cpworker/src/`
-   - **Build Verification** (Required after every change):
-     1. Clean: `cd build && go run mage.go clean`
-     2. Rebuild: `cd build && go run mage.go cpworker:linux`
-     3. Test: `cd build/tmp/cpworker-linux-amd64 && make test`
+   - Build-verify cycle: `cd build && go run mage.go clean && go run mage.go cpworker:linux`
+   - Test: `cd build/tmp/cpworker-linux-amd64 && make test`
 
 2. **Modifying Go components**:
-   - Edit sources in respective directories (cpdaemon/, cpctl/, etc.)
+   - Edit sources in respective directories
    - Rebuild: `cd build && go run mage.go <component>:linux`
+   - Go modules use local `replace` directives for cpgolib
 
 3. **Adding new output type**:
    - Create `cpworker/src/output_<name>.c` and `.h`
    - Implement output interface (init, write, close)
    - Register in `config.c` output type parsing
-   - Update CMakeLists.txt if needed (auto-detected via glob)
-
-4. **Updating configuration schema**:
-   - Modify parsing in `cpworker/src/config.c`
-   - Update documentation in `docs/USAGE-CPWORKER.md`
-   - Add example in `cpworker/examples/`
+   - CMakeLists.txt auto-discovers sources via glob
 
 ## Branch Strategy
 
 - Main development branch: `0.9.x`
-- Feature branches: Use descriptive names
 - PRs should target `0.9.x` unless specified otherwise
 
 ## Platform Support
 
 - Primary: Linux (CentOS 7.9, Ubuntu 22.04)
-- Also supports: macOS (Intel/ARM64), Windows
-- Cross-compilation supported via Mage build targets
+- Also: macOS (Intel/ARM64), Windows
+- Toolchain compatibility: GCC 4.8.5, glibc 2.17

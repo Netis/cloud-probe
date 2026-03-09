@@ -297,6 +297,9 @@ func (b *workerTasksBuilder) newTaskConfig(strategy StrategyEntry, item taskItem
 			output.Zmq.ServiceTag = lo.ToPtr(uint32(*strategy.ServiceTag))
 		}
 		output.Zmq.Hwm = startupArgs.ZmqHwm
+		if strategy.ZmqHeartbeatMs != nil {
+			output.Zmq.HeartbeatMs = strategy.ZmqHeartbeatMs
+		}
 	case PacketChannelType_FILE:
 		output.Type = worker.OutputType_RotatingFile
 		if strategy.DumpDir == nil {

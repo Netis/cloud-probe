@@ -40,6 +40,8 @@ typedef struct OutputStats
 
     bytes_stats_t ratelimit_drop_bytes;
     packets_stats_t ratelimit_drop_packets;
+
+    packets_stats_t heartbeat_packets;
 } output_stats_t;
 
 void bytes_stats_add(bytes_stats_t *stat, uint64_t bytes);

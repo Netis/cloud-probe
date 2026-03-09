@@ -18,6 +18,7 @@
             "hasObservationTag": false,
             "hasExtensionFlag": false,
             "extensionFlag": 0,
+            "zmqHeartbeatMs": 2000,
             "packetChannelType": "ZMQ",
             "address": "127.0.0.1",
             "port": 5555,

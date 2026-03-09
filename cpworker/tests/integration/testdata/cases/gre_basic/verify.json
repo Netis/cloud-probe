@@ -1,3 +1,5 @@
 {
-  "rule": "packet_count_only"
+  "rules": [
+    { "rule": "packet_count_only" }
+  ]
 }

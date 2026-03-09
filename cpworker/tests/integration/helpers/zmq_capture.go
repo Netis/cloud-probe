@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -18,12 +19,14 @@ type ZMQCapturer struct {
 	cmd         *exec.Cmd
 	receiverBin string
 	stats       *ZMQStats
+	stopOnce    sync.Once
 }
 
 // ZMQStats contains statistics about captured ZMQ messages
 type ZMQStats struct {
 	MessageCount     int       `json:"message_count"`
 	PacketCount      int       `json:"packet_count"`
+	HeartbeatCount   int       `json:"heartbeat_count"`
 	TotalBytes       int64     `json:"total_bytes"`
 	AvgPacketsPerMsg float64   `json:"avg_packets_per_message"`
 	FirstTimestamp   time.Time `json:"first_timestamp,omitempty"`
@@ -104,36 +107,38 @@ func (z *ZMQCapturer) Start() error {
 	return nil
 }
 
-// Stop stops the ZMQ receiver process
+// Stop stops the ZMQ receiver process. Safe to call multiple times.
 func (z *ZMQCapturer) Stop() error {
-	if z.cmd == nil || z.cmd.Process == nil {
-		return nil
-	}
+	z.stopOnce.Do(func() {
+		if z.cmd == nil || z.cmd.Process == nil {
+			return
+		}
 
-	fmt.Fprintf(os.Stderr, "[ZMQCapturer] Stopping zmq_receiver (PID: %d)...\n", z.cmd.Process.Pid)
+		fmt.Fprintf(os.Stderr, "[ZMQCapturer] Stopping zmq_receiver (PID: %d)...\n", z.cmd.Process.Pid)
 
-	// Send SIGTERM for graceful shutdown
-	if err := z.cmd.Process.Signal(os.Interrupt); err != nil {
-		// If signal fails, try kill
-		z.cmd.Process.Kill()
-	}
+		// Send SIGTERM for graceful shutdown
+		if err := z.cmd.Process.Signal(os.Interrupt); err != nil {
+			// If signal fails, try kill
+			z.cmd.Process.Kill()
+		}
 
-	// Wait for process to exit (with timeout)
-	done := make(chan error, 1)
-	go func() {
-		done <- z.cmd.Wait()
-	}()
+		// Wait for process to exit (with timeout)
+		done := make(chan error, 1)
+		go func() {
+			done <- z.cmd.Wait()
+		}()
 
-	select {
-	case <-done:
-		// Process exited
-	case <-time.After(3 * time.Second):
-		// Timeout, force kill
-		z.cmd.Process.Kill()
-		z.cmd.Wait()
-	}
+		select {
+		case <-done:
+			// Process exited
+		case <-time.After(3 * time.Second):
+			// Timeout, force kill
+			z.cmd.Process.Kill()
+			z.cmd.Wait()
+		}
 
-	fmt.Fprintf(os.Stderr, "[ZMQCapturer] zmq_receiver stopped\n")
+		fmt.Fprintf(os.Stderr, "[ZMQCapturer] zmq_receiver stopped\n")
+	})
 	return nil
 }
 

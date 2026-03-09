@@ -3,6 +3,7 @@ package helpers
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket"
@@ -19,6 +20,7 @@ type GRECapturer struct {
 	outputFile *os.File
 	stopChan   chan struct{}
 	doneChan   chan struct{}
+	stopOnce   sync.Once
 }
 
 // NewGRECapturer creates a new GRE capturer
@@ -88,24 +90,26 @@ func (g *GRECapturer) captureLoop() {
 	}
 }
 
-// Stop stops the capturer
+// Stop stops the capturer. Safe to call multiple times.
 func (g *GRECapturer) Stop() error {
-	close(g.stopChan)
+	g.stopOnce.Do(func() {
+		close(g.stopChan)
 
-	// Wait for capture loop to finish with timeout
-	select {
-	case <-g.doneChan:
-	case <-time.After(5 * time.Second):
-		// Timeout
-	}
+		// Wait for capture loop to finish with timeout
+		select {
+		case <-g.doneChan:
+		case <-time.After(5 * time.Second):
+			// Timeout
+		}
 
-	if g.handle != nil {
-		g.handle.Close()
-	}
+		if g.handle != nil {
+			g.handle.Close()
+		}
 
-	if g.outputFile != nil {
-		g.outputFile.Close()
-	}
+		if g.outputFile != nil {
+			g.outputFile.Close()
+		}
+	})
 
 	return nil
 }

@@ -1,0 +1,6 @@
+{
+  "rules": [
+    { "rule": "packet_count_only" },
+    { "rule": "zmq_heartbeat", "min_packets": 3 }
+  ]
+}

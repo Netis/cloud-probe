@@ -68,6 +68,7 @@ typedef struct
             int hwm;
             uint32_t service_tag;
             char *uuid;
+            int heartbeat_ms;
         } zmq;
 
         struct

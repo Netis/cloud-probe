@@ -1,5 +1,5 @@
 {
-  "rule": "packet_count_range",
-  "min_packets": 18,
-  "max_packets": 18
+  "rules": [
+    { "rule": "packet_count_range", "min_packets": 18, "max_packets": 18 }
+  ]
 }

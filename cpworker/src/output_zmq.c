@@ -1,12 +1,13 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include <pcap/pcap.h>
-#include <pcap/vlan.h>
 #include <zmq.h>
 
 #include "errorf.h"
@@ -16,6 +17,7 @@
 #include "output_zmq.h"
 #include "pkt_dir.h"
 #include "stats.h"
+#include "vlan.h"
 
 static uint32_t make_mpls_hdr(int direct, uint32_t service_tag)
 {
@@ -134,6 +136,16 @@ int zmq_flush_packet(zmq_output_t *output)
     return 0;
 }
 
+static inline void zmq_flush_if_stale(zmq_output_t *output, time_t now)
+{
+    zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
+    if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
+        now > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
+    {
+        zmq_flush_packet(output);
+    }
+}
+
 int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
     zmq_output_t *output = (zmq_output_t *)self;
@@ -144,7 +156,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     // Minimum caplen: ethernet header (14) + optional VLAN tag (4) must fit
     // to avoid underflow in payload_copy_len calculation
-    if (caplen < (int32_t)(sizeof(struct ether_header) + sizeof(struct vlan_tag)))
+    if (caplen < (int32_t)(sizeof(struct ether_header) + sizeof(struct vlan_header)))
     {
         output->error_info.nb_too_small_packets++;
         return -1;
@@ -158,11 +170,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
         packets_stats_add(&output->base.stats->direction_drop_packets, 1);
 
-        if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
-            header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
-        {
-            zmq_flush_packet(output);
-        }
+        zmq_flush_if_stale(output, header->ts.tv_sec);
         return -1;
     }
 
@@ -171,11 +179,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, length);
         packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
 
-        if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
-            header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
-        {
-            zmq_flush_packet(output);
-        }
+        zmq_flush_if_stale(output, header->ts.tv_sec);
         return -1;
     }
 
@@ -219,55 +223,142 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     struct ether_header eth_hdr_copy;
     memcpy(&eth_hdr_copy, pkt_data, sizeof(struct ether_header));
 
-    const bool has_vlan = (ntohs(eth_hdr_copy.ether_type) == ETHERTYPE_VLAN);
+    // Calculate total VLAN header size by looping through stacked VLANs
+    uint16_t ether_type = ntohs(eth_hdr_copy.ether_type);
+    size_t vlan_total_size = 0;
 
-    struct vlan_tag vlan_hdr_copy;
-    if (has_vlan)
+    while (ether_type == ETHERTYPE_VLAN || ether_type == ETHERTYPE_DOT1AD || ether_type == ETHERTYPE_VLAN_9100 ||
+           ether_type == ETHERTYPE_VLAN_9200)
     {
-        memcpy(&vlan_hdr_copy, pkt_data + sizeof(struct ether_header), sizeof(struct vlan_tag));
-        vlan_hdr_copy.vlan_tci = htons(ETHER_TYPE_MPLS);
+        size_t vlan_offset = sizeof(struct ether_header) + vlan_total_size;
+        if (vlan_offset + sizeof(struct vlan_header) > length)
+            break;
+        struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + vlan_offset);
+        ether_type = ntohs(vlan_hdr->ether_type);
+        vlan_total_size += sizeof(struct vlan_header);
     }
-    else
-    {
+
+    const bool has_vlan = (vlan_total_size > 0);
+
+    // Write Ethernet header (keep original EtherType if has VLAN, else set MPLS)
+    if (!has_vlan)
         eth_hdr_copy.ether_type = htons(ETHER_TYPE_MPLS);
-    }
 
     memcpy(&(pkts_buf->buf[buff_pos]), &eth_hdr_copy, sizeof(struct ether_header));
     buff_pos += sizeof(struct ether_header);
 
     if (has_vlan)
     {
-        memcpy(&(pkts_buf->buf[buff_pos]), &vlan_hdr_copy, sizeof(struct vlan_tag));
-        buff_pos += sizeof(struct vlan_tag);
+        // Copy all VLAN tags
+        memcpy(&(pkts_buf->buf[buff_pos]), pkt_data + sizeof(struct ether_header), vlan_total_size);
+        // Overwrite the innermost VLAN's ether_type with MPLS
+        size_t last_vlan_etype_offset = buff_pos + vlan_total_size - sizeof(uint16_t);
+        uint16_t mpls_type = htons(ETHER_TYPE_MPLS);
+        memcpy(&(pkts_buf->buf[last_vlan_etype_offset]), &mpls_type, sizeof(uint16_t));
+        buff_pos += vlan_total_size;
     }
 
-    mpls_header mpls_hdr;
+    // Write MPLS header
     uint32_t mpls_hdr_uint32 = make_mpls_hdr(direct, output->service_tag);
-    memcpy(&mpls_hdr, &mpls_hdr_uint32, sizeof(mpls_header));
-
-    memcpy(&(pkts_buf->buf[buff_pos]), &mpls_hdr, sizeof(mpls_header));
+    memcpy(&(pkts_buf->buf[buff_pos]), &mpls_hdr_uint32, sizeof(mpls_header));
     buff_pos += sizeof(mpls_header);
 
-    const size_t eth_header_size = sizeof(struct ether_header);
-    const size_t vlan_size = has_vlan ? sizeof(struct vlan_tag) : 0;
-    const size_t payload_offset = eth_header_size + vlan_size;
-    const size_t payload_copy_len = length - eth_header_size - sizeof(mpls_header) - vlan_size;
+    // Copy payload (everything after Ethernet + all VLANs)
+    const size_t payload_offset = sizeof(struct ether_header) + vlan_total_size;
+    const size_t payload_copy_len = length - sizeof(struct ether_header) - sizeof(mpls_header) - vlan_total_size;
     memcpy(&(pkts_buf->buf[buff_pos]), pkt_data + payload_offset, payload_copy_len);
     buff_pos += payload_copy_len;
 
     pkts_buf->batch_bufpos = buff_pos;
     pkts_buf->batch_hdr.pkts_num++;
+
+    output->last_pkt_tv.tv_sec = header->ts.tv_sec;
+    output->last_pkt_tv.tv_usec = header->ts.tv_usec;
+
     return 0;
+}
+
+static void zmq_send_heartbeat_packet(zmq_output_t *output, struct timeval *tv)
+{
+    zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
+
+    // Heartbeat: minimal Ethernet frame (14 bytes) with all-zero MACs and EtherType=0xFFFF
+    const uint16_t pkt_len = sizeof(struct ether_header);
+
+    // Check buffer space
+    if (pkts_buf->batch_bufpos + sizeof(uint16_t) + sizeof(zmq_pkt_hdr_t) + pkt_len > ZMQ_MAX_BATCH_BUF_SIZE)
+    {
+        zmq_flush_packet(output);
+    }
+
+    if (pkts_buf->batch_hdr.pkts_num == 0)
+        pkts_buf->first_pktsec = tv->tv_sec;
+
+    // Packet header with current timestamp
+    zmq_pkt_hdr_t pkt_hdr = {
+        .tv_sec = htonl((uint32_t)tv->tv_sec),
+        .tv_usec = htonl((uint32_t)tv->tv_usec),
+        .caplen = htonl((uint32_t)pkt_len),
+        .len = htonl((uint32_t)pkt_len),
+    };
+
+    uint32_t pos = pkts_buf->batch_bufpos;
+
+    // pkt_data_len
+    uint16_t hlen = htons(pkt_len);
+    memcpy(&pkts_buf->buf[pos], &hlen, sizeof(hlen));
+    pos += sizeof(hlen);
+
+    // zmq_pkt_hdr
+    memcpy(&pkts_buf->buf[pos], &pkt_hdr, sizeof(pkt_hdr));
+    pos += sizeof(pkt_hdr);
+
+    // Ethernet header: all-zero MACs, sentinel EtherType for heartbeat
+    static const struct ether_header eth = {{0}, {0}, 0};
+    memcpy(&pkts_buf->buf[pos], &eth, sizeof(eth));
+    // Overwrite ether_type separately (static const initializer needs compile-time value)
+    uint16_t hb_etype = htons(ZMQ_HEARTBEAT_ETHER_TYPE);
+    memcpy(&pkts_buf->buf[pos + offsetof(struct ether_header, ether_type)], &hb_etype, sizeof(hb_etype));
+    pos += sizeof(eth);
+
+    pkts_buf->batch_bufpos = pos;
+    pkts_buf->batch_hdr.pkts_num++;
+
+    // Flush immediately - heartbeat triggers batch flush
+    zmq_flush_packet(output);
+
+    // Update heartbeat stats and last packet time
+    packets_stats_add(&output->base.stats->heartbeat_packets, 1);
+    output->last_pkt_tv = *tv;
 }
 
 void zmq_heartbeat(output_base_t *self, time_t now)
 {
     zmq_output_t *output = (zmq_output_t *)self;
-    zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
-    if (pkts_buf->batch_hdr.pkts_num > 0 && pkts_buf->first_pktsec != 0 &&
-        now > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC)
+
+    // Flush pending real packets if time exceeded
+    zmq_flush_if_stale(output, now);
+
+    // Generate heartbeat packet if enabled and interval exceeded
+    if (output->heartbeat_ms <= 0)
+        return;
+
+    // Coarse pre-gate: skip gettimeofday when clearly not due yet
+    long coarse_elapsed_s = now - output->last_pkt_tv.tv_sec;
+    if (coarse_elapsed_s * 1000 < output->heartbeat_ms - 1000)
+        return;
+
+    struct timeval now_tv;
+    gettimeofday(&now_tv, NULL);
+
+    long elapsed_ms =
+        (now_tv.tv_sec - output->last_pkt_tv.tv_sec) * 1000 + (now_tv.tv_usec - output->last_pkt_tv.tv_usec) / 1000;
+
+    if (elapsed_ms >= output->heartbeat_ms)
     {
-        zmq_flush_packet(output);
+        log_debug("zmq output: generating heartbeat packet (elapsed=%ldms, interval=%dms)", elapsed_ms,
+                  output->heartbeat_ms);
+        zmq_send_heartbeat_packet(output, &now_tv);
     }
 }
 
@@ -304,7 +395,7 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, output_stats_t *stats, char *er
         return NULL;
     }
 
-    int linger = 10 * 1000; // 10s
+    int linger = 5 * 1000; // 5s
     if (zmq_setsockopt(pusher, ZMQ_LINGER, &linger, sizeof(linger)) != 0)
     {
         error_format(errbuf, "set linger error: %s", zmq_strerror(errno));
@@ -352,6 +443,9 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, output_stats_t *stats, char *er
     output->pkts_buf.first_pktsec = 0;
     output->pkts_buf.batch_bufpos = sizeof(zmq_pkt_batch_hdr_t);
 
+    output->heartbeat_ms = opts.heartbeat_ms;
+    gettimeofday(&output->last_pkt_tv, NULL);
+
     output->pkts_buf.batch_hdr.pkts_num = 0;
     output->pkts_buf.batch_hdr.version = htons(ZMQ_BATCH_PKTS_VERSION);
     output->pkts_buf.batch_hdr.keybit = htonl(opts.service_tag);
@@ -359,6 +453,10 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, output_stats_t *stats, char *er
     memcpy(output->pkts_buf.batch_hdr.uuid, uuid, sizeof(uuid));
 
     output->error_info.send_error[0] = '\0';
+
+    if (output->heartbeat_ms > 0)
+        log_info("zmq output: heartbeat enabled, interval=%dms", output->heartbeat_ms);
+
     return output;
 }
 
@@ -373,9 +471,12 @@ output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
         .uuid = output_cfg->config.zmq.uuid,
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
         .slice = output_cfg->slice,
+        .heartbeat_ms = output_cfg->config.zmq.heartbeat_ms,
     };
-    log_info("zmq output options: host=%s, port=%d, hwm=%d, service_tag=%d, uuid=%s, rate_limit_mbps=%d, slice=%d",
-             opts.host, opts.port, opts.hwm, opts.service_tag, opts.uuid, opts.rate_limit_mbps, opts.slice);
+    log_info("zmq output options: host=%s, port=%d, hwm=%d, service_tag=%d, uuid=%s, rate_limit_mbps=%d, slice=%d, "
+             "heartbeat_ms=%d",
+             opts.host, opts.port, opts.hwm, opts.service_tag, opts.uuid, opts.rate_limit_mbps, opts.slice,
+             opts.heartbeat_ms);
     return (output_base_t *)zmq_output_new(opts, stats, errbuf);
 }
 

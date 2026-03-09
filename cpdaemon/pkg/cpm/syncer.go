@@ -638,6 +638,7 @@ func (s *Syncer) logTaskStats() {
 	attrs = append(attrs, slog.String("dir_drop_pkts", formatPacketsStatsDiff(out1.DirectionDropPackets.Sub(out0.DirectionDropPackets))))
 	attrs = append(attrs, slog.String("err_drop_pkts", formatPacketsStatsDiff(out1.ErrorDropPackets.Sub(out0.ErrorDropPackets))))
 	attrs = append(attrs, slog.String("limit_drop_pkts", formatPacketsStatsDiff(out1.RatelimitDropPackets.Sub(out0.RatelimitDropPackets))))
+	attrs = append(attrs, slog.String("heartbeat_pkts", formatPacketsStatsDiff(out1.HeartbeatPackets.Sub(out0.HeartbeatPackets))))
 
 	s.lg.Info("stats", attrs...)
 }

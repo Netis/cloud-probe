@@ -9,15 +9,13 @@
       },
       "outputs": [
         {
-          "type": "vxlan",
-          "vxlan": {
+          "type": "zmq",
+          "zmq": {
             "host": "127.0.0.1",
-            "port": 4790,
-            "vni1": 100,
-            "split": {
-              "max_payload_size": 1400,
-              "recalculate_checksum": true
-            }
+            "port": 19003,
+            "hwm": 1000,
+            "uuid": "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
+            "heartbeat_ms": 500
           }
         }
       ]

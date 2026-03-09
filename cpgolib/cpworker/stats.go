@@ -38,6 +38,8 @@ type OutputStats struct {
 
 	RatelimitDropBytes   BytesStats   `mapstructure:"ratelimit_drop_bytes"`
 	RatelimitDropPackets PacketsStats `mapstructure:"ratelimit_drop_packets"`
+
+	HeartbeatPackets PacketsStats `mapstructure:"heartbeat_packets"`
 }
 
 type BytesStats struct {

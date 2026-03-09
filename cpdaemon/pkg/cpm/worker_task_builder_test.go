@@ -70,8 +70,9 @@ func Test_workerTasksBuilder_1(t *testing.T) {
 					Zmq: &worker.ZmqOutputConfig{
 						Host: "127.0.0.1",
 						Port: 5555,
-						Hwm:  lo.ToPtr(2000),
-						Uuid: "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
+						Hwm:         lo.ToPtr(2000),
+						Uuid:        "796d506a-46a1-4f4e-bd9a-6075a49ac9f8",
+						HeartbeatMs: lo.ToPtr[int32](2000),
 					},
 				},
 			},

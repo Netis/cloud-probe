@@ -51,7 +51,9 @@
                         "host": "2.2.2.2",
                         "port": 1234,
                         "hwm": 1000,
-                        "service_tag": 3
+                        "service_tag": 3,
+                        "uuid": "550e8400-e29b-41d4-a716-446655440000",
+                        "heartbeat_ms": 1000
                     },
                     "file": {
                         "name": "test.pcap"

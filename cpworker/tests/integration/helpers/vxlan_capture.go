@@ -2,13 +2,14 @@ package helpers
 
 import (
 	"fmt"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
-	"os"
 )
 
 // VXLANCapturer captures VXLAN encapsulated packets
@@ -20,6 +21,7 @@ type VXLANCapturer struct {
 	outputFile *os.File
 	stopChan   chan struct{}
 	doneChan   chan struct{}
+	stopOnce   sync.Once
 }
 
 // NewVXLANCapturer creates a new VXLAN capturer
@@ -94,24 +96,26 @@ func (v *VXLANCapturer) captureLoop() {
 	}
 }
 
-// Stop stops the capturer
+// Stop stops the capturer. Safe to call multiple times.
 func (v *VXLANCapturer) Stop() error {
-	close(v.stopChan)
+	v.stopOnce.Do(func() {
+		close(v.stopChan)
 
-	// Wait for capture loop to finish with timeout
-	select {
-	case <-v.doneChan:
-	case <-time.After(5 * time.Second):
-		// Timeout
-	}
+		// Wait for capture loop to finish with timeout
+		select {
+		case <-v.doneChan:
+		case <-time.After(5 * time.Second):
+			// Timeout
+		}
 
-	if v.handle != nil {
-		v.handle.Close()
-	}
+		if v.handle != nil {
+			v.handle.Close()
+		}
 
-	if v.outputFile != nil {
-		v.outputFile.Close()
-	}
+		if v.outputFile != nil {
+			v.outputFile.Close()
+		}
+	})
 
 	return nil
 }

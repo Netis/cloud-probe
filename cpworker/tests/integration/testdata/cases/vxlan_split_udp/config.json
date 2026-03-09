@@ -12,7 +12,7 @@
           "type": "vxlan",
           "vxlan": {
             "host": "127.0.0.1",
-            "port": 4789,
+            "port": 4791,
             "vni1": 100,
             "split": {
               "max_payload_size": 1200

@@ -815,6 +815,18 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             cjson_set_parse_error(err, "invalid zmq.uuid");
             return PARSE_ERROR;
         }
+
+        // Heartbeat interval
+        cJSON *heartbeat_ms = cJSON_GetObjectItemCaseSensitive(zmq_obj, "heartbeat_ms");
+        if (!heartbeat_ms)
+            output->config.zmq.heartbeat_ms = 0;
+        else if (cJSON_IsNumber(heartbeat_ms) && heartbeat_ms->valueint >= 0 && heartbeat_ms->valueint <= 60000)
+            output->config.zmq.heartbeat_ms = heartbeat_ms->valueint;
+        else
+        {
+            cjson_set_parse_error(err, "invalid zmq.heartbeat_ms");
+            return PARSE_ERROR;
+        }
     }
     else if (strcmp(output->type, OUTPUT_TYPE_FILE) == 0)
     {

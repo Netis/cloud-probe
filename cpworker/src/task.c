@@ -407,6 +407,13 @@ static int output_stats_json_dump(output_stats_t *output_stats, cJSON *output)
     if (packets_stats_json_dump(output_stats->ratelimit_drop_packets, ratelimit_drop_packets) != 0)
         return -1;
 
+    cJSON *heartbeat_packets = cJSON_CreateObject();
+    if (!heartbeat_packets)
+        return -1;
+    cJSON_AddItemToObject(output, "heartbeat_packets", heartbeat_packets);
+    if (packets_stats_json_dump(output_stats->heartbeat_packets, heartbeat_packets) != 0)
+        return -1;
+
     return 0;
 }
 

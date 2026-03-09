@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/format-on-save.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

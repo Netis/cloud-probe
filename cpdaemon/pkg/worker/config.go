@@ -110,7 +110,8 @@ type ZmqOutputConfig struct {
 	Port       int32   `json:"port"`
 	Hwm        *int    `json:"hwm,omitempty"`
 	ServiceTag *uint32 `json:"service_tag,omitempty"`
-	Uuid       string  `json:"uuid"`
+	Uuid        string  `json:"uuid"`
+	HeartbeatMs *int32  `json:"heartbeat_ms,omitempty"`
 }
 
 type FileOutputConfig struct {
