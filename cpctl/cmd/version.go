@@ -14,7 +14,8 @@ func init() {
 }
 
 var versionCmd = &cobra.Command{
-	Use: "version",
+	Use:   "version",
+	Short: "Show cpctl version and build info",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("version: %s\n\n", Version)
 

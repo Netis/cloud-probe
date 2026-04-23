@@ -14,13 +14,24 @@ import (
 )
 
 type UnixClient struct {
-	socketPath   string
-	dailTimeout  time.Duration
-	writeTimeout time.Duration
-	readTimeout  time.Duration
+	socketPath string
+	// defaultTimeout applies to any dial/read/write when the caller's ctx
+	// has no deadline of its own. When the ctx does have a deadline, that
+	// deadline wins so --timeout on the CLI propagates correctly.
+	defaultTimeout time.Duration
 
 	mu   sync.Mutex
 	conn net.Conn
+}
+
+// deadlineFor picks the effective I/O deadline: the ctx deadline if set,
+// otherwise now + defaultTimeout. This is the single point where a caller's
+// context.WithTimeout becomes a socket-level SetDeadline.
+func (c *UnixClient) deadlineFor(ctx context.Context) time.Time {
+	if d, ok := ctx.Deadline(); ok {
+		return d
+	}
+	return time.Now().Add(c.defaultTimeout)
 }
 
 func (c *UnixClient) Close() error {
@@ -50,7 +61,7 @@ func (c *UnixClient) Dial(ctx context.Context) error {
 		return nil
 	}
 
-	conn, err := c.dial()
+	conn, err := c.dial(ctx)
 	if err != nil {
 		return err
 	}
@@ -58,13 +69,23 @@ func (c *UnixClient) Dial(ctx context.Context) error {
 	return nil
 }
 
-func (c *UnixClient) dial() (net.Conn, error) {
-	conn, err := net.DialTimeout("unix", c.socketPath, c.dailTimeout)
-	if err != nil {
-		return nil, errors.Wrapf(err, "dail %s failed", c.socketPath)
+func (c *UnixClient) dial(ctx context.Context) (net.Conn, error) {
+	// If the caller didn't supply a deadline, apply defaultTimeout to the
+	// dial. If they did, DialContext already honors it.
+	dctx := ctx
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		dctx, cancel = context.WithTimeout(ctx, c.defaultTimeout)
+		defer cancel()
 	}
 
-	if err := c.handshake(conn); err != nil {
+	var d net.Dialer
+	conn, err := d.DialContext(dctx, "unix", c.socketPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "dial %s failed", c.socketPath)
+	}
+
+	if err := c.handshake(ctx, conn); err != nil {
 		if cErr := c.closeConn(conn); cErr != nil {
 			return nil, multierr.Append(err, cErr)
 		}
@@ -74,7 +95,7 @@ func (c *UnixClient) dial() (net.Conn, error) {
 	return conn, nil
 }
 
-func (c *UnixClient) handshake(conn net.Conn) error {
+func (c *UnixClient) handshake(ctx context.Context, conn net.Conn) error {
 	cmdData, err := json.Marshal(map[string]string{
 		"version": "v1",
 	})
@@ -83,11 +104,11 @@ func (c *UnixClient) handshake(conn net.Conn) error {
 	}
 	cmdData = append(cmdData, '\n')
 
-	if err := c.send(conn, cmdData); err != nil {
+	if err := c.send(ctx, conn, cmdData); err != nil {
 		return errors.Wrapf(err, "write handshake data failed")
 	}
 
-	data, err := c.recv(conn)
+	data, err := c.recv(ctx, conn)
 	if err != nil {
 		return err
 	}
@@ -116,13 +137,37 @@ func (c *UnixClient) CollectStatsSummary(ctx context.Context) (StatsSummary, err
 	return stats, nil
 }
 
+func (c *UnixClient) Ping(ctx context.Context) (PingResult, error) {
+	start := time.Now()
+	if _, err := c.RunCommand(ctx, "ping", nil); err != nil {
+		return PingResult{}, err
+	}
+	return PingResult{
+		Rtt:  time.Since(start),
+		When: start,
+	}, nil
+}
+
+func (c *UnixClient) Info(ctx context.Context) (InfoSummary, error) {
+	resp, err := c.RunCommand(ctx, "info", nil)
+	if err != nil {
+		return InfoSummary{}, err
+	}
+
+	var info InfoSummary
+	if err := mapstructure.Decode(resp, &info); err != nil {
+		return InfoSummary{}, errors.Wrapf(err, "invalid info summary")
+	}
+	return info, nil
+}
+
 func (c *UnixClient) RunCommand(ctx context.Context, command string, arguments map[string]any) (map[string]any, error) {
 	var err error
 
 	c.mu.Lock()
 	conn := c.conn
 	if conn == nil {
-		conn, err = c.dial()
+		conn, err = c.dial(ctx)
 		if err != nil {
 			c.mu.Unlock()
 			return nil, err
@@ -143,12 +188,12 @@ func (c *UnixClient) RunCommand(ctx context.Context, command string, arguments m
 	}
 	cmdData = append(cmdData, '\n')
 
-	if err := c.send(conn, cmdData); err != nil {
+	if err := c.send(ctx, conn, cmdData); err != nil {
 		cErr := c.Close()
 		return nil, multierr.Append(errors.Wrapf(err, "write command data failed"), cErr)
 	}
 
-	data, err := c.recv(conn)
+	data, err := c.recv(ctx, conn)
 	if err != nil {
 		cErr := c.Close()
 		return nil, multierr.Append(err, cErr)
@@ -166,19 +211,19 @@ func (c *UnixClient) RunCommand(ctx context.Context, command string, arguments m
 	return resp, nil
 }
 
-func (c *UnixClient) send(conn net.Conn, data []byte) error {
-	conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
+func (c *UnixClient) send(ctx context.Context, conn net.Conn, data []byte) error {
+	conn.SetWriteDeadline(c.deadlineFor(ctx))
 	_, err := conn.Write(data)
 	return err
 }
 
-func (c *UnixClient) recv(conn net.Conn) ([]byte, error) {
+func (c *UnixClient) recv(ctx context.Context, conn net.Conn) ([]byte, error) {
 	// Read until '\n' shows up or there was an error. A lot of data
 	// is retuned, so may read short.
 	reader := bufio.NewReader(conn)
 	var response []byte
 	for {
-		conn.SetReadDeadline(time.Now().Add(c.readTimeout))
+		conn.SetReadDeadline(c.deadlineFor(ctx))
 
 		data, err := reader.ReadBytes('\n')
 		if err != nil {

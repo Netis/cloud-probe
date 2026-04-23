@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define PATH_MAX 4096
+
 #include "affinity.h"
 #include "build_config.h"
 #include "config.h"
@@ -14,6 +16,7 @@
 #include "log.h"
 #include "task.h"
 #include "unix-manager.h"
+#include "unix_rpc_basic.h"
 
 /* command line flags */
 static const char *progname;
@@ -94,6 +97,13 @@ int main(int argc, char **argv)
     progname = argv[0];
     parse_opts(argc, argv);
 
+    unix_rpc_basic_set_started_at(time(NULL));
+    unix_rpc_basic_set_config_path(config_file);
+
+    char cwdbuf[PATH_MAX];
+    if (getcwd(cwdbuf, sizeof(cwdbuf)) != NULL)
+        unix_rpc_basic_set_working_dir(cwdbuf);
+
     cJSONParseError err;
     Config *config = parse_config_file(config_file, &err);
     if (!config)
@@ -143,6 +153,8 @@ int main(int argc, char **argv)
         log_info("listen on unix socket %s", config->control->config.unix_socket.path);
 
         unix_manager_register_command("collect_stats_summary", task_manager_collect_stats_summary_command, NULL);
+        unix_manager_register_command("ping", unix_rpc_ping_command, NULL);
+        unix_manager_register_command("info", unix_rpc_info_command, NULL);
 
         if (unix_manager_thread_spawn() != 0)
         {

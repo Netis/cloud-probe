@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -15,6 +16,13 @@
 #define UNIX_PROTO_VERSION_V1 "v1"
 #define UNIX_PROTO_V1 1
 #define CLIENT_BUFFER_SIZE 4096
+
+/* Bound how long a blocking send() in the manager thread can wait on a slow
+ * reader. A client could otherwise open the socket, issue an RPC, then stop
+ * draining — stalling every other client served by the single-threaded select
+ * loop. With this timeout, send() returns EAGAIN after N seconds and
+ * unix_command_execute tears the client down. */
+#define CLIENT_SEND_TIMEOUT_SEC 5
 
 // MSG_NOSIGNAL does not exists on OS X
 #ifdef OS_DARWIN
@@ -51,6 +59,16 @@ typedef struct UnixManager
 } unix_manager_t;
 
 static unix_manager_t unix_mgr;
+
+int unix_manager_set_send_timeout(int fd, int seconds)
+{
+    struct timeval tv;
+    tv.tv_sec = seconds;
+    tv.tv_usec = 0;
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) != 0)
+        return -1;
+    return 0;
+}
 
 static int unix_manager_new(unix_manager_t *this, const char *socket_file)
 {
@@ -169,27 +187,65 @@ static void unix_client_delete(unix_manager_t *this, int fd)
 
 static int unix_client_send(unix_client_t *client, cJSON *msg)
 {
+    /* Fast path: most responses (ping/info/stats) fit in the per-client
+     * preallocated buffer, no allocation needed. */
     bool ok = cJSON_PrintPreallocated(msg, client->buf, CLIENT_BUFFER_SIZE - 1, false);
-    if (!ok)
+    if (ok)
+    {
+        size_t length = strlen(client->buf);
+        if (length < CLIENT_BUFFER_SIZE - 1)
+        {
+            client->buf[length] = '\n';
+            client->buf[length + 1] = '\0';
+            if (send(client->fd, client->buf, length + 1, MSG_NOSIGNAL) == -1)
+            {
+                log_warn("send message error: %s", strerror(errno));
+                return -1;
+            }
+            return 0;
+        }
+    }
+
+    /* Slow path: cJSON_PrintPreallocated failed (response > 4KB). Fall back
+     * to dynamic allocation so large responses aren't truncated. */
+    char *rendered = cJSON_PrintUnformatted(msg);
+    if (rendered == NULL)
     {
         log_warn("json dumps error");
         return -1;
     }
-    size_t length = strlen(client->buf);
-    if (length >= CLIENT_BUFFER_SIZE - 1)
+    size_t length = strlen(rendered);
+    char *out = realloc(rendered, length + 2);
+    if (out == NULL)
     {
-        log_warn("message is too large");
+        free(rendered);
+        log_warn("alloc error");
         return -1;
     }
-    client->buf[length] = '\n';
-    client->buf[length + 1] = '\0';
+    out[length] = '\n';
+    out[length + 1] = '\0';
 
-    if (send(client->fd, client->buf, length + 1, MSG_NOSIGNAL) == -1)
+    int rc = 0;
+    size_t total = length + 1;
+    size_t sent_total = 0;
+    while (sent_total < total)
     {
-        log_warn("send message error: %s", strerror(errno));
-        return -1;
+        ssize_t n = send(client->fd, out + sent_total, total - sent_total, MSG_NOSIGNAL);
+        if (n < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            /* SO_SNDTIMEO fires as EAGAIN/EWOULDBLOCK on a stuck peer.
+             * Drop the client instead of retrying — don't let one slow
+             * reader monopolize the manager thread. */
+            log_warn("send message error: %s", strerror(errno));
+            rc = -1;
+            break;
+        }
+        sent_total += (size_t)n;
     }
-    return 0;
+    free(out);
+    return rc;
 }
 
 static int unix_manager_accept(unix_manager_t *this)
@@ -202,6 +258,11 @@ static int unix_manager_accept(unix_manager_t *this)
         log_error("unix socket: accept() error: %s", strerror(errno));
         return -1;
     }
+
+    /* Bound any single send() so a slow/malicious reader can't stall the
+     * single-threaded manager by leaving the socket buffer full. */
+    if (unix_manager_set_send_timeout(client_fd, CLIENT_SEND_TIMEOUT_SEC) != 0)
+        log_warn("unix socket: set SO_SNDTIMEO failed: %s", strerror(errno));
 
     // read client version
     char buffer[UNIX_PROTO_VERSION_LENGTH + 1];

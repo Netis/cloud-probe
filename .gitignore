@@ -3,3 +3,4 @@ go.work.sum
 tmp/
 .DS_Store
 .worktrees
+.env.local

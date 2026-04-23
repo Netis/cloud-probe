@@ -27,6 +27,7 @@ set(MAIN_CONFIG_DIR "${CMAKE_BINARY_DIR}")
 set(unity_tests
     misc
     packet_split
+    unix_control
 )
 
 foreach(unity_test ${unity_tests})
