@@ -1,6 +1,6 @@
 module github.com/netis-cloud-probe/cloud-probe/cpworker/tests/integration/helpers/zmq_receiver
 
-go 1.21
+go 1.23.0
 
 require (
 	github.com/google/gopacket v1.1.19
@@ -8,6 +8,6 @@ require (
 )
 
 require (
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
-	golang.org/x/sys v0.0.0-20190412213103-97732733099d // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 )
