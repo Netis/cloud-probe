@@ -282,7 +282,7 @@ vxlan_output_t *vxlan_output_new(vxlan_options_t opts, output_stats_t *stats, ch
     }
 
 #if defined(OS_LINUX)
-    if (opts.pmtudisc > 0)
+    if (opts.pmtudisc >= 0)
     {
         if (setsockopt(socket_fd, SOL_IP, IP_MTU_DISCOVER, &opts.pmtudisc, sizeof(opts.pmtudisc)) == -1)
         {

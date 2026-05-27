@@ -163,7 +163,7 @@ gre_output_t *gre_output_new(gre_options_t opts, output_stats_t *stats, char *er
     }
 
 #if defined(OS_LINUX)
-    if (opts.pmtudisc > 0)
+    if (opts.pmtudisc >= 0)
     {
         if (setsockopt(socket_fd, SOL_IP, IP_MTU_DISCOVER, &opts.pmtudisc, sizeof(opts.pmtudisc)) == -1)
         {
