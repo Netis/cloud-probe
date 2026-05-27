@@ -21,7 +21,8 @@ typedef struct CapturerBase
     capture_stats_t *stats;
 } capturer_base_t;
 
-typedef capturer_base_t *(*CapturerFactory)(TaskConfig *task_cfg, capture_stats_t *stats, char *errbuf);
+typedef capturer_base_t *(*CapturerFactory)(TasksAllConfig *tasks_cfg, TaskConfig *task_cfg, capture_stats_t *stats,
+                                            char *errbuf);
 
 typedef struct CapturerEntry
 {

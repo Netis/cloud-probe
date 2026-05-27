@@ -42,7 +42,8 @@ typedef struct LibpcapCapturer
 
 } libpcap_capturer_t;
 
-capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, capture_stats_t *stats, char *errbuf);
+capturer_base_t *libpcap_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskConfig *task_cfg, capture_stats_t *stats,
+                                              char *errbuf);
 libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t *stats, char *errbuf);
 void libpcap_capturer_destory(capturer_base_t *capturer);
 

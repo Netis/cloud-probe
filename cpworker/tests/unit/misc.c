@@ -48,6 +48,26 @@ const char *config_libpcap_gre_vxlan =
     "\"eth1\"}}, {\"type\": \"vxlan\", \"rate_limit_mbps\": 10, \"vxlan\": {\"host\": \"172.16.1.202\", \"port\": "
     "4789, \"vni1\": 2147483648, \"bind_device\": \"eth1\"}}]}]}";
 
+const char *config_libpcap_two_tasks_vxlan =
+    "{\"tasks\": ["
+    "{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"ens192\", \"snaplen\": 65535, \"buffer_size_mb\": 256}}, "
+    "\"outputs\": [{\"type\": \"vxlan\", \"vxlan\": {\"host\": \"172.16.206.40\", \"port\": 4788, \"vni1\": 123}}]},"
+    "{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"ens192\", \"snaplen\": 65535, \"buffer_size_mb\": 256}}, "
+    "\"outputs\": [{\"type\": \"vxlan\", \"vxlan\": {\"host\": \"172.16.206.24\", \"port\": 4788, \"vni1\": 234}}]}"
+    "]}";
+
+const char *config_libpcap_two_tasks_shared_host =
+    "{\"tasks\": ["
+    "{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, "
+    "\"outputs\": [{\"type\": \"gre\", \"gre\": {\"host\": \"172.16.1.201\", \"bind_device\": \"eth1\"}}]},"
+    "{\"req_pattern\": {\"type\": \"auto\"}, \"capturer\": {\"type\": \"libpcap\", \"libpcap\": "
+    "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, "
+    "\"outputs\": [{\"type\": \"gre\", \"gre\": {\"host\": \"172.16.1.201\", \"bind_device\": \"eth1\"}}]}"
+    "]}";
+
 void test_parse_config_data_for_libpcap_gre_vxlan(void)
 {
     cJSONParseError err;
@@ -65,7 +85,7 @@ void test_bpf_filter_exclude_task_output_hosts_1(void)
     TEST_ASSERT_NOT_NULL(config);
 
     char errbuf[ERROR_BUFFER_SIZE];
-    char *bpf_filter = bpf_filter_exclude_task_output_hosts("", config->tasks_cfg->tasks[0], errbuf);
+    char *bpf_filter = bpf_filter_exclude_task_output_hosts("", config->tasks_cfg, errbuf);
     TEST_ASSERT_NOT_NULL(bpf_filter);
     TEST_ASSERT_EQUAL_STRING("not host 172.16.1.201", bpf_filter);
     free(bpf_filter);
@@ -78,8 +98,7 @@ void test_bpf_filter_exclude_task_output_hosts_2(void)
     TEST_ASSERT_NOT_NULL(config);
 
     char errbuf[ERROR_BUFFER_SIZE];
-    char *bpf_filter =
-        bpf_filter_exclude_task_output_hosts("host 10.1.1.1 and port 8011", config->tasks_cfg->tasks[0], errbuf);
+    char *bpf_filter = bpf_filter_exclude_task_output_hosts("host 10.1.1.1 and port 8011", config->tasks_cfg, errbuf);
     TEST_ASSERT_NOT_NULL(bpf_filter);
     TEST_ASSERT_EQUAL_STRING("(host 10.1.1.1 and port 8011) and not host 172.16.1.201", bpf_filter);
     free(bpf_filter);
@@ -92,7 +111,7 @@ void test_bpf_filter_exclude_task_output_hosts_3(void)
     TEST_ASSERT_NOT_NULL(config);
 
     char errbuf[ERROR_BUFFER_SIZE];
-    char *bpf_filter = bpf_filter_exclude_task_output_hosts("", config->tasks_cfg->tasks[0], errbuf);
+    char *bpf_filter = bpf_filter_exclude_task_output_hosts("", config->tasks_cfg, errbuf);
     TEST_ASSERT_NOT_NULL(bpf_filter);
     TEST_ASSERT_EQUAL_STRING("not host 172.16.1.201 and not host 172.16.1.202", bpf_filter);
     free(bpf_filter);
@@ -105,11 +124,39 @@ void test_bpf_filter_exclude_task_output_hosts_4(void)
     TEST_ASSERT_NOT_NULL(config);
 
     char errbuf[ERROR_BUFFER_SIZE];
-    char *bpf_filter =
-        bpf_filter_exclude_task_output_hosts("host 10.1.1.1 and port 8011", config->tasks_cfg->tasks[0], errbuf);
+    char *bpf_filter = bpf_filter_exclude_task_output_hosts("host 10.1.1.1 and port 8011", config->tasks_cfg, errbuf);
     TEST_ASSERT_NOT_NULL(bpf_filter);
     TEST_ASSERT_EQUAL_STRING("(host 10.1.1.1 and port 8011) and not host 172.16.1.201 and not host 172.16.1.202",
                              bpf_filter);
+    free(bpf_filter);
+}
+
+// Cross-task: when two tasks share a capture interface, each task's BPF must
+// exclude every output host across all tasks, not just its own.
+void test_bpf_filter_exclude_task_output_hosts_5(void)
+{
+    cJSONParseError err;
+    Config *config = parse_config_data(config_libpcap_two_tasks_vxlan, &err);
+    TEST_ASSERT_NOT_NULL(config);
+
+    char errbuf[ERROR_BUFFER_SIZE];
+    char *bpf_filter = bpf_filter_exclude_task_output_hosts("", config->tasks_cfg, errbuf);
+    TEST_ASSERT_NOT_NULL(bpf_filter);
+    TEST_ASSERT_EQUAL_STRING("not host 172.16.206.40 and not host 172.16.206.24", bpf_filter);
+    free(bpf_filter);
+}
+
+// Cross-task: duplicate output hosts across tasks must be emitted only once.
+void test_bpf_filter_exclude_task_output_hosts_6(void)
+{
+    cJSONParseError err;
+    Config *config = parse_config_data(config_libpcap_two_tasks_shared_host, &err);
+    TEST_ASSERT_NOT_NULL(config);
+
+    char errbuf[ERROR_BUFFER_SIZE];
+    char *bpf_filter = bpf_filter_exclude_task_output_hosts("", config->tasks_cfg, errbuf);
+    TEST_ASSERT_NOT_NULL(bpf_filter);
+    TEST_ASSERT_EQUAL_STRING("not host 172.16.1.201", bpf_filter);
     free(bpf_filter);
 }
 
@@ -712,6 +759,8 @@ int main(void)
     RUN_TEST(test_bpf_filter_exclude_task_output_hosts_2);
     RUN_TEST(test_bpf_filter_exclude_task_output_hosts_3);
     RUN_TEST(test_bpf_filter_exclude_task_output_hosts_4);
+    RUN_TEST(test_bpf_filter_exclude_task_output_hosts_5);
+    RUN_TEST(test_bpf_filter_exclude_task_output_hosts_6);
 
     RUN_TEST(test_req_pattern_custom_multi_host_and_one_port);
     RUN_TEST(test_req_pattern_custom_one_host_and_multi_port);

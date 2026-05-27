@@ -1334,28 +1334,67 @@ Config *parse_config_file(const char *filename, cJSONParseError *err)
 }
 
 /* caller is responsible for freeing the returned string */
-char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg, char *errbuf)
+static char *output_forward_host(OutputConfig *output)
 {
+    if (strcmp(output->type, OUTPUT_TYPE_VXLAN) == 0)
+        return output->config.vxlan.host;
+    else if (strcmp(output->type, OUTPUT_TYPE_GRE) == 0)
+        return output->config.gre.host;
+    else if (strcmp(output->type, OUTPUT_TYPE_ZMQ) == 0)
+        return output->config.zmq.host;
+    return NULL;
+}
+
+char *bpf_filter_exclude_task_output_hosts(const char *bpf, TasksAllConfig *tasks_cfg, char *errbuf)
+{
+    int max_hosts = 0;
+    for (int t = 0; t < tasks_cfg->num_tasks; t++)
+        max_hosts += tasks_cfg->tasks[t]->num_outputs;
+
+    char **hosts = NULL;
+    if (max_hosts > 0)
+    {
+        hosts = (char **)calloc(max_hosts, sizeof(char *));
+        if (!hosts)
+        {
+            error_format(errbuf, "failed to allocate memory");
+            return NULL;
+        }
+    }
+    int num_hosts = 0;
+
     size_t extra_size = strlen(" and not host ");
     size_t buf_size = strlen(bpf) + 1 + 2; // +1 for null terminator, +2 for brackets
-    for (int i = 0; i < task_cfg->num_outputs; i++)
+    for (int t = 0; t < tasks_cfg->num_tasks; t++)
     {
-        OutputConfig *output = task_cfg->outputs[i];
-        char *host = NULL;
-        if (strcmp(output->type, OUTPUT_TYPE_VXLAN) == 0)
-            host = output->config.vxlan.host;
-        else if (strcmp(output->type, OUTPUT_TYPE_GRE) == 0)
-            host = output->config.gre.host;
-        else if (strcmp(output->type, OUTPUT_TYPE_ZMQ) == 0)
-            host = output->config.zmq.host;
+        TaskConfig *task_cfg = tasks_cfg->tasks[t];
+        for (int i = 0; i < task_cfg->num_outputs; i++)
+        {
+            char *host = output_forward_host(task_cfg->outputs[i]);
+            if (!host)
+                continue;
 
-        if (host)
+            bool seen = false;
+            for (int j = 0; j < num_hosts; j++)
+            {
+                if (strcmp(hosts[j], host) == 0)
+                {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen)
+                continue;
+
+            hosts[num_hosts++] = host;
             buf_size += strlen(host) + extra_size;
+        }
     }
 
     char *output = (char *)malloc(buf_size);
     if (!output)
     {
+        free(hosts);
         error_format(errbuf, "failed to allocate memory");
         return NULL;
     }
@@ -1368,24 +1407,14 @@ char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg
         is_first = false;
     }
 
-    for (int i = 0; i < task_cfg->num_outputs; i++)
+    for (int i = 0; i < num_hosts; i++)
     {
-        OutputConfig *output = task_cfg->outputs[i];
-        char *host = NULL;
-        if (strcmp(output->type, OUTPUT_TYPE_VXLAN) == 0)
-            host = output->config.vxlan.host;
-        else if (strcmp(output->type, OUTPUT_TYPE_GRE) == 0)
-            host = output->config.gre.host;
-        else if (strcmp(output->type, OUTPUT_TYPE_ZMQ) == 0)
-            host = output->config.zmq.host;
-
-        if (host)
-        {
-            out_ptr += sprintf(out_ptr, "%snot host %s", is_first ? "" : " and ", host);
-            is_first = false;
-        }
+        out_ptr += sprintf(out_ptr, "%snot host %s", is_first ? "" : " and ", hosts[i]);
+        is_first = false;
     }
     *out_ptr = '\0';
+
+    free(hosts);
     return output;
 }
 

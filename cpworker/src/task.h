@@ -18,7 +18,8 @@ typedef struct TaskStatsSummary
     output_stats_t output;
 } task_stats_summary_t;
 
-capture_task_t *capture_task_new(TaskConfig *task_cfg, task_stats_summary_t *stats, char *errbuf);
+capture_task_t *capture_task_new(TasksAllConfig *tasks_cfg, TaskConfig *task_cfg, task_stats_summary_t *stats,
+                                 char *errbuf);
 void capture_task_destory(capture_task_t *task);
 uint64_t capture_task_poll_packets(capture_task_t *task);
 

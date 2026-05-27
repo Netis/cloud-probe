@@ -253,14 +253,15 @@ error3:
     return NULL;
 }
 
-capturer_base_t *libpcap_capture_new_from_cfg(TaskConfig *task_cfg, capture_stats_t *stats, char *errbuf)
+capturer_base_t *libpcap_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskConfig *task_cfg, capture_stats_t *stats,
+                                              char *errbuf)
 {
     char *bpf_filter = NULL;
     if (!task_cfg->capturer.config.libpcap.not_filter_output_hosts)
     {
         log_info("exclude task output hosts");
         bpf_filter =
-            bpf_filter_exclude_task_output_hosts(task_cfg->capturer.config.libpcap.bpf_filter, task_cfg, errbuf);
+            bpf_filter_exclude_task_output_hosts(task_cfg->capturer.config.libpcap.bpf_filter, tasks_cfg, errbuf);
         if (bpf_filter == NULL)
             return NULL;
     }

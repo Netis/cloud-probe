@@ -61,7 +61,8 @@ static OutputFactory find_output_factory(const char *name)
     return NULL;
 }
 
-capture_task_t *capture_task_new(TaskConfig *task_cfg, task_stats_summary_t *stats, char *errbuf)
+capture_task_t *capture_task_new(TasksAllConfig *tasks_cfg, TaskConfig *task_cfg, task_stats_summary_t *stats,
+                                 char *errbuf)
 {
     capture_task_t *task = (capture_task_t *)calloc(1, sizeof(capture_task_t));
     if (!task)
@@ -76,7 +77,7 @@ capture_task_t *capture_task_new(TaskConfig *task_cfg, task_stats_summary_t *sta
         error_format(errbuf, "unsupport capturer type %s", task_cfg->capturer.type);
         goto error;
     }
-    task->capturer = factory(task_cfg, &stats->capture, errbuf);
+    task->capturer = factory(tasks_cfg, task_cfg, &stats->capture, errbuf);
     if (!task->capturer)
         goto error;
 
@@ -199,7 +200,7 @@ static int task_manager_new(task_manager_t *this, TasksAllConfig *config)
     char errbuf[ERROR_BUFFER_SIZE];
     for (int i = 0; i < num_tasks; ++i)
     {
-        capture_task_t *cap_task = capture_task_new(config->tasks[i], &this->stats_summary, errbuf);
+        capture_task_t *cap_task = capture_task_new(config, config->tasks[i], &this->stats_summary, errbuf);
         if (!cap_task)
         {
             log_error("new task-%d error: %s", i, errbuf);

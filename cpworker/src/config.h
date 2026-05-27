@@ -30,8 +30,8 @@
 
 typedef struct
 {
-    uint16_t max_payload_size;      // 0 = disabled
-    bool recalculate_checksum;      // Whether to recalculate checksums after splitting (default: false)
+    uint16_t max_payload_size; // 0 = disabled
+    bool recalculate_checksum; // Whether to recalculate checksums after splitting (default: false)
 } SplitConfig;
 
 typedef struct
@@ -168,7 +168,7 @@ Config *parse_config_file(const char *filename, cJSONParseError *err);
 Config *parse_config_data(const char *json_str, cJSONParseError *err);
 void free_config(Config *config);
 
-char *bpf_filter_exclude_task_output_hosts(const char *bpf, TaskConfig *task_cfg, char *errbuf);
+char *bpf_filter_exclude_task_output_hosts(const char *bpf, TasksAllConfig *tasks_cfg, char *errbuf);
 int task_capturer_snaplen(TaskConfig *task_cfg);
 
 #endif /* CPWORKER_CONFIG_H */
