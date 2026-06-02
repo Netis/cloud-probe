@@ -27,7 +27,7 @@ func (t Tool) GetContainerHostPid(containerId string) (int, error) {
 		return pid, nil
 	}
 
-	if pid, err := GetContainerHostPidByCrictl(containerId); err == nil {
+	if pid, err := GetContainerHostPidByCriPid(containerId); err == nil {
 		return pid, nil
 	}
 

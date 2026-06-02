@@ -488,15 +488,31 @@ func (DockerPid) DarwinARM64() error {
 	return buildDockerPid(newGoBuildConfig("darwin", "arm64"))
 }
 
+func buildCriPid(cfg GoBuildConfig) error {
+	cfg.OutputBinaryPath = filepath.Join(packageBinaryPath(cfg.OS, cfg.Arch), "cripid")
+	cfg.ModulePath = "../cptools/cripid"
+	return buildGoBinary(cfg)
+}
+
+type CriPid mg.Namespace
+
+func (CriPid) Linux() error {
+	return buildCriPid(newGoBuildConfig("linux", "amd64"))
+}
+
+func (CriPid) LinuxARM64() error {
+	return buildCriPid(newGoBuildConfig("linux", "arm64"))
+}
+
 type Make mg.Namespace
 
 func (Make) Linux() error {
-	mg.Deps(Cpworker.Linux, Cpdaemon.Linux, Cpctl.Linux, DockerPid.Linux)
+	mg.Deps(Cpworker.Linux, Cpdaemon.Linux, Cpctl.Linux, DockerPid.Linux, CriPid.Linux)
 	return copyExamples("linux", "amd64")
 }
 
 func (Make) LinuxARM64() error {
-	mg.Deps(Cpworker.LinuxARM64, Cpdaemon.LinuxARM64, Cpctl.LinuxARM64, DockerPid.LinuxARM64)
+	mg.Deps(Cpworker.LinuxARM64, Cpdaemon.LinuxARM64, Cpctl.LinuxARM64, DockerPid.LinuxARM64, CriPid.LinuxARM64)
 	return copyExamples("linux", "arm64")
 }
 
