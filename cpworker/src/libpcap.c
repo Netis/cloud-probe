@@ -16,6 +16,14 @@
 #include "req_pattern.h"
 #include "stats.h"
 
+// pcap_set_immediate_mode() only exists in libpcap >= 1.5.0. cpworker may run against an
+// older system libpcap than the one it was built with (it resolves libpcap.so.1 from the
+// OS at runtime, not the bundled copy), so reference the symbol weakly and call it only
+// when present. On libpcap < 1.5.0 the symbol is absent (resolves to NULL) and the loader
+// will not fail; those versions use TPACKET_V2 (per-frame delivery) which has no block
+// retire latency to fix anyway.
+extern int pcap_set_immediate_mode(pcap_t *p, int immediate) __attribute__((weak));
+
 #define DROP_STAT_DUR_SEC 2
 
 uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_handler,
@@ -144,10 +152,55 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
     }
 
     pcap_set_snaplen(p, opts.snaplen);
-    // see: https://github.com/the-tcpdump-group/libpcap/issues/572#issuecomment-576039197
-    pcap_set_timeout(p, opts.timeout_ms);
     pcap_set_promisc(p, opts.promisc);
     pcap_set_buffer_size(p, opts.buffer_size);
+
+    // TPACKET_V3 (libpcap on modern Linux) delivers packets to userspace one *block* at a
+    // time; a block only becomes visible once it fills or its kernel retire timer
+    // (tp_retire_blk_tov, taken from the pcap timeout) fires. This only bites when
+    // timeout_ms == 0: libpcap then sets tp_retire_blk_tov = UINT_MAX, so a block is
+    // effectively delivered only when full -- at low/bursty rates that takes seconds
+    // (measured ~0.5-0.9s at 2pps, tens of seconds near-idle), making zmq batches arrive in
+    // multi-second bursts. When timeout_ms > 0 the retire timer is already bounded by the
+    // user-chosen value, so the problem does not exist and we must NOT override that intent
+    // (a non-zero timeout often means "batch up to N ms to save wakeups").
+    if (opts.timeout_ms == 0)
+    {
+        // Non-blocking round-robin path (see pcap_setnonblock below). Immediate mode is the
+        // real fix: in libpcap 1.9.x it makes pcap drop TPACKET_V3 and use TPACKET_V2, which
+        // delivers per frame with no block buffering (measured ~0ms on ARM/libpcap 1.9.1).
+        // It is orthogonal to non-blocking: non-blocking only governs whether a quiet
+        // interface returns at once; immediate mode governs when packets become visible.
+        // The symbol is weak, so it is NULL when the runtime libpcap is < 1.5.0; guard it.
+        int immediate_ok = 0;
+        if (pcap_set_immediate_mode)
+        {
+            int rc_imm = pcap_set_immediate_mode(p, 1);
+            if (rc_imm == 0)
+                immediate_ok = 1;
+            else
+                log_warn("pcap_set_immediate_mode failed (rc=%d); falling back to retire-timeout backstop", rc_imm);
+        }
+        else
+        {
+            log_info("pcap_set_immediate_mode unavailable in runtime libpcap (<1.5.0); using retire-timeout backstop");
+        }
+
+        // Backstop ONLY when immediate mode could not be enabled: bound the TPACKET_V3 retire
+        // timer (a 0 timeout would otherwise mean UINT_MAX). When immediate mode IS enabled we
+        // leave the timeout alone -- libpcap is on TPACKET_V2 (or, on newer libpcap, drives
+        // the retire timer itself), so forcing a 10ms timeout here would be dead at best and
+        // could cap delivery at 10ms at worst. (< 1.5.0 libpcap uses TPACKET_V2 anyway.)
+        // see: https://github.com/the-tcpdump-group/libpcap/issues/572#issuecomment-576039197
+        if (!immediate_ok)
+            pcap_set_timeout(p, 10);
+    }
+    else
+    {
+        // Blocking path: the user-chosen timeout bounds both the poll wait and the V3 block
+        // retire timer; respect it.
+        pcap_set_timeout(p, opts.timeout_ms);
+    }
 
     if (pcap_activate(p) < 0)
     {
