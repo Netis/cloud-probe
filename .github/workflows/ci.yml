@@ -19,7 +19,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential pkg-config \
-            libpcap-dev libzmq3-dev
+            libpcap-dev autoconf automake libtool
 
       - name: Assemble CPWORKER_LIBRARY_ROOT shim
         run: |
@@ -29,20 +29,19 @@ jobs:
           mkdir -p "$SDK/lib" "$SDK/include"
           # libpcap (shared is fine; cmake uses find_library(pcap ...))
           cp -av /usr/lib/$MA/libpcap.so*  "$SDK/lib/"
-          # libzmq — cmake REQUIRES static libzmq.a (CMakeLists line 84)
-          if [ -f "/usr/lib/$MA/libzmq.a" ]; then
-            cp -av /usr/lib/$MA/libzmq.a "$SDK/lib/"
-          else
-            echo "::warning::libzmq.a not in apt; building static libzmq from source"
-            sudo apt-get install -y autoconf automake libtool
-            git clone --depth 1 https://github.com/zeromq/libzmq /tmp/libzmq
-            ( cd /tmp/libzmq && ./autogen.sh && ./configure --enable-static --disable-shared \
-                && make -j"$(nproc)" && cp src/.libs/libzmq.a "$SDK/lib/" )
-          fi
-          # headers
+          # pcap headers
           cp -av /usr/include/pcap "$SDK/include/" 2>/dev/null || true
           cp -av /usr/include/pcap*.h "$SDK/include/" 2>/dev/null || true
-          cp -av /usr/include/zmq.h /usr/include/zmq_utils.h "$SDK/include/" 2>/dev/null || true
+          # libzmq — build a MINIMAL static lib from source. apt's libzmq.a is a
+          # "fat" build (OpenPGM + GSSAPI) whose pgm_*/gss_* symbols cpworker's
+          # static link can't resolve; disable them for a self-contained archive.
+          git clone --depth 1 https://github.com/zeromq/libzmq /tmp/libzmq
+          ( cd /tmp/libzmq && ./autogen.sh && \
+            ./configure --enable-static --disable-shared \
+              --without-pgm --without-libgssapi_krb5 --disable-libunwind --disable-perf && \
+            make -j"$(nproc)" )
+          cp -av /tmp/libzmq/src/.libs/libzmq.a "$SDK/lib/"
+          cp -av /tmp/libzmq/include/*.h "$SDK/include/"
           ls -l "$SDK/lib" "$SDK/include"
           echo "CPWORKER_LIBRARY_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "CLOUD_PROBE_VERSION=0.9.x-ci" >> "$GITHUB_ENV"
