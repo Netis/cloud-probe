@@ -1,0 +1,64 @@
+name: ci
+on:
+  pull_request:
+    branches: ["0.9.x"]
+  push:
+    branches: ["0.9.x"]
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install C build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential pkg-config \
+            libpcap-dev libzmq3-dev
+
+      - name: Assemble CPWORKER_LIBRARY_ROOT shim
+        run: |
+          set -euxo pipefail
+          SDK="$RUNNER_TEMP/cpworker-sdk"
+          MA="$(gcc -dumpmachine)"           # e.g. x86_64-linux-gnu
+          mkdir -p "$SDK/lib" "$SDK/include"
+          # libpcap (shared is fine; cmake uses find_library(pcap ...))
+          cp -av /usr/lib/$MA/libpcap.so*  "$SDK/lib/"
+          # libzmq — cmake REQUIRES static libzmq.a (CMakeLists line 84)
+          if [ -f "/usr/lib/$MA/libzmq.a" ]; then
+            cp -av /usr/lib/$MA/libzmq.a "$SDK/lib/"
+          else
+            echo "::warning::libzmq.a not in apt; building static libzmq from source"
+            sudo apt-get install -y autoconf automake libtool
+            git clone --depth 1 https://github.com/zeromq/libzmq /tmp/libzmq
+            ( cd /tmp/libzmq && ./autogen.sh && ./configure --enable-static --disable-shared \
+                && make -j"$(nproc)" && cp src/.libs/libzmq.a "$SDK/lib/" )
+          fi
+          # headers
+          cp -av /usr/include/pcap "$SDK/include/" 2>/dev/null || true
+          cp -av /usr/include/pcap*.h "$SDK/include/" 2>/dev/null || true
+          cp -av /usr/include/zmq.h /usr/include/zmq_utils.h "$SDK/include/" 2>/dev/null || true
+          ls -l "$SDK/lib" "$SDK/include"
+          echo "CPWORKER_LIBRARY_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "CLOUD_PROBE_VERSION=0.9.x-ci" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cpdaemon/go.mod
+
+      - name: Build (cpworker C + Go) via Mage
+        working-directory: build
+        run: go run mage.go -v build:linux
+
+      - name: Go unit tests
+        run: |
+          set -e
+          for m in cpdaemon cpctl cpgolib; do
+            echo "== go test ./... ($m) =="
+            ( cd "$m" && go test ./... )
+          done
