@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/pkcs12"
@@ -46,7 +45,6 @@ func NewMux() (*chi.Mux, error) {
 	r.Use(
 		httpmix.Logger(lg.With(slogx.LoggerName("access"))),
 		httpmix.Recoverer(lg.With(slogx.LoggerName("recover"))),
-		middleware.RealIP,
 	)
 	r.Get("/", func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusOK)
