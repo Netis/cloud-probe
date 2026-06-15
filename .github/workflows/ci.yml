@@ -46,7 +46,7 @@ jobs:
           echo "CPWORKER_LIBRARY_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "CLOUD_PROBE_VERSION=0.9.x-ci" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: cpdaemon/go.mod
 
