@@ -12,8 +12,8 @@ require (
 	github.com/samber/lo v1.49.1
 	github.com/samber/slog-common v0.18.1
 	github.com/shirou/gopsutil/v4 v4.25.6
-	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.9
 	github.com/spf13/viper v1.20.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.45.0
