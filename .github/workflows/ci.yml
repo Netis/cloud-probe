@@ -52,9 +52,17 @@ jobs:
 
       - name: Build (cpworker C + Go) via Mage
         working-directory: build
+        # setup-go@v6 pins GOTOOLCHAIN=local, which forbids fetching a newer
+        # toolchain when a (transitive) module requires go > the installed
+        # version. Restore the default 'auto' so the build resolves the
+        # required toolchain on demand, matching local development.
+        env:
+          GOTOOLCHAIN: auto
         run: go run mage.go -v build:linux
 
       - name: Go unit tests
+        env:
+          GOTOOLCHAIN: auto
         run: |
           set -e
           for m in cpdaemon cpctl cpgolib; do
