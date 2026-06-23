@@ -38,11 +38,11 @@ type Worker struct {
 	cfg  ExecConfig
 	lg   *slog.Logger
 
-	mu              sync.Mutex
-	cmd             *exec.Cmd
-	waitDone        chan error
-	startTime       time.Time
-	resLimitCleanup func() error
+	mu        sync.Mutex
+	cmd       *exec.Cmd
+	waitDone  chan error
+	startTime time.Time
+	resLimit  *cgroup.ProcessLimit
 }
 
 func NewWorker(name string, cfg ExecConfig) (*Worker, error) {
@@ -130,11 +130,11 @@ func (w *Worker) Start(ctx context.Context, wCfg *Config) error {
 
 		w.mu.Lock()
 		w.cmd = nil
-		resLimitCleanup := w.resLimitCleanup
+		resLimit := w.resLimit
 		w.mu.Unlock()
 
-		if resLimitCleanup != nil {
-			if err := resLimitCleanup(); err != nil {
+		if resLimit != nil {
+			if err := resLimit.Cleanup(); err != nil {
 				w.lg.Error("clean resource limit failed", slogx.Error(err))
 			} else {
 				w.lg.Info("clean resource limit success")
@@ -233,25 +233,29 @@ func (w *Worker) UpdateResLimit(resLimit ResLimit) error {
 	defer w.mu.Unlock()
 
 	if resLimit.Cpu == nil || *resLimit.Cpu <= 0 {
-		if w.resLimitCleanup != nil {
-			w.lg.Info("removing previous cpu limit")
-			if err := w.resLimitCleanup(); err != nil {
-				return errors.WithMessage(err, "remove previous cpu limit failed")
+		// The worker is still running and remains a member of its cgroup, so we
+		// cannot rmdir it here (it would fail with EBUSY). Reset the quota to
+		// unlimited instead; the cgroup directory is removed when the worker
+		// exits (see Cleanup in Start). We keep w.resLimit so that exit cleanup
+		// still runs.
+		if w.resLimit != nil {
+			w.lg.Info("clearing previous cpu limit")
+			if err := w.resLimit.Reset(); err != nil {
+				return errors.WithMessage(err, "clear previous cpu limit failed")
 			}
 		}
-		w.resLimitCleanup = nil
 		return nil
 	}
 
-	resLimitCleanup, err := w.createResLimit(resLimit)
+	handle, err := w.createResLimit(resLimit)
 	if err != nil {
 		return errors.WithMessage(err, "create cpu limit failed")
 	}
-	w.resLimitCleanup = resLimitCleanup
+	w.resLimit = handle
 	return nil
 }
 
-func (w *Worker) createResLimit(resLimit ResLimit) (func() error, error) {
+func (w *Worker) createResLimit(resLimit ResLimit) (*cgroup.ProcessLimit, error) {
 	if resLimit.Cpu == nil || *resLimit.Cpu <= 0 {
 		w.lg.Info("cpu limit is not set, skip create cgroup")
 		return nil, nil

@@ -25,7 +25,18 @@ type CgroupLimit struct {
 	CpuLimit *float64 // cpu usage percentage, eg: 100 means 100%
 }
 
-func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (func() error, error) {
+// ProcessLimit is a handle to a process's cpu cgroup.
+type ProcessLimit struct {
+	// Reset clears the cpu quota (sets it to unlimited) while keeping the cgroup
+	// and its process membership intact. It is safe to call while the worker is
+	// still running, unlike Cleanup which would fail with EBUSY.
+	Reset func() error
+	// Cleanup removes the cgroup directory. It is intended for worker exit, when
+	// the process has detached and the cgroup is empty.
+	Cleanup func() error
+}
+
+func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (*ProcessLimit, error) {
 	cgroupName := fmt.Sprintf("pid-%d", pid)
 	switch cfg.Version {
 	case VersionV1:
@@ -35,20 +46,21 @@ func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (func() error
 		}
 		slog.Default().Info("create cgroup", slog.String("cgroupPath", cgroupPath))
 
-		clean := func() error {
-			return RemoveCgroup(cgroupPath)
+		pl := &ProcessLimit{
+			Reset:   func() error { return SetV1CpuUnlimited(cgroupPath) },
+			Cleanup: func() error { return RemoveCgroup(cgroupPath) },
 		}
 
 		if limit.CpuLimit != nil {
 			if err := SetV1CpuQuota(cgroupPath, *limit.CpuLimit); err != nil {
-				return clean, err
+				return pl, err
 			}
 		}
 
 		if err := AddCgroupProcess(cgroupPath, pid); err != nil {
-			return clean, err
+			return pl, err
 		}
-		return clean, nil
+		return pl, nil
 	case VersionV2:
 		cgroupPath, err := CreateV2Cgroup(cfg.Root, cfg.Hierarchy, cgroupName, []string{"cpu"})
 		if err != nil {
@@ -56,20 +68,21 @@ func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (func() error
 		}
 		slog.Default().Info("create cgroup", slog.String("cgroupPath", cgroupPath))
 
-		clean := func() error {
-			return RemoveCgroup(cgroupPath)
+		pl := &ProcessLimit{
+			Reset:   func() error { return SetV2CpuUnlimited(cgroupPath) },
+			Cleanup: func() error { return RemoveCgroup(cgroupPath) },
 		}
 
 		if limit.CpuLimit != nil {
 			if err := SetV2CpuQuota(cgroupPath, *limit.CpuLimit); err != nil {
-				return clean, err
+				return pl, err
 			}
 		}
 
 		if err := AddCgroupProcess(cgroupPath, pid); err != nil {
-			return clean, err
+			return pl, err
 		}
-		return clean, nil
+		return pl, nil
 	default:
 		return nil, errors.Errorf("unknown cgroup version: %s", cfg.Version)
 	}
@@ -86,6 +99,11 @@ func AddCgroupProcess(cgroupPath string, pid int) error {
 	return nil
 }
 
+// RemoveCgroup removes the (empty) leaf cgroup directory. A cgroup can only be
+// rmdir'd once it has no member processes, so this must not be called while the
+// worker is still attached — it is intended for worker exit. To merely clear a
+// live worker's limit, reset its quota to unlimited via SetV1CpuUnlimited /
+// SetV2CpuUnlimited instead.
 func RemoveCgroup(cgroupPath string) error {
 	if err := os.Remove(cgroupPath); err != nil {
 		return errors.Wrapf(err, "remove cgroup %s failed", cgroupPath)
@@ -130,6 +148,20 @@ func SetV1CpuQuota(cgroupPath string, cpuLimit float64) error {
 		0o644,
 	); err != nil {
 		return errors.Wrapf(err, "write %s for %s failed", cpuPeriodFile, cgroupPath)
+	}
+	return nil
+}
+
+// SetV1CpuUnlimited removes the cpu bandwidth limit by writing -1 to
+// cpu.cfs_quota_us, leaving the cgroup and its members in place.
+func SetV1CpuUnlimited(cgroupPath string) error {
+	cpuQuotaFile := "cpu.cfs_quota_us"
+	if err := os.WriteFile(
+		filepath.Join(cgroupPath, cpuQuotaFile),
+		[]byte("-1"),
+		0o644,
+	); err != nil {
+		return errors.Wrapf(err, "write %s for %s failed", cpuQuotaFile, cgroupPath)
 	}
 	return nil
 }
@@ -186,6 +218,20 @@ func SetV2CpuQuota(cgroupPath string, cpuLimit float64) error {
 	if err := os.WriteFile(
 		filepath.Join(cgroupPath, cpuMaxFile),
 		[]byte(fmt.Sprintf("%d %d", quota, period)),
+		0o644,
+	); err != nil {
+		return errors.Wrapf(err, "write %s for %s failed", cpuMaxFile, cgroupPath)
+	}
+	return nil
+}
+
+// SetV2CpuUnlimited removes the cpu bandwidth limit by writing "max" to cpu.max,
+// leaving the cgroup and its members in place.
+func SetV2CpuUnlimited(cgroupPath string) error {
+	cpuMaxFile := "cpu.max"
+	if err := os.WriteFile(
+		filepath.Join(cgroupPath, cpuMaxFile),
+		[]byte("max"),
 		0o644,
 	); err != nil {
 		return errors.Wrapf(err, "write %s for %s failed", cpuMaxFile, cgroupPath)
