@@ -33,7 +33,7 @@ func Test_Viper(t *testing.T) {
 	assert.Equal(t, "", vp.GetString(asm.VKey.Tool.GetKvmInstancesScript))
 	assert.Equal(t, "", vp.GetString(asm.VKey.Tool.GetKvmInstanceNicsScript))
 
-	assert.Equal(t, "v1", vp.GetString(asm.VKey.Cgroup.Version))
+	assert.Equal(t, "auto", vp.GetString(asm.VKey.Cgroup.Version))
 	assert.Equal(t, "/sys/fs/cgroup", vp.GetString(asm.VKey.Cgroup.Root))
 	assert.Equal(t, "cloud-probe", vp.GetString(asm.VKey.Cgroup.Hierarchy))
 

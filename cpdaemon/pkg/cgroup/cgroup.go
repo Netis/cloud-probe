@@ -21,6 +21,23 @@ type CgroupCfg struct {
 	Hierarchy string
 }
 
+// Validate 在启动时校验 cgroup 配置，让非法的 version 尽早 fail-loud，而不是拖到
+// 第一次给 worker 加 CPU 限额时才在 CreateProcessLimit 里报错（甚至在不加限额时
+// 永远不报）。合法取值：
+//   - "auto"：自动探测（也是默认值，未配置时即此值）
+//   - "v1" / "v2"：显式钉死
+//
+// 空字符串一律拒绝：默认值已是 "auto"，正常配置不会产生 ""，出现 "" 基本意味着
+// env/模板渲染漏填，应当 fail-loud 抓出来，而不是悄悄当 auto 跑。
+func (c CgroupCfg) Validate() error {
+	switch c.Version {
+	case "auto", VersionV1, VersionV2:
+		return nil
+	default:
+		return errors.Errorf("invalid cgroup.version %q: expected one of auto, v1, v2", c.Version)
+	}
+}
+
 type CgroupLimit struct {
 	CpuLimit *float64 // cpu usage percentage, eg: 100 means 100%
 }
@@ -36,9 +53,34 @@ type ProcessLimit struct {
 	Cleanup func() error
 }
 
+// resolveVersion 解析最终使用的 cgroup 版本：显式 v1/v2 原样返回（不触发探测）；
+// "auto" 走 DetectVersion，探测失败回退 v1（保持改动前的默认行为）。
+// 纯 v2 节点会被正确识别，不会进入回退分支，不存在误降级风险。
+// 空串等非法值已由 CgroupCfg.Validate 在启动时拒绝，正常不会走到这里。
+func resolveVersion(cfg CgroupCfg) string {
+	if cfg.Version != "auto" {
+		return cfg.Version
+	}
+	detected, err := DetectVersion(cfg.Root)
+	if err != nil {
+		// 检测不出来（statfs 失败、legacy 单挂载 magic 等）时回退到 v1。
+		slog.Default().Warn("detect cgroup version failed, fallback to v1",
+			slog.String("root", cfg.Root), slog.Any("error", err))
+		return VersionV1
+	}
+	slog.Default().Info("auto-detected cgroup version",
+		slog.String("version", detected), slog.String("root", cfg.Root))
+	return detected
+}
+
 func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (*ProcessLimit, error) {
+	version := resolveVersion(cfg)
+
 	cgroupName := fmt.Sprintf("pid-%d", pid)
-	switch cfg.Version {
+	// 进程在对应控制器层级下的预期 cgroup 相对路径，用于写后校验。
+	expectedPath := "/" + filepath.Join(cfg.Hierarchy, cgroupName)
+
+	switch version {
 	case VersionV1:
 		cgroupPath, err := CreateV1CpuCgroup(cfg.Root, cfg.Hierarchy, cgroupName)
 		if err != nil {
@@ -60,6 +102,7 @@ func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (*ProcessLimi
 		if err := AddCgroupProcess(cgroupPath, pid); err != nil {
 			return pl, err
 		}
+		logVerifyProcessCgroup(pid, VersionV1, expectedPath)
 		return pl, nil
 	case VersionV2:
 		cgroupPath, err := CreateV2Cgroup(cfg.Root, cfg.Hierarchy, cgroupName, []string{"cpu"})
@@ -82,10 +125,29 @@ func CreateProcessLimit(pid int, cfg CgroupCfg, limit CgroupLimit) (*ProcessLimi
 		if err := AddCgroupProcess(cgroupPath, pid); err != nil {
 			return pl, err
 		}
+		logVerifyProcessCgroup(pid, VersionV2, expectedPath)
 		return pl, nil
 	default:
-		return nil, errors.Errorf("unknown cgroup version: %s", cfg.Version)
+		return nil, errors.Errorf("unknown cgroup version: %s", version)
 	}
+}
+
+// logVerifyProcessCgroup 回读 /proc/<pid>/cgroup 校验进程是否真的进入目标 cgroup，
+// 仅打印日志、不影响流程：校验失败往往意味着 cgroup 版本与节点实际模式不符，
+// 此时 cpu 限制不会真正生效。
+func logVerifyProcessCgroup(pid int, version, expectedPath string) {
+	if !verifySupported {
+		slog.Default().Info("verify process cgroup skipped",
+			slog.Int("pid", pid), slog.String("version", version), slog.String("reason", "unsupported platform"))
+		return
+	}
+	if err := verifyProcessCgroup(pid, version, expectedPath); err != nil {
+		slog.Default().Warn("verify process cgroup failed, cpu limit may not take effect",
+			slog.Int("pid", pid), slog.String("version", version), slog.Any("error", err))
+		return
+	}
+	slog.Default().Info("verify process cgroup ok",
+		slog.Int("pid", pid), slog.String("version", version), slog.String("expectedPath", expectedPath))
 }
 
 func AddCgroupProcess(cgroupPath string, pid int) error {

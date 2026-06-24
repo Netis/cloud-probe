@@ -10,7 +10,7 @@
         "get_kvm_instance_nics_script": ""
     },
     "cgroup": {
-        "version": "v1",
+        "version": "auto",
         "root": "/sys/fs/cgroup",
         "hierarchy": "cloud-probe"
     },

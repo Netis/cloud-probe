@@ -140,7 +140,7 @@ func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Cpm.Client.MaxIdleConns, 10)
 	vp.SetDefault(VKey.Cpm.Client.MaxIdleConnsPerHost, 5)
 
-	vp.SetDefault(VKey.Cgroup.Version, "v1")
+	vp.SetDefault(VKey.Cgroup.Version, "auto")
 	vp.SetDefault(VKey.Cgroup.Root, "/sys/fs/cgroup")
 	vp.SetDefault(VKey.Cgroup.Hierarchy, "cloud-probe")
 

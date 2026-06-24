@@ -96,6 +96,10 @@ func (c *WorkerConfig) Validate() error {
 	default:
 		return errors.Errorf("invalid updatePolicy: %s", c.UpdatePolicy)
 	}
+
+	if err := c.CgroupCfg.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
