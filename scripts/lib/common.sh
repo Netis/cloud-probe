@@ -32,6 +32,25 @@ CPWORKER_LIBRARY_ROOT="${CPWORKER_LIBRARY_ROOT:-}"
 CLOUD_PROBE_VERSION="${CLOUD_PROBE_VERSION:-0.9.x-dev}"
 GOPROXY="${GOPROXY:-}"
 
+# Local developer checkouts commonly keep the C dependencies in a sibling repo:
+#   ../cloud-probe-thirdparty/libs/<os>-<arch>
+# Auto-detect that path so `just dev build/test` works without a personal
+# .env.local on Linux build machines.
+if [[ -z "$CPWORKER_LIBRARY_ROOT" ]]; then
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64)  _cpw_lib_platform="linux-amd64" ;;
+        Linux-aarch64|Linux-arm64) _cpw_lib_platform="linux-arm64" ;;
+        Darwin-x86_64) _cpw_lib_platform="darwin-amd64" ;;
+        Darwin-arm64)  _cpw_lib_platform="darwin-arm64" ;;
+        *)             _cpw_lib_platform="" ;;
+    esac
+    _cpw_lib_root="$PROJECT_ROOT/../cloud-probe-thirdparty/libs/$_cpw_lib_platform"
+    if [[ -n "$_cpw_lib_platform" && -d "$_cpw_lib_root" ]]; then
+        CPWORKER_LIBRARY_ROOT="$_cpw_lib_root"
+    fi
+    unset _cpw_lib_platform _cpw_lib_root
+fi
+
 # ---------------------------------------------------------------------------
 # BUILD_MODE auto-detection
 # ---------------------------------------------------------------------------
@@ -39,14 +58,22 @@ GOPROXY="${GOPROXY:-}"
 #   1. explicit BUILD_MODE in env wins
 #   2. ~/.cpw-buildhost marker (dropped by `just remote setup`)
 #   3. on Linux AND $PWD == $BUILD_REMOTE_DIR → local
-#   4. fallback → ssh
+#   4. local dependency SDK present → local
+#   5. ssh config present → ssh
+#   6. fallback → local (so unconfigured checkouts can still run Go tests/helpful errors)
 detect_build_mode() {
     if [[ -n "$BUILD_MODE" ]]; then echo "$BUILD_MODE"; return; fi
     if [[ -f "$HOME/.cpw-buildhost" ]]; then echo "local"; return; fi
-    if [[ "$(uname -s)" == "Linux" && "$PWD" == "$BUILD_REMOTE_DIR" ]]; then
+    if [[ -n "$BUILD_REMOTE_DIR" && "$(uname -s)" == "Linux" && "$PWD" == "$BUILD_REMOTE_DIR" ]]; then
         echo "local"; return
     fi
-    echo "ssh"
+    if [[ -n "$CPWORKER_LIBRARY_ROOT" && -d "$CPWORKER_LIBRARY_ROOT" ]]; then
+        echo "local"; return
+    fi
+    if [[ -n "$BUILD_SSH_HOST" && -n "$BUILD_REMOTE_DIR" ]]; then
+        echo "ssh"; return
+    fi
+    echo "local"
 }
 BUILD_MODE="$(detect_build_mode)"
 

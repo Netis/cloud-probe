@@ -46,15 +46,17 @@ cmd_build() {
 
 cmd_test() {
     local suite="${1:-all}"
+    local c_test="(cd build && go run mage.go cpworker:linux && cd tmp/cpworker-linux-amd64 && make test)"
+    local go_test="(cd cpgolib && go test ./...) && (cd cpctl && go test ./...) && (cd cpdaemon && go test ./...) && (cd cptools/dockerpid && go test ./...) && (cd cptools/cripid && go test ./...)"
     case "$suite" in
         c)
-            run_on_buildhost "cd build/tmp/cpworker-linux-amd64 && make test"
+            run_on_buildhost "$c_test"
             ;;
         go)
-            run_on_buildhost "cd cpgolib && go test ./... && cd ../cpctl && go test ./..."
+            run_on_buildhost "$go_test"
             ;;
         all)
-            run_on_buildhost "(cd build/tmp/cpworker-linux-amd64 && make test) && (cd cpgolib && go test ./...) && (cd cpctl && go test ./...)"
+            run_on_buildhost "$c_test && $go_test"
             ;;
         *) echo -e "${RED}Unknown test suite: $suite${NC}"; exit 1 ;;
     esac

@@ -17,10 +17,16 @@ type fakeStatsClient struct {
 	idx       int
 }
 
-func (f *fakeStatsClient) Close() error                                            { return nil }
-func (f *fakeStatsClient) Dial(context.Context) error                              { return nil }
-func (f *fakeStatsClient) Ping(context.Context) (cpworker.PingResult, error)       { return cpworker.PingResult{}, nil }
-func (f *fakeStatsClient) Info(context.Context) (cpworker.InfoSummary, error)      { return cpworker.InfoSummary{}, nil }
+func (f *fakeStatsClient) Close() error               { return nil }
+func (f *fakeStatsClient) Dial(context.Context) error { return nil }
+func (f *fakeStatsClient) Ping(context.Context) (cpworker.PingResult, error) {
+	return cpworker.PingResult{}, nil
+}
+
+func (f *fakeStatsClient) Info(context.Context) (cpworker.InfoSummary, error) {
+	return cpworker.InfoSummary{}, nil
+}
+func (f *fakeStatsClient) ReloadConfig(context.Context) error { return nil }
 func (f *fakeStatsClient) CollectStatsSummary(context.Context) (cpworker.StatsSummary, error) {
 	if f.idx >= len(f.snapshots) {
 		return f.snapshots[len(f.snapshots)-1], nil

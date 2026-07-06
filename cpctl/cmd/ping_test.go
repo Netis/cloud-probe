@@ -72,10 +72,16 @@ type fakePingClient struct {
 	fail error
 }
 
-func (f *fakePingClient) Close() error                                                       { return nil }
-func (f *fakePingClient) Dial(context.Context) error                                         { return nil }
-func (f *fakePingClient) CollectStatsSummary(context.Context) (cpworker.StatsSummary, error) { return cpworker.StatsSummary{}, nil }
-func (f *fakePingClient) Info(context.Context) (cpworker.InfoSummary, error)                 { return cpworker.InfoSummary{}, nil }
+func (f *fakePingClient) Close() error               { return nil }
+func (f *fakePingClient) Dial(context.Context) error { return nil }
+func (f *fakePingClient) CollectStatsSummary(context.Context) (cpworker.StatsSummary, error) {
+	return cpworker.StatsSummary{}, nil
+}
+
+func (f *fakePingClient) Info(context.Context) (cpworker.InfoSummary, error) {
+	return cpworker.InfoSummary{}, nil
+}
+func (f *fakePingClient) ReloadConfig(context.Context) error { return nil }
 func (f *fakePingClient) Ping(context.Context) (cpworker.PingResult, error) {
 	if f.fail != nil {
 		return cpworker.PingResult{}, f.fail
