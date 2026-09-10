@@ -1,16 +1,112 @@
 #!/bin/bash
-
-# Integration test runner script for cpworker
+#
+# Integration test runner for cpworker.
+#
 # Usage: ./run_test.sh <test_case_name|all|reload>
-# Example: ./run_test.sh vxlan_basic
-# Example: ./run_test.sh testdata/cases/vxlan_basic
-# Example: ./run_test.sh all
-# Example: ./run_test.sh reload
+#   all               Run every test in this module.
+#   reload            Run TestReload only (config reload, rtc & pipeline).
+#   vxlan_basic       Run a single integration test case.
+#   testdata/cases/…  Equivalent to the case name form.
 
 set -e
 
-# Parse test case name
-if [ $# -eq 0 ]; then
+# ─── Resolve environment and paths ──────────────────────────────────────────
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+cd "$SCRIPT_DIR"
+
+USER_LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
+USER_PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}"
+
+GO_BIN="$(command -v go || true)"
+if [ -z "$GO_BIN" ]; then
+    echo "ERROR: 'go' binary not found in PATH."
+    exit 1
+fi
+
+case "$(uname -m)" in
+    x86_64)        DEFAULT_ARCH="amd64" ;;
+    aarch64|arm64) DEFAULT_ARCH="arm64" ;;
+    *)
+        echo "ERROR: unsupported host architecture: $(uname -m)"
+        exit 1
+        ;;
+esac
+
+ARCH="${CPWORKER_ARCH:-$DEFAULT_ARCH}"
+CPWORKER_BIN="${CPWORKER_BIN:-$PROJECT_ROOT/build/dist/linux-$ARCH/cloud-probe/bin/cpworker}"
+case "$CPWORKER_BIN" in
+    /*) ;;
+    *)  CPWORKER_BIN="$PWD/${CPWORKER_BIN#./}" ;;
+esac
+
+if [ ! -x "$CPWORKER_BIN" ]; then
+    echo "ERROR: cpworker binary not found at $CPWORKER_BIN"
+    echo "Please build cpworker first:"
+    echo "  cd build && go run mage.go cpworker:linux"
+    exit 1
+fi
+
+CURRENT_USER=$(whoami)
+CURRENT_UID=$(id -u)
+CURRENT_GID=$(id -g)
+
+# Packet capture requires CAP_NET_RAW. Run without sudo when already root
+# (for example, in a CI container); otherwise use sudo.
+SUDO_CMD=()
+if [ "$CURRENT_UID" -ne 0 ]; then
+    if ! command -v sudo >/dev/null 2>&1; then
+        echo "ERROR: 'sudo' is required for packet capture when not running as root."
+        exit 1
+    fi
+    SUDO_CMD=(sudo)
+fi
+
+# ─── Helper functions ────────────────────────────────────────────────────────
+
+restore_ownership() {
+    local dir="$1"
+    if [ -d "$dir" ] && [ "${#SUDO_CMD[@]}" -gt 0 ]; then
+        sudo chown -R "$CURRENT_UID:$CURRENT_GID" "$dir" || true
+    fi
+}
+
+# Run go tests with the resolved cpworker binary and environment.
+# Arguments are passed directly to `go test`.
+run_tests() {
+    set +e
+    "${SUDO_CMD[@]}" env \
+        CPWORKER_BIN="$CPWORKER_BIN" \
+        LD_LIBRARY_PATH="$USER_LD_LIBRARY_PATH" \
+        PKG_CONFIG_PATH="$USER_PKG_CONFIG_PATH" \
+        "$GO_BIN" test -count=1 -v "$@"
+    TEST_EXIT_CODE=$?
+    set -e
+}
+
+# Print the pass/fail summary, restore output ownership, and exit.
+finish() {
+    local output_dir="$1" label="$2"
+    restore_ownership "$output_dir"
+    echo ""
+    echo "========================================="
+    if [ "$TEST_EXIT_CODE" -eq 0 ]; then
+        echo "$label PASSED!"
+    else
+        echo "$label FAILED!"
+    fi
+    echo "========================================="
+    if [ -d "$output_dir" ]; then
+        echo ""
+        echo "Output directory: $output_dir"
+        echo "Output files:"
+        ls -lh "$output_dir"
+    fi
+    exit "$TEST_EXIT_CODE"
+}
+
+usage() {
     echo "Usage: $0 <test_case_name|all|reload>"
     echo "Example: $0 vxlan_basic"
     echo "Example: $0 testdata/cases/vxlan_basic"
@@ -21,166 +117,50 @@ if [ $# -eq 0 ]; then
     ls -1 testdata/cases/ 2>/dev/null | grep -v README.md || echo "  No test cases found"
     echo ""
     echo "Special targets:"
-    echo "  all     (runs every TestIntegration case and TestReload)"
+    echo "  all     (runs every test in this module)"
     echo "  reload  (runs TestReload only: config reload, rtc & pipeline)"
     exit 1
+}
+
+# ─── Main dispatch ───────────────────────────────────────────────────────────
+
+if [ $# -eq 0 ]; then
+    usage
 fi
-
-# Get the script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-
-# Configuration
-# 1. Get current user's LD_LIBRARY_PATH (to be passed to sudo)
-ENV_LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
-
-# 2. Get go binary path
-GO_BIN=$(command -v go)
-if [ -z "$GO_BIN" ]; then
-    echo "ERROR: 'go' binary not found in PATH."
-    exit 1
-fi
-
-# 3. Resolve CPWORKER_BIN relative to project root
-CPWORKER_BIN="${PROJECT_ROOT}/build/dist/linux-amd64/cloud-probe/bin/cpworker"
-
-# Check if cpworker binary exists
-if [ ! -f "$CPWORKER_BIN" ]; then
-    echo "ERROR: cpworker binary not found at $CPWORKER_BIN"
-    echo "Please build cpworker first:"
-    echo "  cd build && go run mage.go cpworker:linux"
-    exit 1
-fi
-
-# Save current user for chown later
-CURRENT_USER=$(whoami)
-CURRENT_UID=$(id -u)
-CURRENT_GID=$(id -g)
-
-# Check if running all tests
-if [ "$1" = "all" ]; then
-    echo "========================================="
-    echo "cpworker Integration Test Runner"
-    echo "========================================="
-    echo "Mode: Running ALL test cases"
-    echo "cpworker Binary: $CPWORKER_BIN"
-    echo "Running as: $CURRENT_USER (will use sudo for packet capture)"
-    echo "========================================="
-    echo ""
-
-    # Run all tests with sudo
-    echo "Running all tests with sudo (required for packet capture)..."
-    sudo -E CPWORKER_BIN="$CPWORKER_BIN" \
-         LD_LIBRARY_PATH="$ENV_LD_LIBRARY_PATH" \
-         "$GO_BIN" test -v -run "TestIntegration|TestReload"
-
-    TEST_EXIT_CODE=$?
-
-    # Change ownership of entire output directory back to current user
-    OUTPUT_BASE_DIR="testdata/output"
-    if [ -d "$OUTPUT_BASE_DIR" ]; then
-        echo ""
-        echo "Changing ownership of all output files to $CURRENT_USER..."
-        sudo chown -R "$CURRENT_UID:$CURRENT_GID" "$OUTPUT_BASE_DIR"
-        echo "Output directory: $OUTPUT_BASE_DIR"
-        echo ""
-        echo "Test case outputs:"
-        ls -lh "$OUTPUT_BASE_DIR"
-    fi
-
-    echo ""
-    echo "========================================="
-    if [ $TEST_EXIT_CODE -eq 0 ]; then
-        echo "All tests PASSED!"
-    else
-        echo "Some tests FAILED!"
-    fi
-    echo "========================================="
-
-    exit $TEST_EXIT_CODE
-fi
-
-# Check if running only the reload test (a standalone TestReload, not a
-# testdata/cases discovery case — needs two configs + a runtime SIGHUP).
-if [ "$1" = "reload" ]; then
-    echo "========================================="
-    echo "cpworker Integration Test Runner"
-    echo "========================================="
-    echo "Mode: Running TestReload (config reload)"
-    echo "cpworker Binary: $CPWORKER_BIN"
-    echo "Running as: $CURRENT_USER (will use sudo for packet capture)"
-    echo "========================================="
-    echo ""
-
-    echo "Running TestReload with sudo (required for packet capture)..."
-    sudo -E CPWORKER_BIN="$CPWORKER_BIN" \
-         LD_LIBRARY_PATH="$ENV_LD_LIBRARY_PATH" \
-         "$GO_BIN" test -v -run "TestReload"
-
-    TEST_EXIT_CODE=$?
-
-    # Change ownership of reload output back to current user
-    OUTPUT_DIR="testdata/output/reload"
-    if [ -d "$OUTPUT_DIR" ]; then
-        echo ""
-        echo "Changing ownership of output files to $CURRENT_USER..."
-        sudo chown -R "$CURRENT_UID:$CURRENT_GID" "$OUTPUT_DIR"
-        echo "Output directory: $OUTPUT_DIR"
-    fi
-
-    echo ""
-    echo "========================================="
-    if [ $TEST_EXIT_CODE -eq 0 ]; then
-        echo "Test PASSED!"
-    else
-        echo "Test FAILED!"
-    fi
-    echo "========================================="
-
-    exit $TEST_EXIT_CODE
-fi
-
-# Extract test case name (remove testdata/cases/ prefix if present)
-TEST_CASE="$1"
-TEST_CASE="${TEST_CASE#testdata/cases/}"
-TEST_CASE="${TEST_CASE%/}"
 
 echo "========================================="
 echo "cpworker Integration Test Runner"
 echo "========================================="
-echo "Test Case: $TEST_CASE"
 echo "cpworker Binary: $CPWORKER_BIN"
-echo "Running as: $CURRENT_USER (will use sudo for packet capture)"
+echo "Running as: $CURRENT_USER (packet capture requires CAP_NET_RAW)"
 echo "========================================="
 echo ""
 
-# Run the test with sudo
-echo "Running test with sudo (required for packet capture)..."
-sudo -E CPWORKER_BIN="$CPWORKER_BIN" \
-     LD_LIBRARY_PATH="$ENV_LD_LIBRARY_PATH" \
-     "$GO_BIN" test -v -run "TestIntegration/$TEST_CASE"
-
-TEST_EXIT_CODE=$?
-
-# Change ownership of output files back to current user
-OUTPUT_DIR="testdata/output/$TEST_CASE"
-if [ -d "$OUTPUT_DIR" ]; then
-    echo ""
-    echo "Changing ownership of output files to $CURRENT_USER..."
-    sudo chown -R "$CURRENT_UID:$CURRENT_GID" "$OUTPUT_DIR"
-    echo "Output directory: $OUTPUT_DIR"
-    echo ""
-    echo "Output files:"
-    ls -lh "$OUTPUT_DIR"
-fi
-
-echo ""
-echo "========================================="
-if [ $TEST_EXIT_CODE -eq 0 ]; then
-    echo "Test PASSED!"
-else
-    echo "Test FAILED!"
-fi
-echo "========================================="
-
-exit $TEST_EXIT_CODE
+case "$1" in
+    all)
+        echo "Mode: Running ALL test cases"
+        echo "Running all tests..."
+        OUTPUT_DIR="$SCRIPT_DIR/testdata/output"
+        trap 'restore_ownership "$OUTPUT_DIR"' EXIT
+        run_tests ./...
+        finish "$OUTPUT_DIR" "All tests"
+        ;;
+    reload)
+        echo "Mode: Running TestReload (config reload)"
+        echo "Running TestReload..."
+        OUTPUT_DIR="$SCRIPT_DIR/testdata/output/reload"
+        trap 'restore_ownership "$OUTPUT_DIR"' EXIT
+        run_tests -run "TestReload"
+        finish "$OUTPUT_DIR" "Test"
+        ;;
+    *)
+        TEST_CASE="${1#testdata/cases/}"
+        TEST_CASE="${TEST_CASE%/}"
+        echo "Mode: Running test case: $TEST_CASE"
+        echo "Running test..."
+        OUTPUT_DIR="$SCRIPT_DIR/testdata/output/$TEST_CASE"
+        trap 'restore_ownership "$OUTPUT_DIR"' EXIT
+        run_tests -run "TestIntegration/$TEST_CASE"
+        finish "$OUTPUT_DIR" "Test"
+        ;;
+esac
