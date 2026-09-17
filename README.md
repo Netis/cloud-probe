@@ -80,6 +80,7 @@ cpworker -c libpcap_gre.json
 * [INSTALL](./docs/INSTALL.md)
 * [USAGE](./docs/USAGE-CPWORKER.md)
 * [Build requirements and steps](./docs/BUILD.md)
+* [ZMQ output wire format](./docs/ZMQ-WIRE-FORMAT.md)
 
 ## Contributing
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.

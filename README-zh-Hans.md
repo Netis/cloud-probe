@@ -81,6 +81,7 @@ cpworker -c libpcap_gre.json
 * [安装](./docs/INSTALL-zh-Hans.md)
 * [使用](./docs/USAGE-CPWORKER-zh-Hans.md)
 * [构建条件和步骤](./docs/BUILD-zh-Hans.md)
+* [ZMQ 输出线格式](./docs/ZMQ-WIRE-FORMAT-zh-Hans.md)
 
 ## 贡献
 您可以fork本项目并提交Pull Request。我们欢迎所有开源社区的同学提交自己的贡献。
