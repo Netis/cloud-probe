@@ -84,6 +84,13 @@ static int send_frame(zmq_output_t *output, const uint8_t *frame, uint32_t caple
 // Returns the received batch size, or -1 on timeout.
 static int recv_batch(void) { return zmq_recv(receiver, recv_buf, sizeof(recv_buf), 0); }
 
+static uint16_t batch_pkts_num(void)
+{
+    uint16_t num;
+    memcpy(&num, recv_buf + 2, sizeof(num));
+    return ntohs(num);
+}
+
 /* ---- #249: uuid is optional, default "" ---- */
 
 void test_default_empty_uuid_accepted(void)
@@ -104,6 +111,38 @@ void test_invalid_uuid_rejected(void)
     zmq_output_t *output = new_output(0, "xyz", errbuf);
     TEST_ASSERT_NULL(output);
     TEST_ASSERT_NOT_NULL(strstr(errbuf, "invalid uuid"));
+}
+
+/* ---- #253: graceful stop must not discard the pending batch ---- */
+
+void test_destroy_flushes_pending_batch(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(0, (char *)VALID_UUID, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    uint8_t frame[64];
+    memset(frame, 0, sizeof(frame));
+    frame[12] = 0x08; // IPv4
+    for (int i = 0; i < 3; i++)
+        TEST_ASSERT_EQUAL_INT(0, send_frame(output, frame, sizeof(frame)));
+    TEST_ASSERT_EQUAL_UINT16(3, output->pkts_buf.batch_hdr.pkts_num);
+
+    zmq_output_destroy(&output->base);
+
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, recv_batch(), "pending batch was not sent on destroy");
+    TEST_ASSERT_EQUAL_UINT16(3, batch_pkts_num());
+}
+
+void test_destroy_empty_batch_sends_nothing(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(0, (char *)VALID_UUID, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    zmq_output_destroy(&output->base);
+
+    TEST_ASSERT_EQUAL_INT(-1, recv_batch());
 }
 
 /* ---- #231: VLAN walk must stay within the captured data ---- */
@@ -182,6 +221,9 @@ int main(void)
 
     RUN_TEST(test_default_empty_uuid_accepted);
     RUN_TEST(test_invalid_uuid_rejected);
+
+    RUN_TEST(test_destroy_flushes_pending_batch);
+    RUN_TEST(test_destroy_empty_batch_sends_nothing);
 
     RUN_TEST(test_vlan_stack_cut_by_slice);
     RUN_TEST(test_vlan_only_frame_without_slice);

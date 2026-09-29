@@ -491,6 +491,10 @@ void zmq_output_destroy(output_base_t *self)
     log_info("call zmq_output_destroy");
     zmq_output_t *output = (zmq_output_t *)self;
 
+    // Send the pending batch; ZMQ_LINGER keeps zmq_ctx_destroy waiting until it is delivered
+    if (output->pusher && output->pkts_buf.batch_hdr.pkts_num > 0)
+        zmq_flush_packet(output);
+
     if (output->pusher)
         zmq_close(output->pusher);
     if (output->context)
