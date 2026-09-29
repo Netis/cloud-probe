@@ -84,6 +84,28 @@ static int send_frame(zmq_output_t *output, const uint8_t *frame, uint32_t caple
 // Returns the received batch size, or -1 on timeout.
 static int recv_batch(void) { return zmq_recv(receiver, recv_buf, sizeof(recv_buf), 0); }
 
+/* ---- #249: uuid is optional, default "" ---- */
+
+void test_default_empty_uuid_accepted(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(0, "", errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    const uint8_t zero_uuid[16] = {0};
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(zero_uuid, output->pkts_buf.batch_hdr.uuid, 16);
+
+    zmq_output_destroy(&output->base);
+}
+
+void test_invalid_uuid_rejected(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(0, "xyz", errbuf);
+    TEST_ASSERT_NULL(output);
+    TEST_ASSERT_NOT_NULL(strstr(errbuf, "invalid uuid"));
+}
+
 /* ---- #231: VLAN walk must stay within the captured data ---- */
 
 // Sends one frame, flushes, and checks the record: Ethernet + VLAN tags (innermost
@@ -157,6 +179,9 @@ void test_vlan_only_frame_without_slice(void)
 int main(void)
 {
     UNITY_BEGIN();
+
+    RUN_TEST(test_default_empty_uuid_accepted);
+    RUN_TEST(test_invalid_uuid_rejected);
 
     RUN_TEST(test_vlan_stack_cut_by_slice);
     RUN_TEST(test_vlan_only_frame_without_slice);

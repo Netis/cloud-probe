@@ -368,7 +368,8 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, output_stats_t *stats, char *er
 {
     uint8_t uuid[16];
     memset(uuid, 0, sizeof(uuid));
-    if (!uuid_to_bytes(opts.uuid, uuid))
+    // uuid is optional: when unset it stays all-zero on the wire
+    if (opts.uuid && opts.uuid[0] != '\0' && !uuid_to_bytes(opts.uuid, uuid))
     {
         error_format(errbuf, "invalid uuid: %s", opts.uuid);
         return NULL;
