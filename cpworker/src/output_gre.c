@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "build_config.h"
 #include "config.h"
 #include "errorf.h"
 #include "gre.h"
