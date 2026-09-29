@@ -26,6 +26,7 @@ set(MAIN_CONFIG_DIR "${CMAKE_BINARY_DIR}")
 
 set(unity_tests
     misc
+    output_zmq
     packet_split
     unix_control
 )
