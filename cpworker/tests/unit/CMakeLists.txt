@@ -47,6 +47,8 @@ foreach(unity_test ${unity_tests})
         $<$<BOOL:${ENABLE_DPDK}>:ENABLE_DPDK>
     )
 
+    target_compile_options("${unity_test}" PRIVATE ${CPWORKER_WARNING_OPTIONS})
+
     target_link_libraries("${unity_test}"
         unity
         ${LIBDPDK_STATIC_LDFLAGS}

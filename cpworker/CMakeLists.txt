@@ -51,6 +51,13 @@ if(OS_LINUX)
     add_compile_definitions(_GNU_SOURCE)
 endif()
 
+# OS_* in build_config.h are always 0/1: an undefined macro in #if (missing include
+# or typo) must be a compile error instead of silently evaluating to 0.
+set(CPWORKER_WARNING_OPTIONS)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    list(APPEND CPWORKER_WARNING_OPTIONS -Werror=undef)
+endif()
+
 execute_process(
     COMMAND git rev-parse --short HEAD
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -122,6 +129,8 @@ target_include_directories(cpworker PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     src
 )
+
+target_compile_options(cpworker PRIVATE ${CPWORKER_WARNING_OPTIONS})
 
 # 链接库（注意顺序）
 target_link_libraries(cpworker

@@ -718,7 +718,7 @@ void test_zmq_heartbeat_not_generated_when_recent_packet(void)
     zmq_output_destroy((output_base_t *)output);
 }
 
-#if defined(OS_LINUX)
+#if OS_LINUX
 void test_cpu_set_parse(void)
 {
     cpu_set_t mask;
@@ -857,7 +857,7 @@ int main(void)
     RUN_TEST(test_zmq_heartbeat_not_generated_when_disabled);
     RUN_TEST(test_zmq_heartbeat_not_generated_when_recent_packet);
 
-#if defined(OS_LINUX)
+#if OS_LINUX
     RUN_TEST(test_cpu_set_parse);
     RUN_TEST(test_gre_pmtudisc_applied);
     RUN_TEST(test_vxlan_pmtudisc_applied);

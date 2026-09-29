@@ -13,11 +13,11 @@
     #define ENDIANNESS_LE 0
     #define ENDIANNESS_BE 1
 #else
-    #if defined(OS_LINUX)
+    #if OS_LINUX
         #include <endian.h>
-    #elif defined(OS_BSD)
+    #elif OS_BSD
         #include <sys/endian.h>
-    #elif defined(OS_MACOS)
+    #elif OS_MACOS
         #include <machine/endian.h>
     #endif
 #endif

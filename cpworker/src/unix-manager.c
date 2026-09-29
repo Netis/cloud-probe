@@ -25,13 +25,6 @@
  * unix_command_execute tears the client down. */
 #define CLIENT_SEND_TIMEOUT_SEC 5
 
-// MSG_NOSIGNAL does not exists on OS X
-#ifdef OS_DARWIN
-#ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL SO_NOSIGPIPE
-#endif
-#endif
-
 typedef struct Command
 {
     char *name;

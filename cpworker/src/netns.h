@@ -3,7 +3,7 @@
 
 #include "build_config.h"
 
-#if defined(OS_LINUX)
+#if OS_LINUX
 #define NETNS_LINUX 1
 #else
 #define NETNS_NOOP 1

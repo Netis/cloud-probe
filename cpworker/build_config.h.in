@@ -4,14 +4,14 @@
 #define CPWORKER_VERSION "@CPWORKER_VERSION@"
 #define CPWORKER_GIT_COMMIT_HASH "@GIT_COMMIT_HASH@"
 
-#cmakedefine OS_WINDOWS
-#cmakedefine OS_UNIX
-#cmakedefine OS_BSD
+#cmakedefine01 OS_WINDOWS
+#cmakedefine01 OS_UNIX
+#cmakedefine01 OS_BSD
 
-#cmakedefine OS_LINUX
-#cmakedefine OS_MACOS
-#cmakedefine OS_FREEBSD
-#cmakedefine OS_OPENBSD
-#cmakedefine OS_NETBSD
+#cmakedefine01 OS_LINUX
+#cmakedefine01 OS_MACOS
+#cmakedefine01 OS_FREEBSD
+#cmakedefine01 OS_OPENBSD
+#cmakedefine01 OS_NETBSD
 
 #endif /* CPWORKER_BUILD_CONFIG_H */
