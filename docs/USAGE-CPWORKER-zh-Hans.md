@@ -78,6 +78,8 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 
 更多配置示例，请查看: [examples](../cpworker/examples)
 
+下文以十六进制表示的值（如 `0xFFF`），在 JSON 配置中须写成十进制（如 `4095`）。
+
 ## 顶层参数列表
 | 参数	                   | 类型	   | 默认值	  | 说明  |
 |-------------------------|---------|---------|-----|
@@ -125,7 +127,7 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 | host              | string  | -       | 目的ip |
 | bind_device       | string  | -       | 绑定数据包发送接口，默认不指定|
 | pmtudisc          | string  | -       | 指定MTU发现模式，可选值: do, dont, want |
-| service_tag       | int     | 4294967295 | 业务标签，放在 GRE key 中，28 位（0-268435455）；key 的高 4 位携带方向 |
+| service_tag       | int     | 0xFFFFFFFF | 业务标签，放在 GRE key 中，28 位（0x0-0xFFFFFFF）；key 的高 4 位携带方向 |
 
 ## output.vxlan 参数列表
 | 参数	             | 类型	   | 默认值	  | 说明  |
@@ -133,8 +135,8 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 | host              | string  | -       | 目的ip |
 | port              | int     | 4789    | 目的端口（1-65535） |
 | capture_time      | bool    | false   | 在内层帧之后追加 8 字节捕获时间 |
-| vni1              | int     | -       | 业务标签，VXLAN 标签格式 v1（0-4294967295；超过 24 位时保留低 24 位）。配置了 `req_pattern` 时只发出低 12 位（0-4095）。vni1 / vni2 必须且只能设置一个 |
-| vni2              | int     | -       | 观测标签，VXLAN 标签格式 v2，32 位（0-4294967295）；第 0–1 位必须为 0，因为方向会加到该值上。vni1 / vni2 必须且只能设置一个 |
+| vni1              | int     | -       | 业务标签，VXLAN 标签格式 v1（0x0-0xFFFFFFFF；超过 24 位时保留低 24 位）。配置了 `req_pattern` 时只发出低 12 位（0x0-0xFFF）。vni1 / vni2 必须且只能设置一个 |
+| vni2              | int     | -       | 观测标签，VXLAN 标签格式 v2，32 位（0x0-0xFFFFFFFF）；第 0–1 位必须为 0，因为方向会加到该值上。vni1 / vni2 必须且只能设置一个 |
 | bind_device       | string  | -       | 绑定数据包发送接口，默认不指定|
 | pmtudisc          | string  | -       | 指定MTU发现模式，可选值: do, dont, want |
 | split.max_payload_size | int | 0     | 拆分 IPv4/IPv6 上的 TCP/UDP 报文，使每个报文的 L4 负载不超过该字节数（0-65535）；0 表示不拆分。其他报文原样发送 |
@@ -148,7 +150,7 @@ vni1 / vni2 的字节布局、方向编码和捕获时间格式，见 [VXLAN-WIR
 | host              | string  | -       | 目的ip |
 | port              | int     | -       | 目的端口（1-65535），必填 |
 | hwm               | int     | 100     | ZMQ 发送高水位，单位为 batch（每个最大 1 MB）（>= 0）；0 表示不限制（会打印警告） |
-| service_tag       | int     | 4294967295 | 业务标签，每个报文标签中占 12 位（0-4095）；batch 头的 keybit 携带完整的 32 位值 |
+| service_tag       | int     | 0xFFFFFFFF | 业务标签，每个报文标签中占 12 位（0x0-0xFFF）；batch 头的 keybit 携带完整的 32 位值 |
 | uuid              | string  | ""      | 探针 UUID，用于心跳包标识 |
 | heartbeat_ms      | int     | 0       | 心跳间隔（毫秒），范围 0–60000，0 表示禁用心跳 |
 

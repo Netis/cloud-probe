@@ -78,6 +78,8 @@ cpworker is a network packet capture tool built on libpcap, supporting multiple 
 
 For more configuration examples, see: [examples](../cpworker/examples)
 
+Values shown in hexadecimal (e.g. `0xFFF`) must be written in decimal in the JSON config (e.g. `4095`).
+
 
 ## Top-level Parameters
 | Parameter          | Type     | Default | Description |
@@ -124,7 +126,7 @@ For more configuration examples, see: [examples](../cpworker/examples)
 | host              | string   | -       | Destination IP |
 | bind_device       | string   | -       | Bind interface (default: any) |
 | pmtudisc          | string   | -       | MTU discovery mode (do/dont/want) |
-| service_tag       | int      | 4294967295 | Service tag carried in the GRE key, 28 bits (0-268435455); the high 4 bits of the key carry the direction |
+| service_tag       | int      | 0xFFFFFFFF | Service tag carried in the GRE key, 28 bits (0x0-0xFFFFFFF); the high 4 bits of the key carry the direction |
 
 ## output.vxlan Parameters
 | Parameter         | Type     | Default | Description |
@@ -132,8 +134,8 @@ For more configuration examples, see: [examples](../cpworker/examples)
 | host              | string   | -       | Destination IP |
 | port              | int      | 4789    | Destination port (1-65535) |
 | capture_time      | bool     | false   | Append an 8-byte capture timestamp after the inner frame |
-| vni1              | int      | -       | Service tag, VXLAN tag format v1 (0-4294967295; larger than 24 bits keeps the low 24 bits). With a `req_pattern`, only the low 12 bits (0-4095) are sent. Exactly one of vni1 / vni2 is required |
-| vni2              | int      | -       | Observation tag, VXLAN tag format v2, 32 bits (0-4294967295); bits 0-1 must be 0 because the direction is added to the value. Exactly one of vni1 / vni2 is required |
+| vni1              | int      | -       | Service tag, VXLAN tag format v1 (0x0-0xFFFFFFFF; larger than 24 bits keeps the low 24 bits). With a `req_pattern`, only the low 12 bits (0x0-0xFFF) are sent. Exactly one of vni1 / vni2 is required |
+| vni2              | int      | -       | Observation tag, VXLAN tag format v2, 32 bits (0x0-0xFFFFFFFF); bits 0-1 must be 0 because the direction is added to the value. Exactly one of vni1 / vni2 is required |
 | bind_device       | string   | -       | Bind interface (default: any) |
 | pmtudisc          | string   | -       | MTU discovery mode (do/dont/want) |
 | split.max_payload_size | int | 0      | Split TCP/UDP packets over IPv4/IPv6 so each carries at most this many L4 payload bytes (0-65535); 0 disables splitting. Other packets are sent unchanged |
@@ -147,7 +149,7 @@ For the byte layout of vni1 / vni2, the direction encoding and the capture times
 | host              | string   | -       | Destination IP |
 | port              | int      | -       | Destination port (1-65535), required |
 | hwm               | int      | 100     | ZMQ send high watermark in batches of up to 1 MB each (>= 0); 0 means unbounded (logged as a warning) |
-| service_tag       | int      | 4294967295 | Service tag, 12 bits (0-4095) in each packet label; the batch header keybit carries the full 32-bit value |
+| service_tag       | int      | 0xFFFFFFFF | Service tag, 12 bits (0x0-0xFFF) in each packet label; the batch header keybit carries the full 32-bit value |
 | uuid              | string   | ""      | Probe UUID carried in heartbeat packets |
 | heartbeat_ms      | int      | 0       | Heartbeat interval in ms (0–60000); 0 disables heartbeat |
 

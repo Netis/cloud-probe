@@ -3,7 +3,7 @@
 This document specifies the on-the-wire format produced by the `vxlan` output of **cpworker**.
 It is intended for anyone writing a receiver / decoder.
 
-The outer header follows RFC 7348, but bytes 4–7 of the VXLAN header carry a Netis-private tag
+The outer header follows RFC 7348, but bytes 4–7 of the VXLAN header carry a private tag
 (direction, service tag, observation tag) instead of a plain VNI. Two tag formats exist, selected
 by `vni1` or `vni2` in the output configuration.
 
@@ -57,7 +57,7 @@ Exactly one of `vni1` and `vni2` must be set. Setting both, or neither, is a con
 | --- | --- | --- | --- |
 | 0 | 1 | `0x08` | Flags: I bit set (RFC 7348 §5) |
 | 1 | 3 | `00 00 00` | Reserved |
-| 4 | 4 | tag | Netis tag: `vni1` format (§4) or `vni2` format (§5) |
+| 4 | 4 | tag | Private tag: `vni1` format (§4) or `vni2` format (§5) |
 
 Packet direction (`cpworker/src/pkt_dir.h`) is determined by `req_pattern`:
 
@@ -91,14 +91,14 @@ Consequences:
 * **With a direction, only the low 12 bits of `vni1` are sent.** The receiver reads the service
   tag as `((byte5 & 0x0F) << 8) | byte6` and the direction as `byte4 >> 4`.
 * Without a direction, bytes 4–6 carry the low 24 bits of `vni1` unchanged. For a service tag
-  in `0–4095`, this decodes the same way, with direction 0.
+  in `0x000–0xFFF`, this decodes the same way, with direction 0.
 * When the CPM strategy has no service tag, cpdaemon sets `vni1 = 0xFFFFFF`. The receiver then
   sees service tag `0xFFF`. Without a direction, byte 4 is `0xFF`.
 
 ### 4.1 Check byte
 
 Byte 7 (reserved by RFC 7348) carries an 8-bit check value that identifies the datagram as
-Netis-tagged. It is computed after bytes 4–6 are written and byte 7 is set to 0:
+carrying the private tag. It is computed after bytes 4–6 are written and byte 7 is set to 0:
 
 1. Take the first 42 bytes of the UDP payload: the 8-byte VXLAN header plus the first 34 bytes
    of the inner frame (sized for Ethernet + IPv4, but no header is parsed; with VLAN tags or
