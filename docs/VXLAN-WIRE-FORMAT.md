@@ -177,6 +177,7 @@ header nor the inner frame indicates it.
 With `split.max_payload_size > 0`, a TCP/UDP packet whose L4 payload exceeds the limit is
 split into several inner frames. Each is sent in its own datagram with the same tag and, if
 enabled, its own capture-time trailer. For `vni1`, the check byte is computed per datagram.
+IPv4 and IPv6 fragments are sent unchanged: a fragment carries only part of the L4 datagram.
 
 ---
 

@@ -34,6 +34,11 @@ struct ipv4_hdr
     /*The options start here. */
 };
 
+/* ipv4_hdr.frag_off, host byte order */
+#define IPV4_FLAG_DF 0x4000
+#define IPV4_FLAG_MF 0x2000
+#define IPV4_OFFSET_MASK 0x1FFF
+
 struct ipv6_hdr
 {
 #if ENDIANNESS_LE

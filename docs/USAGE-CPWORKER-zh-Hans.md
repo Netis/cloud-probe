@@ -139,7 +139,7 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 | vni2              | int     | -       | 观测标签，VXLAN 标签格式 v2，32 位（0x0-0xFFFFFFFF）；第 0–1 位必须为 0，因为方向会加到该值上。vni1 / vni2 必须且只能设置一个 |
 | bind_device       | string  | -       | 绑定数据包发送接口，默认不指定|
 | pmtudisc          | string  | -       | 指定MTU发现模式，可选值: do, dont, want |
-| split.max_payload_size | int | 0     | 拆分 IPv4/IPv6 上的 TCP/UDP 报文，使每个报文的 L4 负载不超过该字节数（0-65535）；0 表示不拆分。其他报文原样发送 |
+| split.max_payload_size | int | 0     | 拆分 IPv4/IPv6 上的 TCP/UDP 报文，使每个报文的 L4 负载不超过该字节数（0-65535）；0 表示不拆分。IPv4/IPv6 分片和其他报文原样发送 |
 | split.recalculate_checksum | bool | false | 重新计算拆分后报文的 IPv4 头校验和与 TCP/UDP 校验和 |
 
 vni1 / vni2 的字节布局、方向编码和捕获时间格式，见 [VXLAN-WIRE-FORMAT-zh-Hans.md](VXLAN-WIRE-FORMAT-zh-Hans.md)。

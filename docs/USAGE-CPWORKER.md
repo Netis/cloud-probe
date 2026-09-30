@@ -138,7 +138,7 @@ Values shown in hexadecimal (e.g. `0xFFF`) must be written in decimal in the JSO
 | vni2              | int      | -       | Observation tag, VXLAN tag format v2, 32 bits (0x0-0xFFFFFFFF); bits 0-1 must be 0 because the direction is added to the value. Exactly one of vni1 / vni2 is required |
 | bind_device       | string   | -       | Bind interface (default: any) |
 | pmtudisc          | string   | -       | MTU discovery mode (do/dont/want) |
-| split.max_payload_size | int | 0      | Split TCP/UDP packets over IPv4/IPv6 so each carries at most this many L4 payload bytes (0-65535); 0 disables splitting. Other packets are sent unchanged |
+| split.max_payload_size | int | 0      | Split TCP/UDP packets over IPv4/IPv6 so each carries at most this many L4 payload bytes (0-65535); 0 disables splitting. IPv4/IPv6 fragments and other packets are sent unchanged |
 | split.recalculate_checksum | bool | false | Recalculate the IPv4 header and TCP/UDP checksums of split packets |
 
 For the byte layout of vni1 / vni2, the direction encoding and the capture timestamp, see [VXLAN-WIRE-FORMAT.md](VXLAN-WIRE-FORMAT.md).
