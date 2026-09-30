@@ -167,7 +167,7 @@ cpdaemon 根据 CPM 策略构造 `vni2`（`cpdaemon/pkg/cpm/worker_task_builder.
 
 `split.max_payload_size > 0` 时，L4 负载超过上限的 TCP/UDP 报文会被拆成多个内层帧。每个内层帧
 单独用一个数据报发送，携带相同的标签，启用时也各自带捕获时间尾部。`vni1` 格式的校验字节按每个
-数据报分别计算。
+数据报分别计算。IPv4 和 IPv6 分片原样发送，因为分片只携带 L4 数据报的一部分。
 
 ---
 

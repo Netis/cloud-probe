@@ -998,6 +998,247 @@ void test_build_fragment_nonzero_original_checksum(void)
 }
 
 /* ======================================================================
+ * Tests: parse_packet rejects headers it cannot split
+ * ====================================================================== */
+#define IPPROTO_MOBILITY 135 /* IPv6 Mobility Header (RFC 6275) */
+
+void test_parse_packet_ipv4_ihl_below_5_rejected(void)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[40];
+    memset(payload, 'I', sizeof(payload));
+    int pkt_len = build_ipv4_tcp_packet(pkt, payload, sizeof(payload), htonl(0x0A000001), htonl(0x0A000002), 80, 80, 0);
+    struct ipv4_hdr *ip = (struct ipv4_hdr *)(pkt + sizeof(struct ether_header));
+
+    packet_parse_result_t result;
+    unsigned int ihl;
+    for (ihl = 0; ihl < 5; ihl++)
+    {
+        ip->ihl = ihl;
+        TEST_ASSERT_FALSE(parse_packet(pkt, pkt_len, &result));
+    }
+}
+
+void test_parse_packet_ipv4_tcp_data_offset_below_5_rejected(void)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[40];
+    memset(payload, 'T', sizeof(payload));
+    int pkt_len = build_ipv4_tcp_packet(pkt, payload, sizeof(payload), htonl(0x0A000001), htonl(0x0A000002), 80, 80, 0);
+    struct tcphdr *tcp = (struct tcphdr *)(pkt + sizeof(struct ether_header) + sizeof(struct ipv4_hdr));
+
+    packet_parse_result_t result;
+    uint8_t doff;
+    for (doff = 0; doff < 5; doff++)
+    {
+        tcp->offx2 = (uint8_t)(doff << 4);
+        TEST_ASSERT_FALSE(parse_packet(pkt, pkt_len, &result));
+    }
+}
+
+void test_parse_packet_ipv6_tcp_data_offset_below_5_rejected(void)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[40];
+    memset(payload, 'T', sizeof(payload));
+    struct in6_addr saddr, daddr;
+    inet_pton(AF_INET6, "2001:db8::1", &saddr);
+    inet_pton(AF_INET6, "2001:db8::2", &daddr);
+    int pkt_len = build_ipv6_tcp_packet(pkt, payload, sizeof(payload), &saddr, &daddr, 80, 80, 0);
+    struct tcphdr *tcp = (struct tcphdr *)(pkt + sizeof(struct ether_header) + sizeof(struct ipv6_hdr));
+
+    packet_parse_result_t result;
+    uint8_t doff;
+    for (doff = 0; doff < 5; doff++)
+    {
+        tcp->offx2 = (uint8_t)(doff << 4);
+        TEST_ASSERT_FALSE(parse_packet(pkt, pkt_len, &result));
+    }
+}
+
+/* A fragment carries only part of the datagram, so it must not be split at L4 */
+void test_parse_packet_ipv4_fragments_rejected(void)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[100];
+    memset(payload, 'D', sizeof(payload));
+    int pkt_len = build_ipv4_tcp_packet(pkt, payload, sizeof(payload), htonl(0x0A000001), htonl(0x0A000002), 80, 80, 0);
+    struct ipv4_hdr *ip = (struct ipv4_hdr *)(pkt + sizeof(struct ether_header));
+
+    const uint16_t frag_offs[] = {
+        IPV4_FLAG_MF,       /* first fragment */
+        IPV4_FLAG_MF | 185, /* middle fragment */
+        185,                /* last fragment */
+    };
+    packet_parse_result_t result;
+    size_t i;
+    for (i = 0; i < sizeof(frag_offs) / sizeof(frag_offs[0]); i++)
+    {
+        ip->frag_off = htons(frag_offs[i]);
+        TEST_ASSERT_FALSE(parse_packet(pkt, pkt_len, &result));
+    }
+}
+
+void test_parse_packet_ipv4_df_is_not_a_fragment(void)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[100];
+    memset(payload, 'N', sizeof(payload));
+    int pkt_len = build_ipv4_tcp_packet(pkt, payload, sizeof(payload), htonl(0x0A000001), htonl(0x0A000002), 80, 80, 0);
+    struct ipv4_hdr *ip = (struct ipv4_hdr *)(pkt + sizeof(struct ether_header));
+    ip->frag_off = htons(IPV4_FLAG_DF);
+
+    packet_parse_result_t result;
+    TEST_ASSERT_TRUE(parse_packet(pkt, pkt_len, &result));
+    TEST_ASSERT_TRUE(result.is_tcp);
+    TEST_ASSERT_EQUAL_UINT16(100, result.payload_len);
+}
+
+/* Build Ethernet + IPv6 + a chain of 8-byte extension headers + TCP. */
+static int build_ipv6_ext_tcp_packet(uint8_t *buf, const uint8_t *ext_types, int ext_count, uint16_t payload_len)
+{
+    memset(buf, 0, 2048);
+    int offset = 0;
+
+    struct ether_header *eth = (struct ether_header *)buf;
+    eth->ether_type = htons(ETHERTYPE_IPV6);
+    offset += sizeof(struct ether_header);
+
+    struct ipv6_hdr *ip6 = (struct ipv6_hdr *)(buf + offset);
+    ip6->version = 6;
+    ip6->payload_len = htons(ext_count * 8 + 20 + payload_len);
+    ip6->nexthdr = ext_count > 0 ? ext_types[0] : IPPROTO_TCP;
+    ip6->hop_limit = 64;
+    offset += sizeof(struct ipv6_hdr);
+
+    int i;
+    for (i = 0; i < ext_count; i++)
+    {
+        buf[offset] = (i + 1 < ext_count) ? ext_types[i + 1] : IPPROTO_TCP; /* next header */
+        buf[offset + 1] = 0;                                                /* (0 + 1) * 8 bytes */
+        offset += 8;
+    }
+
+    struct tcphdr *tcp = (struct tcphdr *)(buf + offset);
+    tcp->sport = htons(80);
+    tcp->dport = htons(80);
+    tcp->offx2 = (5 << 4);
+    offset += 20;
+
+    memset(buf + offset, 'E', payload_len);
+    offset += payload_len;
+
+    return offset;
+}
+
+void test_parse_packet_ipv6_skips_hopopts_routing_dstopts(void)
+{
+    uint8_t pkt[2048];
+    const uint8_t exts[] = {IPPROTO_HOPOPTS, IPPROTO_ROUTING, IPPROTO_DSTOPTS};
+    int pkt_len = build_ipv6_ext_tcp_packet(pkt, exts, 3, 40);
+
+    packet_parse_result_t result;
+    TEST_ASSERT_TRUE(parse_packet(pkt, pkt_len, &result));
+    TEST_ASSERT_TRUE(result.is_tcp);
+    TEST_ASSERT_EQUAL_UINT16(24, result.ipv6_ext_len);
+    TEST_ASSERT_EQUAL_UINT16(sizeof(struct ether_header) + sizeof(struct ipv6_hdr) + 24, result.l4_offset);
+    TEST_ASSERT_EQUAL_UINT16(40, result.payload_len);
+}
+
+void test_parse_packet_ipv6_unsplittable_ext_rejected(void)
+{
+    /* Fragment, AH, ESP and Mobility must not be skipped to reach L4. */
+    const uint8_t types[] = {IPPROTO_FRAGMENT, IPPROTO_AH, IPPROTO_ESP, IPPROTO_MOBILITY};
+    uint8_t pkt[2048];
+    packet_parse_result_t result;
+    size_t i;
+    for (i = 0; i < sizeof(types); i++)
+    {
+        int pkt_len = build_ipv6_ext_tcp_packet(pkt, &types[i], 1, 40);
+        TEST_ASSERT_FALSE(parse_packet(pkt, pkt_len, &result));
+    }
+}
+
+/* ======================================================================
+ * Tests: build_fragment checksums, known-answer vectors
+ *
+ * An 80-byte payload of (i * 7 + 3) & 0xFF is split into two 40-byte pieces. Bytes 38..39 are
+ * chosen so that the first piece's checksum computes to 0. The expected values come from an
+ * independent RFC 1071 implementation in Python, not from calculate_*_checksum.
+ * ====================================================================== */
+static void checksum_vector_payload(uint8_t *payload, uint8_t b38, uint8_t b39)
+{
+    int i;
+    for (i = 0; i < 80; i++)
+        payload[i] = (uint8_t)(i * 7 + 3);
+    payload[38] = b38;
+    payload[39] = b39;
+}
+
+/* RFC 768: a computed UDP checksum of 0 is transmitted as 0xFFFF */
+void test_build_fragment_ipv4_udp_zero_checksum_sent_as_ffff(void)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[80];
+    checksum_vector_payload(payload, 0x4F, 0x00);
+    int pkt_len = build_ipv4_udp_packet(pkt, payload, sizeof(payload), htonl(0x0A000001), htonl(0x0A000002), 53, 53);
+
+    packet_parse_result_t result;
+    TEST_ASSERT_TRUE(parse_packet(pkt, pkt_len, &result));
+    TEST_ASSERT_EQUAL_INT(2, calculate_fragment_count(&result, 40));
+
+    uint8_t out[2048];
+    struct udphdr *out_udp = (struct udphdr *)(out + result.l4_offset);
+    TEST_ASSERT_TRUE(build_fragment(&result, pkt, 0, 40, true, out) > 0);
+    TEST_ASSERT_EQUAL_HEX16(0xFFFF, ntohs(out_udp->check));
+    TEST_ASSERT_TRUE(build_fragment(&result, pkt, 1, 40, true, out) > 0);
+    TEST_ASSERT_EQUAL_HEX16(0x620C, ntohs(out_udp->check));
+}
+
+void test_build_fragment_ipv6_udp_zero_checksum_sent_as_ffff(void)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[80];
+    checksum_vector_payload(payload, 0x07, 0x8E);
+    struct in6_addr saddr, daddr;
+    inet_pton(AF_INET6, "2001:db8::1", &saddr);
+    inet_pton(AF_INET6, "2001:db8::2", &daddr);
+    int pkt_len = build_ipv6_udp_packet(pkt, payload, sizeof(payload), &saddr, &daddr, 53, 53);
+
+    packet_parse_result_t result;
+    TEST_ASSERT_TRUE(parse_packet(pkt, pkt_len, &result));
+    TEST_ASSERT_EQUAL_INT(2, calculate_fragment_count(&result, 40));
+
+    uint8_t out[2048];
+    struct udphdr *out_udp = (struct udphdr *)(out + result.l4_offset);
+    TEST_ASSERT_TRUE(build_fragment(&result, pkt, 0, 40, true, out) > 0);
+    TEST_ASSERT_EQUAL_HEX16(0xFFFF, ntohs(out_udp->check));
+    TEST_ASSERT_TRUE(build_fragment(&result, pkt, 1, 40, true, out) > 0);
+    TEST_ASSERT_EQUAL_HEX16(0x1A9A, ntohs(out_udp->check));
+}
+
+/* TCP has no "no checksum" value, so a computed 0 stays 0 */
+void test_build_fragment_tcp_zero_checksum_kept(void)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[80];
+    checksum_vector_payload(payload, 0xEB, 0x60);
+    int pkt_len =
+        build_ipv4_tcp_packet(pkt, payload, sizeof(payload), htonl(0x0A000001), htonl(0x0A000002), 80, 80, 5000);
+
+    packet_parse_result_t result;
+    TEST_ASSERT_TRUE(parse_packet(pkt, pkt_len, &result));
+    TEST_ASSERT_EQUAL_INT(2, calculate_fragment_count(&result, 40));
+
+    uint8_t out[2048];
+    struct tcphdr *out_tcp = (struct tcphdr *)(out + result.l4_offset);
+    TEST_ASSERT_TRUE(build_fragment(&result, pkt, 0, 40, true, out) > 0);
+    TEST_ASSERT_EQUAL_HEX16(0x0000, ntohs(out_tcp->check));
+    TEST_ASSERT_TRUE(build_fragment(&result, pkt, 1, 40, true, out) > 0);
+    TEST_ASSERT_EQUAL_HEX16(0xFE44, ntohs(out_tcp->check));
+}
+
+/* ======================================================================
  * Main
  * ====================================================================== */
 int main(void)
@@ -1042,6 +1283,20 @@ int main(void)
     RUN_TEST(test_build_fragment_no_checksum_recalc);
     RUN_TEST(test_build_fragment_payload_content);
     RUN_TEST(test_build_fragment_nonzero_original_checksum);
+
+    /* parse_packet: headers it cannot split */
+    RUN_TEST(test_parse_packet_ipv4_ihl_below_5_rejected);
+    RUN_TEST(test_parse_packet_ipv4_tcp_data_offset_below_5_rejected);
+    RUN_TEST(test_parse_packet_ipv6_tcp_data_offset_below_5_rejected);
+    RUN_TEST(test_parse_packet_ipv4_fragments_rejected);
+    RUN_TEST(test_parse_packet_ipv4_df_is_not_a_fragment);
+    RUN_TEST(test_parse_packet_ipv6_skips_hopopts_routing_dstopts);
+    RUN_TEST(test_parse_packet_ipv6_unsplittable_ext_rejected);
+
+    /* build_fragment: checksum known-answer vectors */
+    RUN_TEST(test_build_fragment_ipv4_udp_zero_checksum_sent_as_ffff);
+    RUN_TEST(test_build_fragment_ipv6_udp_zero_checksum_sent_as_ffff);
+    RUN_TEST(test_build_fragment_tcp_zero_checksum_kept);
 
     return UNITY_END();
 }

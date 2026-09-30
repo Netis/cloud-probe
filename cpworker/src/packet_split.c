@@ -193,6 +193,10 @@ uint16_t __attribute__((hot)) calculate_udp_checksum(const struct ipv4_hdr *ip_h
     return cksum_finish(cksum_accumulate(udp_hdr, udp_len, sum));
 }
 
+/* RFC 768: a computed UDP checksum of zero is transmitted as all ones, because a zero field means
+ * "no checksum" (and is invalid for UDP over IPv6, RFC 8200 section 8.1). */
+static inline uint16_t udp_checksum_for_wire(uint16_t check) { return check == 0 ? 0xFFFF : check; }
+
 bool parse_packet(const uint8_t *pkt_data, uint32_t caplen, packet_parse_result_t *result)
 {
     memset(result, 0, sizeof(packet_parse_result_t));
@@ -242,9 +246,20 @@ bool parse_packet(const uint8_t *pkt_data, uint32_t caplen, packet_parse_result_
 
         result->is_ipv4 = true;
         result->ipv4_hdr = (struct ipv4_hdr *)(pkt_data + offset);
+        if (result->ipv4_hdr->ihl < 5)
+        {
+            return false;
+        }
         result->ip_hdr_len = result->ipv4_hdr->ihl * 4;
 
         if (caplen < offset + result->ip_hdr_len)
+        {
+            return false;
+        }
+
+        // A fragment carries only part of the L4 datagram: a non-first fragment has no L4 header
+        // at all, and splitting a first fragment at L4 breaks reassembly of the rest.
+        if (ntohs(result->ipv4_hdr->frag_off) & (IPV4_FLAG_MF | IPV4_OFFSET_MASK))
         {
             return false;
         }
@@ -260,8 +275,12 @@ bool parse_packet(const uint8_t *pkt_data, uint32_t caplen, packet_parse_result_
                 return false;
             }
 
-            result->is_tcp = true;
             result->tcp_hdr = (struct tcphdr *)(pkt_data + offset);
+            if ((result->tcp_hdr->offx2 >> 4) < 5)
+            {
+                return false;
+            }
+            result->is_tcp = true;
             result->l4_hdr_len = (result->tcp_hdr->offx2 >> 4) * 4;
 
             if (caplen < offset + result->l4_hdr_len)
@@ -314,8 +333,7 @@ bool parse_packet(const uint8_t *pkt_data, uint32_t caplen, packet_parse_result_
 
         // Skip IPv6 extension headers
         uint8_t nexthdr = result->ipv6_hdr->nexthdr;
-        while (nexthdr == IPPROTO_HOPOPTS || nexthdr == IPPROTO_ROUTING || nexthdr == IPPROTO_DSTOPTS ||
-               nexthdr == IPPROTO_DSTOPTS)
+        while (nexthdr == IPPROTO_HOPOPTS || nexthdr == IPPROTO_ROUTING || nexthdr == IPPROTO_DSTOPTS)
         {
             if (caplen < offset + 2)
                 return false;
@@ -346,8 +364,12 @@ bool parse_packet(const uint8_t *pkt_data, uint32_t caplen, packet_parse_result_
                 return false;
             }
 
-            result->is_tcp = true;
             result->tcp_hdr = (struct tcphdr *)(pkt_data + offset);
+            if ((result->tcp_hdr->offx2 >> 4) < 5)
+            {
+                return false;
+            }
+            result->is_tcp = true;
             result->l4_hdr_len = (result->tcp_hdr->offx2 >> 4) * 4;
 
             if (caplen < offset + result->l4_hdr_len)
@@ -496,12 +518,12 @@ int build_fragment(const packet_parse_result_t *parse_result, const uint8_t *pkt
             if (parse_result->is_ipv4)
             {
                 struct ipv4_hdr *ip_hdr = (struct ipv4_hdr *)(output_buf + parse_result->ip_offset);
-                udp_hdr->check = calculate_udp_checksum(ip_hdr, NULL, udp_hdr, udp_len);
+                udp_hdr->check = udp_checksum_for_wire(calculate_udp_checksum(ip_hdr, NULL, udp_hdr, udp_len));
             }
             else if (parse_result->is_ipv6)
             {
                 struct ipv6_hdr *ip_hdr = (struct ipv6_hdr *)(output_buf + parse_result->ip_offset);
-                udp_hdr->check = calculate_udp_checksum(NULL, ip_hdr, udp_hdr, udp_len);
+                udp_hdr->check = udp_checksum_for_wire(calculate_udp_checksum(NULL, ip_hdr, udp_hdr, udp_len));
             }
         }
     }
