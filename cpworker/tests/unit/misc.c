@@ -51,7 +51,7 @@ const char *config_libpcap_gre_vxlan =
     "{\"interface\": \"eth0\", \"snaplen\": 2048, \"buffer_size_mb\": 256}}, "
     "\"outputs\": [{\"type\": \"gre\", \"rate_limit_mbps\": 10, \"gre\": {\"host\": \"172.16.1.201\", \"bind_device\": "
     "\"eth1\"}}, {\"type\": \"vxlan\", \"rate_limit_mbps\": 10, \"vxlan\": {\"host\": \"172.16.1.202\", \"port\": "
-    "4789, \"vni1\": 2147483648, \"bind_device\": \"eth1\"}}]}]}";
+    "4789, \"vni1\": 11259375, \"bind_device\": \"eth1\"}}]}]}";
 
 const char *config_libpcap_two_tasks_vxlan =
     "{\"tasks\": ["
@@ -80,7 +80,7 @@ void test_parse_config_data_for_libpcap_gre_vxlan(void)
     TEST_ASSERT_NOT_NULL(config);
 
     OutputConfig *vxlan_output = config->tasks_cfg->tasks[0]->outputs[1];
-    TEST_ASSERT_EQUAL_UINT32(2147483648, vxlan_output->config.vxlan.vni);
+    TEST_ASSERT_EQUAL_UINT32(0xABCDEF, vxlan_output->config.vxlan.vni);
 }
 
 void test_bpf_filter_exclude_task_output_hosts_1(void)
@@ -537,6 +537,18 @@ void test_req_pattern_custom_port_65535(void)
     req_pattern_custom_matcher_destroy(&matcher);
 }
 
+// Ports are plain decimal: no sign, and no leading zero (BPF would read "010" as octal 8).
+void test_req_pattern_custom_port_rejects_sign_and_leading_zero(void)
+{
+    const char *bad[] = {"port -0", "port +80", "port 010", "port 00", "port 080"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
+    {
+        req_pattern_custom_matcher_t matcher;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(-1, req_pattern_custom_matcher_init(&matcher, bad[i], mock_get_if_ip_addr),
+                                      bad[i]);
+    }
+}
+
 void test_req_pattern_custom_and_precedence_over_or(void)
 {
     // "host 10.0.0.1 or host 10.0.0.2 and port 80"
@@ -846,6 +858,7 @@ int main(void)
     RUN_TEST(test_req_pattern_invalid_missing_value);
     RUN_TEST(test_req_pattern_custom_port_zero);
     RUN_TEST(test_req_pattern_custom_port_65535);
+    RUN_TEST(test_req_pattern_custom_port_rejects_sign_and_leading_zero);
     RUN_TEST(test_req_pattern_custom_and_precedence_over_or);
     RUN_TEST(test_req_pattern_custom_extra_whitespace);
 

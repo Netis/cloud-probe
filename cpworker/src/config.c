@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +12,51 @@
 #include "log.h"
 
 #define PARSE_ERROR -1
+
+#define DEFAULT_SNAPLEN 2048
+// libpcap's MAXIMUM_SNAPLEN. Older libpcap (e.g. the bundled 1.6.2) does not clamp itself: 0 captures nothing,
+// negatives break the filter and INT_MAX hangs pcap_activate, so the value is normalized here.
+#define MAX_SNAPLEN 262144
+// pcap_set_buffer_size() takes an int byte count; this is the largest whole-MB value that fits.
+#define MAX_LIBPCAP_BUFFER_SIZE_MB (INT_MAX / 1024 / 1024)
+
+// Parses a capturer's snaplen. Values above MAX_SNAPLEN become MAX_SNAPLEN. Values <= 0 also become MAX_SNAPLEN
+// ("no truncation") when `non_positive_means_max`, and are rejected otherwise.
+static int parse_snaplen(cJSON *obj, const char *name, bool non_positive_means_max, int *out, cJSONParseError *err)
+{
+    cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(obj, "snaplen");
+    if (!snaplen)
+    {
+        *out = DEFAULT_SNAPLEN;
+        return 0;
+    }
+
+    double value;
+    if (!cjson_get_integer(snaplen, name, &value, err))
+        return PARSE_ERROR;
+
+    if (value <= 0 && !non_positive_means_max)
+    {
+        cjson_set_parse_error(err, "invalid %s: %.15g, must be > 0", name, value);
+        return PARSE_ERROR;
+    }
+
+    if (value == 0)
+    {
+        log_info("%s is 0, using maximum %d", name, MAX_SNAPLEN);
+        *out = MAX_SNAPLEN;
+    }
+    else if (value < 0 || value > MAX_SNAPLEN)
+    {
+        log_warn("%s %.15g is out of range [1, %d], using %d", name, value, MAX_SNAPLEN, MAX_SNAPLEN);
+        *out = MAX_SNAPLEN;
+    }
+    else
+    {
+        *out = (int)value;
+    }
+    return 0;
+}
 
 static void free_output(OutputConfig *output)
 {
@@ -210,16 +256,8 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         }
 
         // snaplen
-        cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "snaplen");
-        if (!snaplen)
-            capturer->config.libpcap.snaplen = 2048;
-        else if (cJSON_IsNumber(snaplen))
-            capturer->config.libpcap.snaplen = snaplen->valueint;
-        else
-        {
-            cjson_set_parse_error(err, "invalid libpcap.snaplen");
+        if (parse_snaplen(libpcap_obj, "libpcap.snaplen", true, &capturer->config.libpcap.snaplen, err) != 0)
             return PARSE_ERROR;
-        }
 
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "bpf");
@@ -251,24 +289,40 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         cJSON *buffer_size = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "buffer_size_mb");
         if (!buffer_size)
             capturer->config.libpcap.buffer_size_mb = 256;
-        else if (cJSON_IsNumber(buffer_size))
-            capturer->config.libpcap.buffer_size_mb = buffer_size->valueint;
         else
         {
-            cjson_set_parse_error(err, "invalid libpcap.buffer_size_mb");
-            return PARSE_ERROR;
+            double value;
+            if (!cjson_get_integer(buffer_size, "libpcap.buffer_size_mb", &value, err))
+                return PARSE_ERROR;
+            if (value <= 0)
+            {
+                cjson_set_parse_error(err, "invalid libpcap.buffer_size_mb: %.15g, must be > 0", value);
+                return PARSE_ERROR;
+            }
+            if (value > MAX_LIBPCAP_BUFFER_SIZE_MB)
+            {
+                log_warn("libpcap.buffer_size_mb %.15g is above %d, using %d", value, MAX_LIBPCAP_BUFFER_SIZE_MB,
+                         MAX_LIBPCAP_BUFFER_SIZE_MB);
+                value = MAX_LIBPCAP_BUFFER_SIZE_MB;
+            }
+            capturer->config.libpcap.buffer_size_mb = (int)value;
         }
 
         // Timeout
         cJSON *timeout = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "timeout_ms");
         if (!timeout)
             capturer->config.libpcap.timeout_ms = 0;
-        else if (cJSON_IsNumber(timeout) && timeout->valueint >= 0)
-            capturer->config.libpcap.timeout_ms = timeout->valueint;
         else
         {
-            cjson_set_parse_error(err, "invalid libpcap.timeout_ms");
-            return PARSE_ERROR;
+            double value;
+            if (!cjson_get_integer(timeout, "libpcap.timeout_ms", &value, err))
+                return PARSE_ERROR;
+            if (value < 0)
+            {
+                cjson_set_parse_error(err, "invalid libpcap.timeout_ms: %.15g, must be >= 0", value);
+                return PARSE_ERROR;
+            }
+            capturer->config.libpcap.timeout_ms = value > INT_MAX ? INT_MAX : (int)value;
         }
 
         cJSON *not_filter_output_hosts = cJSON_GetObjectItemCaseSensitive(libpcap_obj, "not_filter_output_hosts");
@@ -354,17 +408,9 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
             return PARSE_ERROR;
         }
 
-        // snaplen
-        cJSON *snaplen = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "snaplen");
-        if (!snaplen)
-            capturer->config.dpdk_pdump.snaplen = 2048;
-        else if (cJSON_IsNumber(snaplen))
-            capturer->config.dpdk_pdump.snaplen = snaplen->valueint;
-        else
-        {
-            cjson_set_parse_error(err, "invalid dpdk_pdump.snaplen");
+        // snaplen: 0 would size the capture buffer to zero bytes, so dpdk rejects non-positive values.
+        if (parse_snaplen(dpdk_obj, "dpdk_pdump.snaplen", false, &capturer->config.dpdk_pdump.snaplen, err) != 0)
             return PARSE_ERROR;
-        }
 
         // BPF Filter
         cJSON *bpf_filter = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "bpf");
@@ -396,12 +442,14 @@ static int parse_capturer_config(cJSON *engine_obj, CapturerConfig *capturer, cJ
         cJSON *ring_size = cJSON_GetObjectItemCaseSensitive(dpdk_obj, "ring_size");
         if (!ring_size)
             capturer->config.dpdk_pdump.ring_size = 2048;
-        else if (cJSON_IsNumber(ring_size))
-            capturer->config.dpdk_pdump.ring_size = ring_size->valueint;
         else
         {
-            cjson_set_parse_error(err, "invalid dpdk_pdump.ring_size");
-            return PARSE_ERROR;
+            // The ring is rounded up to a power of two: 1 would leave no usable slot, and 2^30 is the largest
+            // power of two rte_ring_create() accepts.
+            int64_t value;
+            if (!cjson_get_int64_range(ring_size, "dpdk_pdump.ring_size", 2, 1 << 30, &value, err))
+                return PARSE_ERROR;
+            capturer->config.dpdk_pdump.ring_size = (int)value;
         }
     }
     else
@@ -424,20 +472,12 @@ static int parse_split_config(cJSON *split_obj, SplitConfig *split, cJSONParseEr
     cJSON *max_payload_size = cJSON_GetObjectItemCaseSensitive(split_obj, "max_payload_size");
     if (!max_payload_size)
         split->max_payload_size = 0;
-    else if (cJSON_IsNumber(max_payload_size))
-    {
-        int val = (int)max_payload_size->valuedouble;
-        if (val < 0 || val > 65535)
-        {
-            cjson_set_parse_error(err, "invalid max_payload_size: must be 0-65535");
-            return PARSE_ERROR;
-        }
-        split->max_payload_size = (uint16_t)val;
-    }
     else
     {
-        cjson_set_parse_error(err, "invalid max_payload_size");
-        return PARSE_ERROR;
+        int64_t value;
+        if (!cjson_get_int64_range(max_payload_size, "vxlan.split.max_payload_size", 0, 65535, &value, err))
+            return PARSE_ERROR;
+        split->max_payload_size = (uint16_t)value;
     }
 
     // Parse recalculate_checksum (optional, default: false)
@@ -473,30 +513,35 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
     cJSON *rate_limit = cJSON_GetObjectItemCaseSensitive(output_obj, "rate_limit_mbps");
     if (!rate_limit)
         output->rate_limit_mbps = 0;
-    else if (cJSON_IsNumber(rate_limit))
-    {
-        if (rate_limit->valueint < 0)
-        {
-            cjson_set_parse_error(err, "invalid rate_limit_mbps");
-            return PARSE_ERROR;
-        }
-        output->rate_limit_mbps = rate_limit->valueint;
-    }
     else
     {
-        cjson_set_parse_error(err, "invalid rate_limit_mbps");
-        return PARSE_ERROR;
+        double value;
+        if (!cjson_get_integer(rate_limit, "rate_limit_mbps", &value, err))
+            return PARSE_ERROR;
+        if (value < 0)
+        {
+            cjson_set_parse_error(err, "invalid rate_limit_mbps: %.15g, must be >= 0", value);
+            return PARSE_ERROR;
+        }
+        // Values beyond int are unlimited in practice; INT_MAX keeps rate_limit_mbps * 1000000 within uint64.
+        output->rate_limit_mbps = value > INT_MAX ? INT_MAX : (uint64_t)value;
     }
 
     cJSON *slice = cJSON_GetObjectItemCaseSensitive(output_obj, "slice");
     if (!slice)
         output->slice = 0;
-    else if (cJSON_IsNumber(slice))
-        output->slice = slice->valueint;
     else
     {
-        cjson_set_parse_error(err, "invalid slice");
-        return PARSE_ERROR;
+        double value;
+        if (!cjson_get_integer(slice, "slice", &value, err))
+            return PARSE_ERROR;
+        if (value < 0)
+        {
+            cjson_set_parse_error(err, "invalid slice: %.15g, must be >= 0", value);
+            return PARSE_ERROR;
+        }
+        // Any slice >= the packet length means no truncation, so INT_MAX is equivalent for larger values.
+        output->slice = value > INT_MAX ? INT_MAX : (int)value;
     }
 
     // Type specific config
@@ -527,12 +572,12 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *port = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "port");
         if (!port)
             output->config.vxlan.port = 4789;
-        else if (cJSON_IsNumber(port))
-            output->config.vxlan.port = port->valuedouble;
         else
         {
-            cjson_set_parse_error(err, "invalid vxlan.port");
-            return PARSE_ERROR;
+            int64_t value;
+            if (!cjson_get_int64_range(port, "vxlan.port", 1, 65535, &value, err))
+                return PARSE_ERROR;
+            output->config.vxlan.port = (uint16_t)value;
         }
 
         // Capture time
@@ -555,31 +600,34 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         // VNI1 and VNI2
         cJSON *vni1 = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "vni1");
         cJSON *vni2 = cJSON_GetObjectItemCaseSensitive(vxlan_obj, "vni2");
-        if (vni1)
+        if (vni1 && vni2)
         {
-            if (cJSON_IsNumber(vni1))
-            {
-                output->config.vxlan.vni_version = 1;
-                output->config.vxlan.vni = vni1->valuedouble;
-            }
-            else
-            {
-                cjson_set_parse_error(err, "invalid vxlan.vni1");
+            cjson_set_parse_error(err, "vxlan.vni1 and vxlan.vni2 are mutually exclusive");
+            return PARSE_ERROR;
+        }
+        else if (vni1)
+        {
+            int64_t value;
+            if (!cjson_get_int64_range(vni1, "vxlan.vni1", 0, UINT32_MAX, &value, err))
                 return PARSE_ERROR;
+            // The wire carries vni1 << 8, so only the low 24 bits reach the VNI field. cpdaemon may send
+            // uint32(serviceTag) beyond that; keep the effective value instead of rejecting the whole config.
+            if (value > 0xFFFFFF)
+            {
+                log_warn("vxlan.vni1 %lld exceeds 24 bits, using low 24 bits %lld", (long long)value,
+                         (long long)(value & 0xFFFFFF));
+                value &= 0xFFFFFF;
             }
+            output->config.vxlan.vni_version = 1;
+            output->config.vxlan.vni = (uint32_t)value;
         }
         else if (vni2)
         {
-            if (cJSON_IsNumber(vni2))
-            {
-                output->config.vxlan.vni_version = 2;
-                output->config.vxlan.vni = vni2->valuedouble;
-            }
-            else
-            {
-                cjson_set_parse_error(err, "invalid vxlan.vni2");
+            int64_t value;
+            if (!cjson_get_int64_range(vni2, "vxlan.vni2", 0, UINT32_MAX, &value, err))
                 return PARSE_ERROR;
-            }
+            output->config.vxlan.vni_version = 2;
+            output->config.vxlan.vni = (uint32_t)value;
         }
         else
         {
@@ -671,12 +719,16 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *service_tag = cJSON_GetObjectItemCaseSensitive(gre_obj, "service_tag");
         if (!service_tag)
             output->config.gre.service_tag = 0xffffffff;
-        else if (cJSON_IsNumber(service_tag))
-            output->config.gre.service_tag = service_tag->valuedouble;
         else
         {
-            cjson_set_parse_error(err, "invalid gre.service_tag");
-            return PARSE_ERROR;
+            int64_t value;
+            if (!cjson_get_int64_range(service_tag, "gre.service_tag", 0, UINT32_MAX, &value, err))
+                return PARSE_ERROR;
+            // The GRE key is service_tag | (direction << 28): the high 4 bits belong to the direction.
+            if (value > 0x0FFFFFFF)
+                log_warn("gre.service_tag %lld exceeds 28 bits and overlaps the direction bits of the GRE key",
+                         (long long)value);
+            output->config.gre.service_tag = (uint32_t)value;
         }
 
         // Bind device
@@ -760,36 +812,49 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
             cjson_set_parse_error(err, "missing zmq.port");
             return PARSE_ERROR;
         }
-        else if (cJSON_IsNumber(port))
-            output->config.zmq.port = port->valuedouble;
         else
         {
-            cjson_set_parse_error(err, "invalid zmq.port");
-            return PARSE_ERROR;
+            int64_t value;
+            if (!cjson_get_int64_range(port, "zmq.port", 1, 65535, &value, err))
+                return PARSE_ERROR;
+            output->config.zmq.port = (uint16_t)value;
         }
 
         // High Watermark
         cJSON *hwm = cJSON_GetObjectItemCaseSensitive(zmq_obj, "hwm");
         if (!hwm)
             output->config.zmq.hwm = 100;
-        else if (cJSON_IsNumber(hwm))
-            output->config.zmq.hwm = hwm->valueint;
         else
         {
-            cjson_set_parse_error(err, "invalid zmq.hwm");
-            return PARSE_ERROR;
+            double value;
+            if (!cjson_get_integer(hwm, "zmq.hwm", &value, err))
+                return PARSE_ERROR;
+            // libzmq rejects a negative ZMQ_SNDHWM; 0 means no limit.
+            if (value < 0)
+            {
+                cjson_set_parse_error(err, "invalid zmq.hwm: %.15g, must be >= 0", value);
+                return PARSE_ERROR;
+            }
+            if (value == 0)
+                log_warn("zmq.hwm is 0: the send queue is unbounded and grows while the receiver is slow or down");
+            // Values beyond int are as unbounded in practice as INT_MAX.
+            output->config.zmq.hwm = value > INT_MAX ? INT_MAX : (int)value;
         }
 
         // Keybit
         cJSON *service_tag = cJSON_GetObjectItemCaseSensitive(zmq_obj, "service_tag");
         if (!service_tag)
             output->config.zmq.service_tag = 0xffffffff;
-        else if (cJSON_IsNumber(service_tag))
-            output->config.zmq.service_tag = service_tag->valuedouble;
         else
         {
-            cjson_set_parse_error(err, "invalid zmq.service_tag");
-            return PARSE_ERROR;
+            int64_t value;
+            if (!cjson_get_int64_range(service_tag, "zmq.service_tag", 0, UINT32_MAX, &value, err))
+                return PARSE_ERROR;
+            // The per-packet MPLS label carries 12 bits; the batch header's keybit carries all 32.
+            if (value > 0xFFF)
+                log_warn("zmq.service_tag %lld exceeds 12 bits: packet labels carry %lld, batch keybit carries %lld",
+                         (long long)value, (long long)(value & 0xFFF), (long long)value);
+            output->config.zmq.service_tag = (uint32_t)value;
         }
 
         // uuid
@@ -822,12 +887,12 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         cJSON *heartbeat_ms = cJSON_GetObjectItemCaseSensitive(zmq_obj, "heartbeat_ms");
         if (!heartbeat_ms)
             output->config.zmq.heartbeat_ms = 0;
-        else if (cJSON_IsNumber(heartbeat_ms) && heartbeat_ms->valueint >= 0 && heartbeat_ms->valueint <= 60000)
-            output->config.zmq.heartbeat_ms = heartbeat_ms->valueint;
         else
         {
-            cjson_set_parse_error(err, "invalid zmq.heartbeat_ms");
-            return PARSE_ERROR;
+            int64_t value;
+            if (!cjson_get_int64_range(heartbeat_ms, "zmq.heartbeat_ms", 0, 60000, &value, err))
+                return PARSE_ERROR;
+            output->config.zmq.heartbeat_ms = (int)value;
         }
     }
     else if (strcmp(output->type, OUTPUT_TYPE_FILE) == 0)
@@ -878,13 +943,19 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
 
         cJSON *max_file_interval = cJSON_GetObjectItemCaseSensitive(rotating_file_obj, "max_file_interval");
         if (!max_file_interval)
-            output->config.rotating_file.max_file_interval = -1;
-        else if (cJSON_IsNumber(max_file_interval))
-            output->config.rotating_file.max_file_interval = max_file_interval->valueint;
+            output->config.rotating_file.max_file_interval = 60;
         else
         {
-            cjson_set_parse_error(err, "invalid rotating_file.max_file_interval");
-            return PARSE_ERROR;
+            double value;
+            if (!cjson_get_integer(max_file_interval, "rotating_file.max_file_interval", &value, err))
+                return PARSE_ERROR;
+            if (value < 0)
+            {
+                cjson_set_parse_error(err, "invalid rotating_file.max_file_interval: %.15g, must be >= 0", value);
+                return PARSE_ERROR;
+            }
+            // 0 means never rotate; values beyond int are as good as never.
+            output->config.rotating_file.max_file_interval = value > INT_MAX ? INT_MAX : (int)value;
         }
     }
     else if (strcmp(output->type, OUTPUT_TYPE_NULL) == 0)
@@ -1345,12 +1416,15 @@ static Config *parse_config_json(cJSON *json, cJSONParseError *err)
             cjson_set_parse_error(err, "missing pipeline.buffer_size_mb");
             goto error;
         }
-        else if (!cJSON_IsNumber(pipeline_buffer_size) || pipeline_buffer_size->valueint <= 0)
+        else
         {
-            cjson_set_parse_error(err, "invalid pipeline.buffer_size_mb");
-            goto error;
+            // Upper bound keeps buffer_size_mb * 1 MiB within size_t.
+            int64_t value;
+            if (!cjson_get_int64_range(pipeline_buffer_size, "pipeline.buffer_size_mb", 1,
+                                       (int64_t)(SIZE_MAX / (1024 * 1024)), &value, err))
+                goto error;
+            config->pipeline.buffer_size_mb = (size_t)value;
         }
-        config->pipeline.buffer_size_mb = pipeline_buffer_size->valueint;
     }
     else
     {

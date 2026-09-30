@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -64,4 +65,44 @@ void cjson_wrap_parse_error(cJSONParseError *err, const char *format, ...)
         new_len += copy_len;
     }
     err->message[new_len] = '\0';
+}
+
+bool cjson_get_int64_range(const cJSON *item, const char *name, int64_t min, int64_t max, int64_t *out,
+                           cJSONParseError *err)
+{
+    if (!cJSON_IsNumber(item))
+    {
+        cjson_set_parse_error(err, "invalid %s", name);
+        return false;
+    }
+
+    double value = item->valuedouble;
+    if (value < (double)min || value > (double)max || (double)(int64_t)value != value)
+    {
+        cjson_set_parse_error(err, "invalid %s: %.15g, must be an integer in [%lld, %lld]", name, value, (long long)min,
+                              (long long)max);
+        return false;
+    }
+
+    *out = (int64_t)value;
+    return true;
+}
+
+bool cjson_get_integer(const cJSON *item, const char *name, double *out, cJSONParseError *err)
+{
+    if (!cJSON_IsNumber(item))
+    {
+        cjson_set_parse_error(err, "invalid %s", name);
+        return false;
+    }
+
+    double value = item->valuedouble;
+    if (floor(value) != value)
+    {
+        cjson_set_parse_error(err, "invalid %s: %.15g, must be an integer", name, value);
+        return false;
+    }
+
+    *out = value;
+    return true;
 }

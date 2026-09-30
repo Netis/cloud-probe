@@ -2,6 +2,7 @@
 #define CPWORKER_CONFIG_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "cjson_utils.h"
@@ -164,7 +165,7 @@ typedef struct
     int execution_model;
     struct
     {
-        int buffer_size_mb;
+        size_t buffer_size_mb;
     } pipeline;
     ControlConfig *control;
     TasksAllConfig *tasks_cfg;

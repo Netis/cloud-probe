@@ -348,7 +348,7 @@ output_base_t *vxlan_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *out
                 .recalculate_checksum = output_cfg->config.vxlan.split.recalculate_checksum,
             },
     };
-    log_info("vxlan output options: host=%s, port=%d, capture_time=%d, vni_version=%d, vni=%d, bind_device=%s, "
+    log_info("vxlan output options: host=%s, port=%d, capture_time=%d, vni_version=%d, vni=%u, bind_device=%s, "
              "pmtudisc=%d, rate_limit_mbps=%d, slice=%d, split.max_payload_size=%u, split.recalculate_checksum=%d",
              opts.host, opts.port, opts.capture_time, opts.vni_version, opts.vni, opts.bind_device, opts.pmtudisc,
              opts.rate_limit_mbps, opts.slice, opts.split.max_payload_size, opts.split.recalculate_checksum);

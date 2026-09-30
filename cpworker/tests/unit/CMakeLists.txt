@@ -25,8 +25,10 @@ endif()
 set(MAIN_CONFIG_DIR "${CMAKE_BINARY_DIR}")
 
 set(unity_tests
+    config_validation
     misc
     output_file
+    output_rotating_file
     output_zmq
     packet_split
     unix_control
