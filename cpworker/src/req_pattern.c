@@ -178,10 +178,12 @@ static Node *create_condition_node(ConditionType type, const char *value, get_if
     }
     else if (type == COND_PORT)
     {
+        // Plain decimal only: no sign, and no leading zero, which BPF would read as octal ("010" is 8 there).
+        bool plain_decimal = isdigit((unsigned char)value[0]) && !(value[0] == '0' && value[1] != '\0');
         char *endptr;
         errno = 0;
         long port = strtol(value, &endptr, 10);
-        if (errno != 0 || *endptr != '\0' || port < 0 || port > 65535)
+        if (!plain_decimal || errno != 0 || *endptr != '\0' || port < 0 || port > 65535)
         {
             log_error("invalid port: %s", value);
             goto error;

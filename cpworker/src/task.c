@@ -1367,7 +1367,7 @@ static void main_handle_new_tasks(task_manager_t *mgr, reload_msg_t *msg)
         size_t new_capacity = mgr->config->pipeline.buffer_size_mb * 1024 * 1024;
         if (new_capacity != old_capacity)
         {
-            log_info("[main] update pipeline buffer_size: %d", mgr->config->pipeline.buffer_size_mb);
+            log_info("[main] update pipeline buffer_size: %zu", mgr->config->pipeline.buffer_size_mb);
             simple_allocator_resize(mgr->alloc, new_capacity);
         }
     }

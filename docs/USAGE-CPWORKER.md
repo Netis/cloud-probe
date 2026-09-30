@@ -89,7 +89,7 @@ For more configuration examples, see: [examples](../cpworker/examples)
 | control.type       | string   | -       | Control interface type (currently supports: unix) |
 | control.unix.path  | string   | -       | Unix socket file path |
 | execution_model    | string   | rtc     | Packet process execution model (rtc, pipeline) |
-| pipeline.buffer_size_mb | int | -       | Pipeline buffer size if execution_mode is pipeline |
+| pipeline.buffer_size_mb | int | -       | Pipeline buffer size in MB (>= 1), required if execution_model is pipeline |
 
 ## Task Parameters
 | Parameter                     | Type     | Default | Description |
@@ -104,18 +104,18 @@ For more configuration examples, see: [examples](../cpworker/examples)
 | Parameter        | Type     | Default | Description |
 |------------------|----------|---------|-------------|
 | interface        | string   | -       | Capture NIC name (required) |
-| snaplen          | int      | 2048    | Packet truncation length |
+| snaplen          | int      | 2048    | Packet truncation length (1-262144); 0, negative or larger values mean 262144 |
 | netns            | string   | -       | Network namespace of the NIC |
 | bpf              | string   | -       | BPF filter |
-| buffer_size_mb   | int      | -       | Buffer size (MB) |
-| timeout_ms       | int      | -       | Timeout (milliseconds) |
+| buffer_size_mb   | int      | 256     | Buffer size in MB (1-2047); larger values mean 2047 |
+| timeout_ms       | int      | 0       | libpcap packet buffer timeout in milliseconds (>= 0) |
 
 ## Output Parameters
 | Parameter         | Type     | Default | Description |
 |-------------------|----------|---------|-------------|
 | type              | string   | -       | Output type |
-| rate_limit_mbps   | int      | -       | Max output rate (Mbps), unlimited by default |
-| slice             | int      | -       | Packet truncation size (no truncation by default) |
+| rate_limit_mbps   | int      | 0       | Max output rate in Mbps (>= 0); 0 means unlimited |
+| slice             | int      | 0       | Packet truncation size in bytes (>= 0); 0 means no truncation |
 
 ## output.gre Parameters
 | Parameter         | Type     | Default | Description |
@@ -123,26 +123,28 @@ For more configuration examples, see: [examples](../cpworker/examples)
 | host              | string   | -       | Destination IP |
 | bind_device       | string   | -       | Bind interface (default: any) |
 | pmtudisc          | string   | -       | MTU discovery mode (do/dont/want) |
-| service_tag       | int      | -       | Service tag |
+| service_tag       | int      | 4294967295 | Service tag carried in the GRE key, 28 bits (0-268435455); the high 4 bits of the key carry the direction |
 
 ## output.vxlan Parameters
 | Parameter         | Type     | Default | Description |
 |-------------------|----------|---------|-------------|
 | host              | string   | -       | Destination IP |
-| port              | int      | -       | Destination port |
+| port              | int      | 4789    | Destination port (1-65535) |
 | capture_time      | bool     | -       | Add capture timestamp |
-| vni1              | int      | -       | VNI1 value (mutually exclusive with vni2) |
-| vni2              | int      | -       | VNI2 value (mutually exclusive with vni1) |
+| vni1              | int      | -       | VNI1 value, 24 bits (0-16777215); larger values keep the low 24 bits. Mutually exclusive with vni2 |
+| vni2              | int      | -       | VNI2 value, 32 bits (0-4294967295). Mutually exclusive with vni1 |
 | bind_device       | string   | -       | Bind interface (default: any) |
 | pmtudisc          | string   | -       | MTU discovery mode (do/dont/want) |
+| split.max_payload_size | int | 0      | Split TCP/UDP packets over IPv4/IPv6 so each carries at most this many L4 payload bytes (0-65535); 0 disables splitting. Other packets are sent unchanged |
+| split.recalculate_checksum | bool | false | Recalculate the IPv4 header and TCP/UDP checksums of split packets |
 
 ## output.zmq Parameters
 | Parameter         | Type     | Default | Description |
 |-------------------|----------|---------|-------------|
 | host              | string   | -       | Destination IP |
-| port              | int      | -       | Destination port |
-| hwm               | int      | -       | ZMQ high watermark |
-| service_tag       | int      | -       | Service tag |
+| port              | int      | -       | Destination port (1-65535), required |
+| hwm               | int      | 100     | ZMQ send high watermark in batches of up to 1 MB each (>= 0); 0 means unbounded (logged as a warning) |
+| service_tag       | int      | 4294967295 | Service tag, 12 bits (0-4095) in each packet label; the batch header keybit carries the full 32-bit value |
 | uuid              | string   | ""      | Probe UUID carried in heartbeat packets |
 | heartbeat_ms      | int      | 0       | Heartbeat interval in ms (0–60000); 0 disables heartbeat |
 
@@ -155,4 +157,4 @@ For more configuration examples, see: [examples](../cpworker/examples)
 | Parameter          | Type     | Default | Description |
 |--------------------|----------|---------|-------------|
 | file_root          | string   | -       | Output directory |
-| max_file_interval  | string   | -       | Max duration per file |
+| max_file_interval  | int      | 60      | Seconds per file before rotating to a new one (>= 0); 0 means never rotate |

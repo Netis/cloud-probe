@@ -388,10 +388,10 @@ capturer_base_t *dpdk_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskConfig
         .pool_name = "cpworker_capture_mbufs",
         .ring_name = "cpworker_capture_ring",
         .ring_size = task_cfg->capturer.config.dpdk_pdump.ring_size,
-        .num_mbufs = 2 * task_cfg->capturer.config.dpdk_pdump.ring_size,
+        .num_mbufs = 2 * (size_t)task_cfg->capturer.config.dpdk_pdump.ring_size,
         .req_pattern = task_cfg->req_pattern,
     };
-    log_info("dpdk_pdump options, interface %s, snaplen %d, ring_size: %d, num_mbufs: %d, bpf_filter: `%s`",
+    log_info("dpdk_pdump options, interface %s, snaplen %u, ring_size: %u, num_mbufs: %zu, bpf_filter: `%s`",
              opts.interface, opts.snaplen, opts.ring_size, opts.num_mbufs, opts.bpf_filter);
 
     return (capturer_base_t *)dpdk_capturer_new(opts, stats, errbuf);

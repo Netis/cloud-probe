@@ -220,7 +220,7 @@ output_base_t *gre_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
         .rate_limit_mbps = output_cfg->rate_limit_mbps,
         .slice = output_cfg->slice,
     };
-    log_info("gre output options: host=%s, service_tag=%d, bind_device=%s, pmtudisc=%d, rate_limit_mbps=%d, slice=%d",
+    log_info("gre output options: host=%s, service_tag=%u, bind_device=%s, pmtudisc=%d, rate_limit_mbps=%d, slice=%d",
              opts.host, opts.service_tag, opts.bind_device, opts.pmtudisc, opts.rate_limit_mbps, opts.slice);
     return (output_base_t *)gre_output_new(opts, stats, errbuf);
 }

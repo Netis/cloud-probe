@@ -112,9 +112,10 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
 
     if (output->dumper_error)
     {
-        // avoid frequent creation
+        // avoid frequent creation: retry once per rotation interval, at least once per second
         time_t now = time(NULL);
-        if (difftime(now, output->file_time) < output->max_file_interval)
+        int retry_interval = output->max_file_interval > 0 ? output->max_file_interval : 1;
+        if (difftime(now, output->file_time) < retry_interval)
         {
             bytes_stats_add(&output->base.stats->error_drop_bytes, hdr.caplen);
             packets_stats_add(&output->base.stats->error_drop_packets, 1);
@@ -137,7 +138,8 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
     else
     {
         time_t now = time(NULL);
-        if (difftime(now, output->file_time) >= output->max_file_interval)
+        // max_file_interval == 0 means never rotate
+        if (output->max_file_interval > 0 && difftime(now, output->file_time) >= output->max_file_interval)
         {
             pcap_dump_close(output->dumper);
             output->file_time = now;

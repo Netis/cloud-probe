@@ -1,4 +1,3 @@
-#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -331,17 +330,8 @@ capturer_base_t *libpcap_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskCon
         }
     }
 
-    int buffer_size;
-    int buffer_size_mb = task_cfg->capturer.config.libpcap.buffer_size_mb;
-    if (buffer_size_mb > INT_MAX / 1024 / 1024)
-    {
-        log_warn("buffer_size is too large, set to %d", INT_MAX);
-        buffer_size = INT_MAX;
-    }
-    else
-    {
-        buffer_size = buffer_size_mb * 1024 * 1024;
-    }
+    // config.c limits buffer_size_mb to [1, INT_MAX / 1 MiB], so this cannot overflow.
+    int buffer_size = task_cfg->capturer.config.libpcap.buffer_size_mb * 1024 * 1024;
 
     libpcap_options_t opts = {
         .interface = task_cfg->capturer.config.libpcap.interface,

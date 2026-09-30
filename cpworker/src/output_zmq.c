@@ -476,7 +476,7 @@ output_base_t *zmq_output_new_from_cfg(TaskConfig *task_cfg, OutputConfig *outpu
         .slice = output_cfg->slice,
         .heartbeat_ms = output_cfg->config.zmq.heartbeat_ms,
     };
-    log_info("zmq output options: host=%s, port=%d, hwm=%d, service_tag=%d, uuid=%s, rate_limit_mbps=%d, slice=%d, "
+    log_info("zmq output options: host=%s, port=%d, hwm=%d, service_tag=%u, uuid=%s, rate_limit_mbps=%d, slice=%d, "
              "heartbeat_ms=%d",
              opts.host, opts.port, opts.hwm, opts.service_tag, opts.uuid, opts.rate_limit_mbps, opts.slice,
              opts.heartbeat_ms);
