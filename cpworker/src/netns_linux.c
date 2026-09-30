@@ -2,8 +2,10 @@
 
 #if defined(NETNS_LINUX)
 
+#include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "errorf.h"
@@ -30,7 +32,7 @@ int enter_netns_by_path(char *ns_path, char *errbuf)
     }
     if (setns(fd, CLONE_NEWNET) == -1)
     {
-        error_format(errbuf, "call setns for '%s' error", ns_path);
+        error_format(errbuf, "call setns for '%s' error: %s", ns_path, strerror(errno));
         close(fd);
         return -1;
     }
@@ -42,7 +44,7 @@ int enter_netns_by_fd(int fd, char *errbuf)
 {
     if (setns(fd, CLONE_NEWNET) == -1)
     {
-        error_format(errbuf, "call setns error");
+        error_format(errbuf, "call setns error: %s", strerror(errno));
         return -1;
     }
     return 0;

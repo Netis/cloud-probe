@@ -85,6 +85,10 @@ static void free_output(OutputConfig *output)
         {
             free(output->config.file.name);
         }
+        else if (strcmp(output->type, OUTPUT_TYPE_ROTATING_FILE) == 0)
+        {
+            free(output->config.rotating_file.file_root);
+        }
     }
 
     free(output->type);
@@ -160,6 +164,7 @@ static void free_task(TaskConfig *task)
     // free req_pattern
     req_pattern_destroy(&task->req_pattern);
 
+    free(task->fingerprint);
     free(task);
 }
 
@@ -1190,6 +1195,8 @@ static TasksAllConfig *parse_tasks_json(cJSON *json, cJSONParseError *err)
                     strcmp(task->fingerprint, config->tasks[j]->fingerprint) == 0)
                 {
                     cjson_set_parse_error(err, "duplicate fingerprint '%s'", task->fingerprint);
+                    // not in config->tasks yet, so free_tasks_config below would miss it
+                    free_task(task);
                     goto error;
                 }
             }
