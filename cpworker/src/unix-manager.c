@@ -318,15 +318,13 @@ static int unix_manager_accept(unix_manager_t *this)
         close(client_fd);
         return -1;
     }
-    cJSON *status_obj = cJSON_CreateString("OK");
-    if (!status_obj)
+    if (!cJSON_AddStringToObject(server_msg, "status", "OK"))
     {
         log_error("create json string error");
         cJSON_Delete(server_msg);
         close(client_fd);
         return -1;
     }
-    cJSON_AddItemToObject(server_msg, "status", status_obj);
 
     unix_client_t *client = unix_client_new();
     if (client == NULL)
@@ -393,34 +391,12 @@ static int unix_command_execute(unix_manager_t *this, char *command, unix_client
 
     if (found == 0)
     {
-        cJSON *msg_obj = cJSON_CreateString("unknown command");
-        if (!msg_obj)
+        if (!cJSON_AddStringToObject(server_msg, "message", "unknown command") ||
+            !cJSON_AddStringToObject(server_msg, "status", "ERROR"))
             goto err_cmd;
-
-        cJSON_AddItemToObject(server_msg, "message", msg_obj);
-
-        cJSON *status_obj = cJSON_CreateString("ERROR");
-        if (!status_obj)
-            goto err_cmd;
-
-        cJSON_AddItemToObject(server_msg, "status", status_obj);
     }
-    else if (fret != 0)
-    {
-        cJSON *msg_obj = cJSON_CreateString("ERROR");
-        if (!msg_obj)
-            goto err_cmd;
-
-        cJSON_AddItemToObject(server_msg, "status", msg_obj);
-    }
-    else
-    {
-        cJSON *msg_obj = cJSON_CreateString("OK");
-        if (!msg_obj)
-            goto err_cmd;
-
-        cJSON_AddItemToObject(server_msg, "status", msg_obj);
-    }
+    else if (!cJSON_AddStringToObject(server_msg, "status", fret != 0 ? "ERROR" : "OK"))
+        goto err_cmd;
 
     if (unix_client_send(client, server_msg) != 0)
         goto err_cmd;

@@ -182,6 +182,7 @@ int main(int argc, char **argv)
 
     if (task_manager_start_reload_thread(config_file) != 0)
     {
+        task_manager_stop();
         task_manager_destroy();
         exit(EXIT_FAILURE);
     }

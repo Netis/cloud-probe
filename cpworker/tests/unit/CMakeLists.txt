@@ -34,6 +34,11 @@ set(unity_tests
     unix_control
 )
 
+# fault_paths relies on GNU ld's --wrap to inject allocation, setns and thread-start faults.
+if(OS_LINUX)
+    list(APPEND unity_tests fault_paths)
+endif()
+
 foreach(unity_test ${unity_tests})
     add_executable("${unity_test}"
         "${unity_test}.c"
@@ -68,3 +73,11 @@ foreach(unity_test ${unity_tests})
         COMMAND "./${unity_test}"
     )
 endforeach()
+
+if(OS_LINUX)
+    target_sources(fault_paths PRIVATE fault_hooks.c)
+    target_link_libraries(fault_paths
+        "-Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free,--wrap=strdup,--wrap=__strdup"
+        "-Wl,--wrap=setns,--wrap=pthread_create"
+    )
+endif()

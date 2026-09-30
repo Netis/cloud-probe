@@ -113,41 +113,53 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
     return num_pkts;
 }
 
+// setns() switches only the calling thread. If switching back fails, this thread stays in the
+// capture namespace, and every socket it opens afterwards (this task's outputs, later reloads)
+// would silently end up there. There is no reliable way back, so stop the worker instead.
+static void leave_netns_or_exit(int self_netns_fd)
+{
+    char errbuf[ERROR_BUFFER_SIZE];
+    if (enter_netns_by_fd(self_netns_fd, errbuf) != 0)
+    {
+        log_fatal("restore own network namespace failed, exiting: %s", errbuf);
+        exit(EXIT_FAILURE);
+    }
+}
+
 libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t *stats, char *errbuf)
 {
-    bool has_netns = false;
-    if (opts.netns && strcmp(opts.netns, "") != 0)
-        has_netns = true;
+    int self_netns_fd = -1;
+    bool in_target_netns = false;
+    req_pattern_t *req_pattern = NULL;
+    pcap_t *p = NULL;
+    libpcap_capturer_t *capturer = NULL;
 
-    int self_netns_fd;
-    if (has_netns)
+    if (opts.netns && strcmp(opts.netns, "") != 0)
     {
         self_netns_fd = open_self_netns(errbuf);
         if (self_netns_fd == -1)
             return NULL;
 
         if (enter_netns_by_path(opts.netns, errbuf) != 0)
-        {
-            close_netns_fd(self_netns_fd);
-            return NULL;
-        }
+            goto error;
+        in_target_netns = true;
     }
 
-    req_pattern_t *req_pattern = req_pattern_new_from_cfg(opts.req_pattern, opts.interface, errbuf);
+    req_pattern = req_pattern_new_from_cfg(opts.req_pattern, opts.interface, errbuf);
     if (!req_pattern)
     {
         error_wrap_format(errbuf, "create req_pattern_t error");
-        goto error2;
+        goto error;
     }
     const char *version = pcap_lib_version();
     log_info("libpcap version: %s", version);
 
     char pcap_errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t *p = pcap_create(opts.interface, pcap_errbuf);
+    p = pcap_create(opts.interface, pcap_errbuf);
     if (!p)
     {
         error_format(errbuf, "call pcap_create(%s) error: %s", opts.interface, pcap_errbuf);
-        goto error1;
+        goto error;
     }
 
     pcap_set_snaplen(p, opts.snaplen);
@@ -246,31 +258,31 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
         pcap_freecode(&bpf_prog);
     }
 
-    if (has_netns)
+    if (in_target_netns)
     {
-        int ret = enter_netns_by_fd(self_netns_fd, errbuf);
+        leave_netns_or_exit(self_netns_fd);
+        in_target_netns = false;
         close_netns_fd(self_netns_fd);
-        if (ret != 0)
-            goto error3;
+        self_netns_fd = -1;
     }
 
-    libpcap_capturer_t *capturer = (libpcap_capturer_t *)calloc(1, sizeof(libpcap_capturer_t));
+    capturer = (libpcap_capturer_t *)calloc(1, sizeof(libpcap_capturer_t));
     if (!capturer)
     {
         error_format(errbuf, "failed to allocate memory for libpcap_capturer_t");
-        goto error3;
+        goto error;
     }
     capturer->interface = strdup(opts.interface);
     if (!capturer->interface)
     {
         error_format(errbuf, "failed to allocate memory");
-        goto error3;
+        goto error;
     }
     capturer->netns = strdup(opts.netns);
     if (!capturer->netns)
     {
         error_format(errbuf, "failed to allocate memory");
-        goto error3;
+        goto error;
     }
     capturer->base.capture = libpcap_do_capture;
     capturer->base.destroy = libpcap_capturer_destroy;
@@ -283,27 +295,18 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
     return capturer;
 
 error:
-    pcap_close(p);
-error1:
-    req_pattern_destroy(req_pattern);
-error2:
-    if (has_netns)
-    {
-        char ns_errbuf[PCAP_ERRBUF_SIZE];
-        if (enter_netns_by_fd(self_netns_fd, ns_errbuf) != 0)
-            log_error("restore netns fail: %s", ns_errbuf);
-
+    if (in_target_netns)
+        leave_netns_or_exit(self_netns_fd);
+    if (self_netns_fd != -1)
         close_netns_fd(self_netns_fd);
-    }
-    return NULL;
-error3:
     if (capturer)
     {
         free(capturer->netns);
         free(capturer->interface);
         free(capturer);
     }
-    pcap_close(p);
+    if (p)
+        pcap_close(p);
     req_pattern_destroy(req_pattern);
     return NULL;
 }
