@@ -191,6 +191,71 @@ void test_bpf_filter_replace_nic(void)
     free(result);
 }
 
+// A 39-character IPv6 address replaces an 8-character token, so the output outgrows 2 * strlen(bpf).
+int mock_get_if_ipv6_addr(const char *ifname, ip_addr_t *addr, char *errbuf)
+{
+    if (strcmp(ifname, "v6if") == 0)
+    {
+        addr->type = IP_TYPE_IPv6;
+        inet_pton(AF_INET6, "2001:db8:1234:5678:9abc:def0:1234:5678", &addr->data.v6);
+        return 0;
+    }
+    return mock_get_if_ip_addr(ifname, addr, errbuf);
+}
+
+void test_bpf_filter_replace_nic_address_longer_than_token(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE];
+    // Plain text after the second address runs past the buffer before the third token is reached.
+    char *result =
+        bpf_filter_replace_nic("host nic.v6if and host nic.v6if and host nic.v6if", mock_get_if_ipv6_addr, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, errbuf);
+    TEST_ASSERT_EQUAL_STRING(
+        "host 2001:db8:1234:5678:9abc:def0:1234:5678 and host 2001:db8:1234:5678:9abc:def0:1234:5678 "
+        "and host 2001:db8:1234:5678:9abc:def0:1234:5678",
+        result);
+    free(result);
+
+    result = bpf_filter_replace_nic("nic.v6if", mock_get_if_ipv6_addr, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, errbuf);
+    TEST_ASSERT_EQUAL_STRING("2001:db8:1234:5678:9abc:def0:1234:5678", result);
+    free(result);
+}
+
+void test_bpf_filter_replace_nic_token_ends_at_paren(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE];
+    char *result = bpf_filter_replace_nic("(host nic.eth0)", mock_get_if_ip_addr, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, errbuf);
+    TEST_ASSERT_EQUAL_STRING("(host 172.16.1.1)", result);
+    free(result);
+
+    result = bpf_filter_replace_nic("(src host nic.eth0 or dst host nic.eth0)and port 80", mock_get_if_ip_addr, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, errbuf);
+    TEST_ASSERT_EQUAL_STRING("(src host 172.16.1.1 or dst host 172.16.1.1)and port 80", result);
+    free(result);
+}
+
+void test_bpf_filter_replace_nic_only_whole_tokens(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE];
+    char *result = bpf_filter_replace_nic("host panic.example.com and port 80", mock_get_if_ip_addr, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, errbuf);
+    TEST_ASSERT_EQUAL_STRING("host panic.example.com and port 80", result);
+    free(result);
+}
+
+void test_bpf_filter_replace_nic_unknown_interface(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE];
+    TEST_ASSERT_NULL(bpf_filter_replace_nic("host nic.eth9", mock_get_if_ip_addr, errbuf));
+    TEST_ASSERT_EQUAL_STRING("no ip found for interface eth9", errbuf);
+
+    TEST_ASSERT_NULL(bpf_filter_replace_nic("host nic. and port 80", mock_get_if_ip_addr, errbuf));
+    TEST_ASSERT_NULL(
+        bpf_filter_replace_nic("host nic.an-interface-name-far-longer-than-if-namesize", mock_get_if_ip_addr, errbuf));
+}
+
 void test_req_pattern_custom_multi_host_and_one_port(void)
 {
     req_pattern_custom_matcher_t matcher;
@@ -827,6 +892,10 @@ int main(void)
     RUN_TEST(test_parse_config_data_for_libpcap_gre_vxlan);
 
     RUN_TEST(test_bpf_filter_replace_nic);
+    RUN_TEST(test_bpf_filter_replace_nic_address_longer_than_token);
+    RUN_TEST(test_bpf_filter_replace_nic_token_ends_at_paren);
+    RUN_TEST(test_bpf_filter_replace_nic_only_whole_tokens);
+    RUN_TEST(test_bpf_filter_replace_nic_unknown_interface);
 
     RUN_TEST(test_bpf_filter_exclude_task_output_hosts_1);
     RUN_TEST(test_bpf_filter_exclude_task_output_hosts_2);
