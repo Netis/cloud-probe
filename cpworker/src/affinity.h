@@ -3,7 +3,7 @@
 
 #include "build_config.h"
 
-#if defined(OS_LINUX)
+#if OS_LINUX
 #define CPU_AFFINITY_LINUX 1
 #include <sched.h>
 int cpu_set_parse(cpu_set_t *mask, const char *value);

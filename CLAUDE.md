@@ -69,6 +69,8 @@ Integration tests use Go's testing framework with helpers in `helpers/` for runn
 
 cpworker uses clang-format (`cpworker/.clang-format`): Allman braces, IndentWidth=4, ColumnLimit=120.
 
+Platform checks: include `build_config.h` and write `#if OS_LINUX` (the `OS_*` macros are always defined as 0/1). Never use `#ifdef OS_*` or `defined(OS_*)`: `-Werror=undef` only catches a missing include or a misspelled macro in the `#if OS_*` form.
+
 ## Architecture
 
 ### Components

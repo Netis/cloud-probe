@@ -10,9 +10,9 @@
 
 #include "build_config.h"
 
-#if defined(OS_MACOS) || defined(OS_BSD)
+#if OS_MACOS || OS_BSD
 #include <net/if_dl.h>
-#elif defined(OS_LINUX)
+#elif OS_LINUX
 #include <linux/if_packet.h>
 #endif
 
@@ -50,7 +50,7 @@ int get_if_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
         if (!ifa->ifa_addr)
             continue;
 
-#if defined(OS_MACOS) || defined(OS_BSD)
+#if OS_MACOS || OS_BSD
         if (ifa->ifa_addr->sa_family == AF_LINK)
         {
             struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifa->ifa_addr;
@@ -61,7 +61,7 @@ int get_if_mac_addr(const char *ifname, uint8_t *mac_addr, char *errbuf)
                 break;
             }
         }
-#elif defined(OS_LINUX)
+#elif OS_LINUX
         if (ifa->ifa_addr->sa_family == AF_PACKET)
         {
             struct sockaddr_ll *sll = (struct sockaddr_ll *)ifa->ifa_addr;

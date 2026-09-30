@@ -1,9 +1,12 @@
 #include "affinity.h"
 
 #include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include "unity/src/unity.h"
 
@@ -11,6 +14,8 @@
 #include "config.h"
 #include "errorf.h"
 #include "ip.h"
+#include "output_gre.h"
+#include "output_vxlan.h"
 #include "output_zmq.h"
 #include "req_pattern.h"
 
@@ -713,7 +718,7 @@ void test_zmq_heartbeat_not_generated_when_recent_packet(void)
     zmq_output_destroy((output_base_t *)output);
 }
 
-#if defined(OS_LINUX)
+#if OS_LINUX
 void test_cpu_set_parse(void)
 {
     cpu_set_t mask;
@@ -744,6 +749,62 @@ void test_cpu_set_parse(void)
     // edge case: empty string should return 0 with empty mask
     TEST_ASSERT_EQUAL(0, cpu_set_parse(&mask, ""));
     TEST_ASSERT_EQUAL(0, CPU_COUNT(&mask));
+}
+
+static int socket_pmtudisc(int fd)
+{
+    int val = -1;
+    socklen_t len = sizeof(val);
+    TEST_ASSERT_EQUAL(0, getsockopt(fd, SOL_IP, IP_MTU_DISCOVER, &val, &len));
+    return val;
+}
+
+void test_gre_pmtudisc_applied(void)
+{
+    const int modes[] = {IP_PMTUDISC_DONT, IP_PMTUDISC_DO};
+    for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
+    {
+        output_stats_t stats;
+        memset(&stats, 0, sizeof(stats));
+        char errbuf[ERROR_BUFFER_SIZE];
+        gre_options_t opts = {
+            .host = "127.0.0.1",
+            .pmtudisc = modes[i],
+        };
+
+        gre_output_t *output = gre_output_new(opts, &stats, errbuf);
+        // GRE uses a raw socket, which requires CAP_NET_RAW
+        if (!output && strstr(errbuf, strerror(EPERM)))
+            TEST_IGNORE_MESSAGE("raw socket not permitted; run as root to cover GRE pmtudisc");
+        TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+        TEST_ASSERT_EQUAL(modes[i], socket_pmtudisc(output->socket_fd));
+        gre_output_destroy((output_base_t *)output);
+    }
+}
+
+void test_vxlan_pmtudisc_applied(void)
+{
+    const int modes[] = {IP_PMTUDISC_DONT, IP_PMTUDISC_DO};
+    for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
+    {
+        output_stats_t stats;
+        memset(&stats, 0, sizeof(stats));
+        char errbuf[ERROR_BUFFER_SIZE];
+        vxlan_options_t opts = {
+            .host = "127.0.0.1",
+            .port = 4789,
+            .vni_version = 1,
+            .vni = 1,
+            .pmtudisc = modes[i],
+        };
+
+        vxlan_output_t *output = vxlan_output_new(opts, &stats, errbuf);
+        TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+        TEST_ASSERT_EQUAL(modes[i], socket_pmtudisc(output->socket_fd));
+        vxlan_output_destroy((output_base_t *)output);
+    }
 }
 #endif
 
@@ -796,8 +857,10 @@ int main(void)
     RUN_TEST(test_zmq_heartbeat_not_generated_when_disabled);
     RUN_TEST(test_zmq_heartbeat_not_generated_when_recent_packet);
 
-#if defined(OS_LINUX)
+#if OS_LINUX
     RUN_TEST(test_cpu_set_parse);
+    RUN_TEST(test_gre_pmtudisc_applied);
+    RUN_TEST(test_vxlan_pmtudisc_applied);
 #endif
 
     return UNITY_END();
