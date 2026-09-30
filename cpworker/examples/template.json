@@ -42,7 +42,6 @@
                         "port": 4789,
                         "capture_time": false,
                         "vni1": 1,
-                        "vni2": 33,
                         "bind_device": "eth3",
                         "pmtudisc": "want"
                     },
