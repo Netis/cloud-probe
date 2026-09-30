@@ -156,3 +156,50 @@ func TestSetV2CpuUnlimited(t *testing.T) {
 		t.Fatalf("cgroup dir should still exist: %v", err)
 	}
 }
+
+// TestSetCpuQuota_KernelMinimum verifies that the quota is rounded and never written
+// below the kernel's 1ms minimum, which the kernel rejects with EINVAL (#267).
+func TestSetCpuQuota_KernelMinimum(t *testing.T) {
+	cases := []struct {
+		cpuLimit float64
+		quota    string
+	}{
+		{0.001, "1000"},
+		{0.5, "1000"},
+		{0.99, "1000"},
+		{1, "1000"},
+		{1.5, "1500"},
+		{1.14, "1140"}, // 1.14 / 100 * 100000 is 1139.999... in float64
+		{50, "50000"},
+		{200, "200000"},
+	}
+	for _, tc := range cases {
+		name := strconv.FormatFloat(tc.cpuLimit, 'g', -1, 64)
+		t.Run("v1_"+name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := SetV1CpuQuota(dir, tc.cpuLimit); err != nil {
+				t.Fatal(err)
+			}
+			got, err := os.ReadFile(filepath.Join(dir, "cpu.cfs_quota_us"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tc.quota {
+				t.Fatalf("cpu.cfs_quota_us = %q, want %q", got, tc.quota)
+			}
+		})
+		t.Run("v2_"+name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := SetV2CpuQuota(dir, tc.cpuLimit); err != nil {
+				t.Fatal(err)
+			}
+			got, err := os.ReadFile(filepath.Join(dir, "cpu.max"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := tc.quota + " 100000"; string(got) != want {
+				t.Fatalf("cpu.max = %q, want %q", got, want)
+			}
+		})
+	}
+}

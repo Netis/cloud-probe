@@ -2,6 +2,7 @@ package cpm
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -162,6 +163,9 @@ func (b *workerTaskBuilder) newTaskConfig(strategy StrategyEntry, item taskItem)
 			return nil, errors.Wrapf(err, "parse startup failed: %s", *strategy.Startup)
 		}
 	}
+	if err := validateStrategy(strategy, startupArgs); err != nil {
+		return nil, err
+	}
 
 	if startupArgs.Snaplen != nil {
 		task.Capturer.Libpcap.Snaplen = lo.ToPtr(*startupArgs.Snaplen)
@@ -245,7 +249,7 @@ func (b *workerTaskBuilder) newTaskConfig(strategy StrategyEntry, item taskItem)
 			}
 		}
 
-		if strategy.ApiVersion == nil || *strategy.ApiVersion == "v1" {
+		if usesVni1(strategy) {
 			if strategy.HasServiceTag && strategy.ServiceTag != nil {
 				output.Vxlan.Vni1 = lo.ToPtr(uint32(*strategy.ServiceTag))
 			} else {
@@ -293,11 +297,7 @@ func (b *workerTaskBuilder) newTaskConfig(strategy StrategyEntry, item taskItem)
 			Host: strategy.Address,
 			Uuid: b.daemonUUID,
 		}
-		if strategy.Port != nil {
-			output.Zmq.Port = *strategy.Port
-		} else {
-			return nil, errors.New("missing zmq.port")
-		}
+		output.Zmq.Port = *strategy.Port // validateStrategy requires it
 		if strategy.HasServiceTag && strategy.ServiceTag != nil {
 			output.Zmq.ServiceTag = lo.ToPtr(uint32(*strategy.ServiceTag))
 		}
@@ -332,6 +332,118 @@ func (b *workerTaskBuilder) newTaskConfig(strategy StrategyEntry, item taskItem)
 		task.Capturer.Libpcap.Netns = lo.ToPtr(item.netns)
 	}
 	return &task, nil
+}
+
+// Limits that cpworker enforces on the values below (cpworker/src/config.c).
+const (
+	maxPort             = 65535
+	maxPacketSplitBytes = 65535 // vxlan.split.max_payload_size is a uint16
+	maxZmqHeartbeatMs   = 60000
+)
+
+var pmtudiscOptions = []string{"do", "dont", "want"}
+
+// validateStrategy rejects the values that cpworker would reject (cpworker/src/config.c and output
+// creation). cpworker refuses the whole config when a single task is invalid, so an invalid value
+// must drop only its own strategy here instead of failing every reload.
+func validateStrategy(strategy StrategyEntry, args *startupArgs) error {
+	if args.Timeout != nil && *args.Timeout < 0 {
+		return errors.Errorf("invalid startup --timeout %d: must be >= 0", *args.Timeout)
+	}
+	if strategy.ReqPatternType != nil && *strategy.ReqPatternType == ReqPatternType_CUSTOM &&
+		(strategy.ReqPattern == nil || strings.TrimSpace(*strategy.ReqPattern) == "") {
+		return errors.New("invalid reqPattern: a CUSTOM req pattern must not be empty")
+	}
+
+	checkServiceTag := func() error {
+		if strategy.HasServiceTag && strategy.ServiceTag != nil && *strategy.ServiceTag < 0 {
+			return errors.Errorf("invalid serviceTag %d: must be >= 0", *strategy.ServiceTag)
+		}
+		return nil
+	}
+
+	switch strategy.PacketChannelType {
+	case PacketChannelType_VXLAN:
+		if err := checkIPv4Address(strategy.Address); err != nil {
+			return err
+		}
+		if strategy.Port != nil {
+			if err := checkPort(*strategy.Port); err != nil {
+				return err
+			}
+		}
+		if err := checkPmtudisc(args.Pmtudisc); err != nil {
+			return err
+		}
+		if strategy.HasPacketSplit && strategy.PacketSplitBytes != nil &&
+			(*strategy.PacketSplitBytes < 0 || *strategy.PacketSplitBytes > maxPacketSplitBytes) {
+			return errors.Errorf("invalid packetSplitBytes %d: must be between 0 and %d", *strategy.PacketSplitBytes,
+				maxPacketSplitBytes)
+		}
+		if usesVni1(strategy) {
+			return checkServiceTag()
+		}
+	case PacketChannelType_GRE:
+		if err := checkIPv4Address(strategy.Address); err != nil {
+			return err
+		}
+		if err := checkPmtudisc(args.Pmtudisc); err != nil {
+			return err
+		}
+		return checkServiceTag()
+	case PacketChannelType_ZMQ:
+		// libzmq resolves host names, so any non-empty address can be connected to.
+		if strategy.Address == "" {
+			return errors.New("invalid address: must not be empty")
+		}
+		if strategy.Port == nil {
+			return errors.New("missing zmq.port")
+		}
+		if err := checkPort(*strategy.Port); err != nil {
+			return err
+		}
+		if args.ZmqHwm != nil && *args.ZmqHwm < 0 {
+			return errors.Errorf("invalid startup --zmq_hwm %d: must be >= 0", *args.ZmqHwm)
+		}
+		if strategy.ZmqHeartbeatMs != nil && (*strategy.ZmqHeartbeatMs < 0 || *strategy.ZmqHeartbeatMs > maxZmqHeartbeatMs) {
+			return errors.Errorf("invalid zmqHeartbeatMs %d: must be between 0 and %d", *strategy.ZmqHeartbeatMs,
+				maxZmqHeartbeatMs)
+		}
+		return checkServiceTag()
+	case PacketChannelType_FILE:
+		if strategy.DumpInterval != nil && *strategy.DumpInterval < 0 {
+			return errors.Errorf("invalid dumpInterval %d: must be >= 0", *strategy.DumpInterval)
+		}
+	}
+	return nil
+}
+
+// gre and vxlan outputs take the destination as an IPv4 literal (inet_pton(AF_INET)).
+func checkIPv4Address(address string) error {
+	addr, err := netip.ParseAddr(address)
+	if err != nil || !addr.Is4() {
+		return errors.Errorf("invalid address %q: must be an IPv4 address", address)
+	}
+	return nil
+}
+
+func checkPort(port int32) error {
+	if port < 1 || port > maxPort {
+		return errors.Errorf("invalid port %d: must be between 1 and %d", port, maxPort)
+	}
+	return nil
+}
+
+func checkPmtudisc(pmtudisc *string) error {
+	if pmtudisc != nil && !slices.Contains(pmtudiscOptions, *pmtudisc) {
+		return errors.Errorf("invalid startup --pmtudisc_option %q: must be one of %s", *pmtudisc,
+			strings.Join(pmtudiscOptions, ", "))
+	}
+	return nil
+}
+
+func usesVni1(strategy StrategyEntry) bool {
+	return strategy.ApiVersion == nil || *strategy.ApiVersion == "v1"
 }
 
 func (b *workerTaskBuilder) build() ([]*worker.TaskConfig, []error) {

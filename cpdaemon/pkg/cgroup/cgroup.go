@@ -3,6 +3,7 @@ package cgroup
 import (
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -190,9 +191,27 @@ func CreateV1CpuCgroup(cgroupRoot string, cgroupHierarchy string, cgroupName str
 	return path, nil
 }
 
+const (
+	cpuPeriodUs = 100000
+	// Documentation/scheduler/sched-bwc.rst: "the minimum quota allowed for the quota or period is 1ms".
+	// The kernel rejects anything lower with EINVAL.
+	minCpuQuotaUs = 1000
+)
+
+// cpuQuotaUs converts a cpu usage percentage into a CFS quota for cpuPeriodUs. The quota is
+// rounded, and raised to the kernel minimum when the limit is below 1%.
+func cpuQuotaUs(cpuLimit float64) int {
+	quota := int(math.Round(cpuLimit / 100 * cpuPeriodUs))
+	if quota < minCpuQuotaUs {
+		slog.Default().Warn("cpu limit is below the kernel minimum quota, using the minimum",
+			slog.Float64("cpuLimit", cpuLimit), slog.Int("quotaUs", minCpuQuotaUs), slog.Int("periodUs", cpuPeriodUs))
+		quota = minCpuQuotaUs
+	}
+	return quota
+}
+
 func SetV1CpuQuota(cgroupPath string, cpuLimit float64) error {
-	period := 100000
-	quota := int(cpuLimit / 100 * float64(period))
+	quota := cpuQuotaUs(cpuLimit)
 
 	cpuQuotaFile := "cpu.cfs_quota_us"
 	if err := os.WriteFile(
@@ -206,7 +225,7 @@ func SetV1CpuQuota(cgroupPath string, cpuLimit float64) error {
 	cpuPeriodFile := "cpu.cfs_period_us"
 	if err := os.WriteFile(
 		filepath.Join(cgroupPath, cpuPeriodFile),
-		[]byte(strconv.Itoa(period)),
+		[]byte(strconv.Itoa(cpuPeriodUs)),
 		0o644,
 	); err != nil {
 		return errors.Wrapf(err, "write %s for %s failed", cpuPeriodFile, cgroupPath)
@@ -273,13 +292,12 @@ func doCreateV2Cgroup(path string, controls []string) error {
 }
 
 func SetV2CpuQuota(cgroupPath string, cpuLimit float64) error {
-	period := 100000
-	quota := int(cpuLimit / 100 * float64(period))
+	quota := cpuQuotaUs(cpuLimit)
 
 	cpuMaxFile := "cpu.max"
 	if err := os.WriteFile(
 		filepath.Join(cgroupPath, cpuMaxFile),
-		[]byte(fmt.Sprintf("%d %d", quota, period)),
+		[]byte(fmt.Sprintf("%d %d", quota, cpuPeriodUs)),
 		0o644,
 	); err != nil {
 		return errors.Wrapf(err, "write %s for %s failed", cpuMaxFile, cgroupPath)
