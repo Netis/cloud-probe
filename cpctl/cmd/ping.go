@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"os"
 	"time"
@@ -45,7 +46,7 @@ var pingCmd = &cobra.Command{
 		}
 		defer client.Close()
 
-		return runPing(cmd.Context(), client, os.Stdout, pingCfg.count, pingCfg.interval, pingCfg.quiet, Globals.Format, Globals.Unix)
+		return runPing(cmd.Context(), client, os.Stdout, slog.Default(), pingCfg.count, pingCfg.interval, pingCfg.quiet, Globals.Format, Globals.Unix)
 	},
 }
 
@@ -60,7 +61,10 @@ type pingSummary struct {
 	HasSamples bool
 }
 
-func runPing(ctx context.Context, client cpworker.Client, out io.Writer, count int, interval time.Duration, quiet bool, format, target string) error {
+// runPing writes samples and the summary to out. In jsonl mode per-ping
+// failures go to errLog (stderr) so out carries only data records; in text
+// mode they stay inline with the samples, like ping(8).
+func runPing(ctx context.Context, client cpworker.Client, out io.Writer, errLog *slog.Logger, count int, interval time.Duration, quiet bool, format, target string) error {
 	if format == FormatText && !quiet {
 		fmt.Fprintf(out, "PING cpworker (%s)\n", target)
 	}
@@ -89,7 +93,7 @@ func runPing(ctx context.Context, client cpworker.Client, out io.Writer, count i
 					emitPingSummary(out, format, sent-1, rtts)
 					return nil
 				}
-				emitPingError(out, format, seq, err, quiet)
+				emitPingError(out, errLog, format, seq, err)
 			} else {
 				rtts = append(rtts, rttMs)
 				if !quiet {
@@ -113,21 +117,17 @@ type pingSampleRecord struct {
 	RttMs float64 `json:"rtt_ms"`
 }
 
-type pingErrorRecord struct {
-	Kind string `json:"kind"`
-	Seq  int    `json:"seq"`
-	Err  string `json:"err"`
-}
-
+// pingSummaryRecord always carries every key; the RTT fields are null when
+// no ping got a reply.
 type pingSummaryRecord struct {
-	Kind     string  `json:"kind"`
-	Sent     int     `json:"sent"`
-	Received int     `json:"received"`
-	LossPct  float64 `json:"loss_pct"`
-	MinMs    float64 `json:"min_ms,omitempty"`
-	AvgMs    float64 `json:"avg_ms,omitempty"`
-	MaxMs    float64 `json:"max_ms,omitempty"`
-	StddevMs float64 `json:"stddev_ms,omitempty"`
+	Kind     string   `json:"kind"`
+	Sent     int      `json:"sent"`
+	Received int      `json:"received"`
+	LossPct  float64  `json:"loss_pct"`
+	MinMs    *float64 `json:"min_ms"`
+	AvgMs    *float64 `json:"avg_ms"`
+	MaxMs    *float64 `json:"max_ms"`
+	StddevMs *float64 `json:"stddev_ms"`
 }
 
 func emitPingSample(out io.Writer, format string, seq int, rttMs float64, when time.Time) {
@@ -144,17 +144,12 @@ func emitPingSample(out io.Writer, format string, seq int, rttMs float64, when t
 	}
 }
 
-func emitPingError(out io.Writer, format string, seq int, err error, quiet bool) {
-	if quiet {
-		return
-	}
+// emitPingError reports a failed ping. --quiet does not suppress it: quiet
+// only drops the per-ping sample lines.
+func emitPingError(out io.Writer, errLog *slog.Logger, format string, seq int, err error) {
 	switch format {
 	case FormatJSONL:
-		_ = writeJSONL(out, pingErrorRecord{
-			Kind: "error",
-			Seq:  seq,
-			Err:  err.Error(),
-		})
+		errLog.Error("ping failed", slog.Int("seq", seq), slog.String("err", err.Error()))
 	default:
 		fmt.Fprintf(out, "seq=%d error: %v\n", seq, err)
 	}
@@ -171,10 +166,10 @@ func emitPingSummary(out io.Writer, format string, sent int, rtts []float64) {
 			LossPct:  s.LossPct,
 		}
 		if s.HasSamples {
-			rec.MinMs = s.MinMs
-			rec.AvgMs = s.AvgMs
-			rec.MaxMs = s.MaxMs
-			rec.StddevMs = s.StddevMs
+			rec.MinMs = &s.MinMs
+			rec.AvgMs = &s.AvgMs
+			rec.MaxMs = &s.MaxMs
+			rec.StddevMs = &s.StddevMs
 		}
 		_ = writeJSONL(out, rec)
 		return
@@ -222,4 +217,3 @@ func computePingSummary(sent int, rtts []float64) pingSummary {
 	}
 	return s
 }
-

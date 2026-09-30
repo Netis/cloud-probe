@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -40,15 +39,29 @@ var infoCmd = &cobra.Command{
 	},
 }
 
+// infoRecord is the jsonl shape of `cpctl info` (docs/REFACTOR-CPCTL.md §6.3).
+type infoRecord struct {
+	Version        string `json:"version"`
+	Pid            int    `json:"pid"`
+	UptimeSec      int64  `json:"uptime_sec"`
+	ConfigPath     string `json:"config_path"`
+	WorkingDir     string `json:"working_dir"`
+	LogDestination string `json:"log_destination"`
+	StartedAt      string `json:"started_at"`
+}
+
 func emitInfo(out io.Writer, info cpworker.InfoSummary, format string) error {
 	switch format {
 	case FormatJSONL:
-		data, err := json.Marshal(info)
-		if err != nil {
-			return err
-		}
-		_, err = out.Write(append(data, '\n'))
-		return err
+		return writeJSONL(out, infoRecord{
+			Version:        info.Version,
+			Pid:            info.Pid,
+			UptimeSec:      info.UptimeSec,
+			ConfigPath:     info.ConfigPath,
+			WorkingDir:     info.WorkingDir,
+			LogDestination: info.LogDestination,
+			StartedAt:      info.StartedAt().UTC().Format(time.RFC3339),
+		})
 	default:
 		uptime := time.Duration(info.UptimeSec) * time.Second
 		fmt.Fprintf(out, "version          : %s\n", info.Version)
@@ -61,4 +74,3 @@ func emitInfo(out io.Writer, info cpworker.InfoSummary, format string) error {
 		return nil
 	}
 }
-

@@ -95,13 +95,14 @@ func runStats(ctx context.Context, client cpworker.Client, out io.Writer, count 
 	}
 }
 
-// statsRecord is the jsonl shape for one stats sample.
+// statsRecord is the jsonl shape for one stats sample. Both kinds carry the
+// same keys; a "raw" sample has interval_sec and rates set to null.
 type statsRecord struct {
 	Ts        string         `json:"ts"`
-	Sample    string         `json:"sample"` // "raw" or "rate"
-	IntervalS *float64       `json:"interval_sec,omitempty"`
+	Kind      string         `json:"kind"` // "raw" or "rate"
+	IntervalS *float64       `json:"interval_sec"`
 	Counters  map[string]any `json:"counters"`
-	Rates     map[string]any `json:"rates,omitempty"`
+	Rates     map[string]any `json:"rates"`
 }
 
 func emitStatsRaw(out io.Writer, s cpworker.StatsSummary, format string) error {
@@ -109,7 +110,7 @@ func emitStatsRaw(out io.Writer, s cpworker.StatsSummary, format string) error {
 	case FormatJSONL:
 		rec := statsRecord{
 			Ts:       time.Unix(s.Time.Sec, s.Time.Nsec).UTC().Format(time.RFC3339Nano),
-			Sample:   "raw",
+			Kind:     "raw",
 			Counters: countersMap(s),
 		}
 		return writeJSONL(out, rec)
@@ -128,7 +129,7 @@ func emitStatsDiff(out io.Writer, s, last cpworker.StatsSummary, format string) 
 	case FormatJSONL:
 		rec := statsRecord{
 			Ts:        t1.UTC().Format(time.RFC3339Nano),
-			Sample:    "rate",
+			Kind:      "rate",
 			IntervalS: &secs,
 			Counters:  countersMap(s),
 			Rates:     ratesMap(s, last, secs),
