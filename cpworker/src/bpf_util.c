@@ -1,4 +1,6 @@
 #include <ctype.h>
+#include <net/if.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -6,55 +8,103 @@
 #include "errorf.h"
 #include "log.h"
 
+#define NIC_TOKEN_PREFIX "nic."
+#define NIC_TOKEN_PREFIX_LEN (sizeof(NIC_TOKEN_PREFIX) - 1)
+
+typedef struct
+{
+    char *data;
+    size_t len;
+    size_t cap;
+} bpf_buf_t;
+
+// Appends n bytes and keeps the buffer NUL-terminated, growing it as needed.
+static bool bpf_buf_append(bpf_buf_t *buf, const char *s, size_t n)
+{
+    if (buf->len + n + 1 > buf->cap)
+    {
+        size_t cap = buf->cap;
+        while (buf->len + n + 1 > cap)
+            cap *= 2;
+        char *data = realloc(buf->data, cap);
+        if (!data)
+            return false;
+        buf->data = data;
+        buf->cap = cap;
+    }
+    memcpy(buf->data + buf->len, s, n);
+    buf->len += n;
+    buf->data[buf->len] = '\0';
+    return true;
+}
+
+// A nic.<if> token is delimited by whitespace or parentheses. Linux allows parentheses in interface names, but
+// such a name cannot be written in a BPF expression anyway: the BPF lexer also treats them as syntax.
+static bool is_token_delim(char c) { return c == '\0' || isspace((unsigned char)c) || c == '(' || c == ')'; }
+
+static bool is_nic_token_start(const char *bpf, const char *p)
+{
+    return strncmp(p, NIC_TOKEN_PREFIX, NIC_TOKEN_PREFIX_LEN) == 0 && (p == bpf || is_token_delim(p[-1]));
+}
+
 char *bpf_filter_replace_nic(const char *bpf, get_if_ip_addr_fn get_ip, char *errbuf)
 {
-    size_t buf_size = strlen(bpf) * 2;
-    char *output = malloc(buf_size);
-    char *out_ptr = output;
-    const char *in_ptr = bpf;
+    bpf_buf_t out = {.len = 0, .cap = strlen(bpf) + 1};
+    out.data = malloc(out.cap);
+    if (!out.data)
+    {
+        error_format(errbuf, "bpf_filter: out of memory");
+        return NULL;
+    }
+    out.data[0] = '\0';
 
+    const char *in_ptr = bpf;
     while (*in_ptr)
     {
-        if (strncmp(in_ptr, "nic.", 4) != 0)
-        {
-            *out_ptr++ = *in_ptr++;
-            continue;
-        }
+        // Copy the plain text up to the next token in one go
+        const char *plain = in_ptr;
+        while (*in_ptr && !is_nic_token_start(bpf, in_ptr))
+            in_ptr++;
+        if (!bpf_buf_append(&out, plain, in_ptr - plain))
+            goto oom;
+        if (!*in_ptr)
+            break;
 
-        const char *end = in_ptr + 4;
-        while (*end && !isspace(*end))
+        const char *name = in_ptr + NIC_TOKEN_PREFIX_LEN;
+        const char *end = name;
+        while (!is_token_delim(*end))
             end++;
 
-        int ifname_len = end - (in_ptr + 4);
-        char ifname[ifname_len + 1];
-        strncpy(ifname, in_ptr + 4, ifname_len);
+        size_t ifname_len = end - name;
+        if (ifname_len == 0 || ifname_len >= IF_NAMESIZE)
+        {
+            error_format(errbuf, "invalid interface name in bpf_filter: %.*s", (int)(end - in_ptr), in_ptr);
+            free(out.data);
+            return NULL;
+        }
+        char ifname[IF_NAMESIZE];
+        memcpy(ifname, name, ifname_len);
         ifname[ifname_len] = '\0';
 
         ip_addr_t addr;
         if (get_ip(ifname, &addr, errbuf) != 0)
         {
             error_format(errbuf, "no ip found for interface %s", ifname);
-            free(output);
+            free(out.data);
             return NULL;
         }
         char ip_str[INET6_ADDRSTRLEN];
         format_ip_addr(&addr, ip_str, sizeof(ip_str));
-        log_info("bpf_filter interface %s addresss is %s", ifname, ip_str);
+        log_info("bpf_filter interface %s address is %s", ifname, ip_str);
 
-        size_t ip_len = strlen(ip_str);
-        size_t offset = out_ptr - output;
-        size_t remaining = buf_size - offset - 1;
-        if (ip_len > remaining)
-        {
-            buf_size += ip_len * 2;
-            output = realloc(output, buf_size);
-            out_ptr = output + offset;
-        }
-
-        strncpy(out_ptr, ip_str, ip_len);
-        out_ptr += ip_len;
+        if (!bpf_buf_append(&out, ip_str, strlen(ip_str)))
+            goto oom;
         in_ptr = end;
     }
-    *out_ptr = '\0';
-    return output;
+    return out.data;
+
+oom:
+    error_format(errbuf, "bpf_filter: out of memory");
+    free(out.data);
+    return NULL;
 }
