@@ -18,7 +18,7 @@ typedef struct PcapFileCapturer
 
     req_pattern_t *req_pattern;
     pcap_t *p;
-    bool eof;
+    bool eof; // reached end of file or a read error; the file is not read any further
 } pcap_file_capturer_t;
 
 capturer_base_t *pcap_file_capture_new_from_cfg(TasksAllConfig *tasks_cfg, TaskConfig *task_cfg, capture_stats_t *stats,

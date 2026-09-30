@@ -13,6 +13,11 @@ uint64_t pcap_file_do_capture(capturer_base_t *self, capture_packet_handler pkt_
                               capture_heartbeat_handler heartbeat_handler, void *user)
 {
     pcap_file_capturer_t *capturer = (pcap_file_capturer_t *)self;
+    if (capturer->eof)
+    {
+        heartbeat_handler(user);
+        return 0;
+    }
 
     struct pcap_pkthdr *hdr;
     const u_char *data;
@@ -33,16 +38,17 @@ uint64_t pcap_file_do_capture(capturer_base_t *self, capture_packet_handler pkt_
         pkt_handler(hdr, data, direction, user);
         num_pkts = 1;
         break;
+    case PCAP_ERROR_BREAK:
+        heartbeat_handler(user);
+        log_info("end of file");
+        capturer->eof = true;
+        break;
     default:
-        if (ret == PCAP_ERROR_BREAK)
-        {
-            heartbeat_handler(user);
-            if (!capturer->eof)
-            {
-                log_info("end of file");
-                capturer->eof = true;
-            }
-        }
+        // A damaged record (truncated data, bogus incl_len). libpcap may be left in the middle of
+        // the record, so stop here rather than parse packet data as the next record header.
+        heartbeat_handler(user);
+        log_error("read pcap file error: %s; skip the rest of the file", pcap_geterr(capturer->p));
+        capturer->eof = true;
         break;
     }
     return num_pkts;

@@ -77,7 +77,7 @@ func reloadTo(t *testing.T, runner *helpers.CpworkerRunner, active, srcConfig st
 //   - reuse_on_no_change:            identical config    -> task reused, nothing reclaimed
 //   - abort_on_invalid_config:       bad config          -> reload aborts, old config kept
 //   - switch_output_destination:     reload swaps the output file; pre/post-reload traffic
-//                                     must land in the old/new file respectively
+//     must land in the old/new file respectively
 //   - pipeline_buffer_resize:        reload changes the pipeline ring size (applied live)
 //
 // The first three assert on cpworker's log; switch_output_destination asserts on
