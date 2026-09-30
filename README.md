@@ -81,6 +81,7 @@ cpworker -c libpcap_gre.json
 * [USAGE](./docs/USAGE-CPWORKER.md)
 * [Build requirements and steps](./docs/BUILD.md)
 * [ZMQ output wire format](./docs/ZMQ-WIRE-FORMAT.md)
+* [VXLAN output wire format](./docs/VXLAN-WIRE-FORMAT.md)
 
 ## Contributing
 Fork the project and send pull requests. We welcome pull requests from members of all open source community.
