@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -97,7 +98,7 @@ func (f *fakePingClient) Ping(context.Context) (cpworker.PingResult, error) {
 func TestRunPing_TextCount(t *testing.T) {
 	client := &fakePingClient{rtts: []time.Duration{500 * time.Microsecond, 1500 * time.Microsecond}}
 	var buf bytes.Buffer
-	err := runPing(context.Background(), client, &buf, 2, time.Microsecond, false, FormatText, "/tmp/sock")
+	err := runPing(context.Background(), client, &buf, newLogger(io.Discard, FormatText), 2, time.Microsecond, false, FormatText, "/tmp/sock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +113,7 @@ func TestRunPing_TextCount(t *testing.T) {
 func TestRunPing_JSONLCount(t *testing.T) {
 	client := &fakePingClient{rtts: []time.Duration{500 * time.Microsecond, 1500 * time.Microsecond}}
 	var buf bytes.Buffer
-	err := runPing(context.Background(), client, &buf, 2, time.Microsecond, false, FormatJSONL, "/tmp/sock")
+	err := runPing(context.Background(), client, &buf, newLogger(io.Discard, FormatText), 2, time.Microsecond, false, FormatJSONL, "/tmp/sock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +140,7 @@ func TestRunPing_JSONLCount(t *testing.T) {
 func TestRunPing_Quiet(t *testing.T) {
 	client := &fakePingClient{rtts: []time.Duration{500 * time.Microsecond, 1500 * time.Microsecond}}
 	var buf bytes.Buffer
-	err := runPing(context.Background(), client, &buf, 2, time.Microsecond, true, FormatText, "/tmp/sock")
+	err := runPing(context.Background(), client, &buf, newLogger(io.Discard, FormatText), 2, time.Microsecond, true, FormatText, "/tmp/sock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +158,7 @@ func TestRunPing_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
 	defer cancel()
 	var buf bytes.Buffer
-	err := runPing(ctx, client, &buf, 0, time.Microsecond, false, FormatText, "/tmp/sock")
+	err := runPing(ctx, client, &buf, newLogger(io.Discard, FormatText), 0, time.Microsecond, false, FormatText, "/tmp/sock")
 	if err != nil {
 		t.Fatal(err)
 	}

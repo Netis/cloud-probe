@@ -1,8 +1,9 @@
 # cpctl Refactor — Design Notes
 
-Working notes for the `refactor-cpctl-cli` branch. Captures the audit of the
-current `cpctl` CLI, why it is hostile to AI/tool consumption, and the
-proposed redesign.
+Design notes for the `cpctl` CLI: the audit of the old CLI, why it was
+hostile to AI/tool consumption, and the redesign. Sections 5.3 and 6 are the
+contract for `--format jsonl` output; `cpctl/cmd/jsonl_contract_test.go`
+pins every shape described there.
 
 ---
 
@@ -226,10 +227,23 @@ can use the name they expect without bloating the visible flag surface.
 
 For any command emitting `jsonl`:
 
+- **stdout carries data, stderr carries diagnostics.** Nothing but data
+  records is written to stdout, and every line cpctl writes to stderr is
+  also a JSON object.
 - Each tick = one complete JSON object on one line, with its own `ts` field.
+- Every line of a streaming command (`ping`, `stats`) has a `kind` field
+  naming its record type, so consumers can filter with
+  `select(.kind == "summary")` instead of guessing from which keys exist.
+- Records of the same `kind` always have the same keys. A value that is not
+  available yet is `null`, never an omitted key.
+- Keys are snake_case; timestamps are RFC 3339 strings in UTC.
 - `Stdout.Sync()` (or `bufio.Writer.Flush()`) after every line.
-- Errors during a stream go to **stderr** as a single jsonl line:
-  `{"level":"error","ts":"...","msg":"...","err":"..."}`.
+- Errors go to **stderr** as a single jsonl line:
+  `{"level":"error","ts":"...","msg":"...","err":"..."}`. Other log lines
+  (e.g. `received signal`) use the same shape with their own `level` and
+  extra keys.
+- An error that ends the command is logged with `msg` `"command failed"`,
+  and cpctl exits 1.
 
 ---
 
@@ -271,8 +285,19 @@ seq=1 time=0.31 ms
 rtt min/avg/max/stddev = 0.31/0.36/0.42/0.06 ms
 ```
 
-In `jsonl` mode, each line is `{"seq":N,"ts":"...","rtt_ms":X.XX}`, summary
-becomes a single trailing object `{"summary":{"sent":N,"received":M,...}}`.
+In `jsonl` mode, each reply is a sample line and the run ends with one
+summary line:
+
+```json
+{"kind":"sample","ts":"2026-04-21T08:12:00.123Z","seq":0,"rtt_ms":0.42}
+{"kind":"summary","sent":2,"received":2,"loss_pct":0,"min_ms":0.31,"avg_ms":0.36,"max_ms":0.42,"stddev_ms":0.06}
+```
+
+When no ping got a reply, `min_ms`, `avg_ms`, `max_ms` and `stddev_ms` are
+`null`. A failed ping is logged to stderr as
+`{"level":"error","ts":"...","msg":"ping failed","seq":N,"err":"..."}` and
+counts as lost in the summary. `-q` drops the sample lines only; failures are
+still reported (in `text` mode they print inline as `seq=N error: ...`).
 
 ### 6.2 stats
 
@@ -292,10 +317,20 @@ Considered and rejected:
   feel sluggish for no good reason.
 
 Implementation note: in `text` mode with `-n 1`, print just the raw
-counters table (no `-------` separator, no "per second" suffix). In
-`jsonl` mode with `-n 1`, emit one object with the counters and a
-`"rates": null` field so consumers can detect that no rate is available
-yet.
+counters table (no `-------` separator, no "per second" suffix).
+
+In `jsonl` mode every line has the same keys; `kind` says whether rates are
+available:
+
+```json
+{"ts":"...","kind":"raw","interval_sec":null,"counters":{...},"rates":null}
+{"ts":"...","kind":"rate","interval_sec":2,"counters":{...},"rates":{"cap_bytes_per_sec":{...},...}}
+```
+
+`-n 1` emits one `raw` line. `-n >= 2` and `-n 0` emit only `rate` lines; the
+first poll is the baseline and is not printed. A single rate is `null` when
+its counter went backwards between two samples (e.g. across a cpworker
+restart).
 
 ### 6.3 info
 
@@ -307,6 +342,7 @@ Minimum useful set, all derivable from data cpworker already has:
   "pid": 12345,
   "uptime_sec": 3601,
   "config_path": "/etc/cloud-probe/cpworker.json",
+  "working_dir": "/etc/cloud-probe",
   "log_destination": "stderr",
   "started_at": "2026-04-21T08:12:00Z"
 }
@@ -314,13 +350,16 @@ Minimum useful set, all derivable from data cpworker already has:
 
 C-side cost is trivial:
 
+- `working_dir` — cpworker's working directory, so a relative
+  `config_path` can be resolved.
 - `config_path` — already stored at `cpworker/src/main.c:20` (`static const
   char *config_file`).
 - `pid` — `getpid()`.
 - `uptime_sec` — store `time(NULL)` at startup, subtract on request.
 - `version` — already a build-time constant.
 - `log_destination` — literal `"stderr"` for now (no log_file config exists).
-- `started_at` — derived from the startup timestamp.
+- `started_at` — derived from the startup timestamp; RFC 3339 in UTC (the
+  RPC returns epoch seconds, cpctl formats them).
 
 One new RPC: `unix_manager_register_command("info", ...)`.
 **No per-task fields** — that road is closed by the team's earlier decision.

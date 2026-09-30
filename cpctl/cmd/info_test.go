@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -31,23 +30,5 @@ func TestEmitInfo_Text(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in output:\n%s", want, out)
 		}
-	}
-}
-
-func TestEmitInfo_JSONL(t *testing.T) {
-	var buf bytes.Buffer
-	if err := emitInfo(&buf, sampleInfo(), FormatJSONL); err != nil {
-		t.Fatal(err)
-	}
-	line := strings.TrimSpace(buf.String())
-	if !strings.HasSuffix(buf.String(), "\n") {
-		t.Errorf("jsonl output must end with a newline")
-	}
-	var got cpworker.InfoSummary
-	if err := json.Unmarshal([]byte(line), &got); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if got != sampleInfo() {
-		t.Errorf("decoded != original:\n got: %+v\nwant: %+v", got, sampleInfo())
 	}
 }

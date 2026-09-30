@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,8 +13,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"github.com/Netis/cloud-probe/cpgolib/slogx"
 )
 
 const (
@@ -40,15 +39,57 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		initLoggerOnce.Do(func() {
-			hd := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-				AddSource: true,
-				Level:     slog.LevelInfo,
-			})
-			slog.SetDefault(slog.New(hd))
-		})
-		return NormalizeFormat(&Globals.Format)
+		if err := NormalizeFormat(&Globals.Format); err != nil {
+			return err
+		}
+		initLogger()
+		return nil
 	},
+}
+
+// initLogger installs the stderr logger for the selected --format. It runs
+// once, from PersistentPreRunE or, if a command fails before that (e.g. an
+// unknown flag), from Execute's error path.
+func initLogger() {
+	initLoggerOnce.Do(func() {
+		format := Globals.Format
+		if NormalizeFormat(&format) != nil {
+			format = FormatText
+		}
+		slog.SetDefault(newLogger(os.Stderr, format))
+	})
+}
+
+// newLogger returns the stderr logger for format. In jsonl mode every line is
+// a JSON object shaped {"level":"error","ts":"...","msg":"...",...} per
+// docs/REFACTOR-CPCTL.md §5.3; text mode keeps slog's text layout.
+func newLogger(w io.Writer, format string) *slog.Logger {
+	if format != FormatJSONL {
+		return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     slog.LevelInfo,
+		}))
+	}
+	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if len(groups) > 0 {
+				return a
+			}
+			switch a.Key {
+			case slog.TimeKey:
+				return slog.String("ts", a.Value.Time().UTC().Format(time.RFC3339Nano))
+			case slog.LevelKey:
+				return slog.String(slog.LevelKey, strings.ToLower(a.Value.String()))
+			}
+			return a
+		},
+	}))
+}
+
+// reportError logs the error that ends a command.
+func reportError(l *slog.Logger, err error) {
+	l.Error("command failed", slog.String("err", err.Error()))
 }
 
 // NormalizeFormat collapses jsonl/ndjson aliases to the canonical "jsonl"
@@ -111,7 +152,8 @@ func Execute() {
 		if err == nil {
 			return
 		}
-		slog.Error("fail", slogx.Error(err))
+		initLogger()
+		reportError(slog.Default(), err)
 		os.Exit(1)
 	}()
 

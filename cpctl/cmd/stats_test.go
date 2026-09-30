@@ -80,11 +80,11 @@ func TestRunStats_RawN1JSONL(t *testing.T) {
 	if err := json.Unmarshal([]byte(lines[0]), &rec); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if rec.Sample != "raw" {
-		t.Errorf("sample type should be 'raw' at -n=1, got %q", rec.Sample)
+	if rec.Kind != "raw" {
+		t.Errorf("kind should be 'raw' at -n=1, got %q", rec.Kind)
 	}
 	if rec.Rates != nil {
-		t.Errorf("rates should be omitted in raw mode, got %+v", rec.Rates)
+		t.Errorf("rates should be null in raw mode, got %+v", rec.Rates)
 	}
 	if rec.Counters["cap_bytes"] == nil {
 		t.Errorf("counters.cap_bytes missing")
@@ -127,8 +127,8 @@ func TestRunStats_DiffN2JSONL(t *testing.T) {
 	if err := json.Unmarshal([]byte(lines[0]), &rec); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if rec.Sample != "rate" {
-		t.Errorf("sample type should be 'rate' at -n>=2, got %q", rec.Sample)
+	if rec.Kind != "rate" {
+		t.Errorf("kind should be 'rate' at -n>=2, got %q", rec.Kind)
 	}
 	if rec.IntervalS == nil || *rec.IntervalS != 2.0 {
 		t.Errorf("interval should be 2.0, got %v", rec.IntervalS)
