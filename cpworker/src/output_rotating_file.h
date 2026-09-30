@@ -9,6 +9,7 @@
 #include "config.h"
 #include "output.h"
 #include "output_file.h"
+#include "ratelimit.h"
 
 typedef struct RotatingFileOptions
 {
@@ -16,6 +17,7 @@ typedef struct RotatingFileOptions
     int max_file_interval;
     int snaplen;
     int slice;
+    uint64_t rate_limit_mbps;
 } rotating_file_options_t;
 
 typedef struct RotatingFileOutput
@@ -23,6 +25,8 @@ typedef struct RotatingFileOutput
     output_base_t base;
 
     int slice;
+    uint64_t rate_limit_mbps;
+    token_bucket_t throttle;
     char *file_root;
     int max_file_interval;
 

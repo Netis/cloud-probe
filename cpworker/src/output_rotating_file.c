@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -87,11 +88,26 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
 {
     rotating_file_output_t *output = (rotating_file_output_t *)self;
 
+    // A sliced record keeps the wire length in len, as pcap-savefile(5) describes
+    struct pcap_pkthdr hdr = *header;
+    if (output->slice > 0 && (uint32_t)output->slice < hdr.caplen)
+        hdr.caplen = output->slice;
+
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats->direction_drop_bytes, header->caplen);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, hdr.caplen);
         packets_stats_add(&output->base.stats->direction_drop_packets, 1);
         return -1;
+    }
+
+    if (output->rate_limit_mbps > 0)
+    {
+        if (!token_bucket_consume(&output->throttle, hdr.caplen, hdr.ts))
+        {
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, hdr.caplen);
+            packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
+            return -1;
+        }
     }
 
     if (output->dumper_error)
@@ -100,7 +116,7 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
         time_t now = time(NULL);
         if (difftime(now, output->file_time) < output->max_file_interval)
         {
-            bytes_stats_add(&output->base.stats->error_drop_bytes, header->caplen);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, hdr.caplen);
             packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
@@ -112,7 +128,7 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
         if (create_dumper(output) != 0)
         {
             output->dumper_error = true;
-            bytes_stats_add(&output->base.stats->error_drop_bytes, header->caplen);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, hdr.caplen);
             packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
@@ -131,7 +147,7 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
             if (create_dumper(output) != 0)
             {
                 output->dumper_error = true;
-                bytes_stats_add(&output->base.stats->error_drop_bytes, header->caplen);
+                bytes_stats_add(&output->base.stats->error_drop_bytes, hdr.caplen);
                 packets_stats_add(&output->base.stats->error_drop_packets, 1);
                 return -1;
             }
@@ -139,8 +155,8 @@ int rotating_file_write_packet(output_base_t *self, const struct pcap_pkthdr *he
         }
     }
 
-    pcap_dump((u_char *)output->dumper, header, pkt_data);
-    bytes_stats_add(&output->base.stats->fwd_bytes, header->caplen);
+    pcap_dump((u_char *)output->dumper, &hdr, pkt_data);
+    bytes_stats_add(&output->base.stats->fwd_bytes, hdr.caplen);
     packets_stats_add(&output->base.stats->fwd_packets, 1);
     return 0;
 }
@@ -155,7 +171,7 @@ rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, o
     }
 
     pcap_t *pcap;
-    pcap = pcap_open_dead(DLT_EN10MB, opts.snaplen);
+    pcap = pcap_open_dead(DLT_EN10MB, file_output_snaplen(opts.snaplen, opts.slice));
     if (!pcap)
     {
         error_format(errbuf, "pcap_open_dead failed");
@@ -174,6 +190,11 @@ rotating_file_output_t *rotating_file_output_new(rotating_file_options_t opts, o
     output->base.destroy = rotating_file_output_destroy;
     output->base.stats = stats;
 
+    if (opts.rate_limit_mbps > 0)
+    {
+        token_bucket_init(&output->throttle, opts.rate_limit_mbps * 1000000);
+    }
+    output->rate_limit_mbps = opts.rate_limit_mbps;
     output->slice = opts.slice;
     output->file_root = strdup(opts.file_root);
     output->max_file_interval = opts.max_file_interval;
@@ -189,9 +210,11 @@ output_base_t *rotating_file_output_new_from_cfg(TaskConfig *task_cfg, OutputCon
         .max_file_interval = output_cfg->config.rotating_file.max_file_interval,
         .snaplen = task_capturer_snaplen(task_cfg),
         .slice = output_cfg->slice,
+        .rate_limit_mbps = output_cfg->rate_limit_mbps,
     };
-    log_info("rotating_file output options: file_root=%s, max_file_interval=%d, snaplen=%d, slice=%d", opts.file_root,
-             opts.max_file_interval, opts.snaplen, opts.slice);
+    log_info("rotating_file output options: file_root=%s, max_file_interval=%d, snaplen=%d, slice=%d, "
+             "rate_limit_mbps=%" PRIu64,
+             opts.file_root, opts.max_file_interval, opts.snaplen, opts.slice, opts.rate_limit_mbps);
     return (output_base_t *)rotating_file_output_new(opts, stats, errbuf);
 }
 
