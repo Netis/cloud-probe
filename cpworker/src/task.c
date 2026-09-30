@@ -680,37 +680,40 @@ static int add_packets_stats(cJSON *parent, const char *name, packets_stats_t st
     return 0;
 }
 
-static int capture_stats_json_dump(capture_stats_t *stats, cJSON *capture)
+static int add_capture_stats(cJSON *parent, const char *name, const capture_stats_t *st)
 {
-    if (add_bytes_stats(capture, "cap_bytes", stats->cap_bytes) != 0 ||
-        add_packets_stats(capture, "cap_packets", stats->cap_packets) != 0 ||
-        add_packets_stats(capture, "drop_packets", stats->drop_packets) != 0 ||
-        add_packets_stats(capture, "ifdrop_packets", stats->ifdrop_packets) != 0)
+    cJSON *obj = cJSON_AddObjectToObject(parent, name);
+    if (!obj || add_bytes_stats(obj, "cap_bytes", st->cap_bytes) != 0 ||
+        add_packets_stats(obj, "cap_packets", st->cap_packets) != 0 ||
+        add_packets_stats(obj, "drop_packets", st->drop_packets) != 0 ||
+        add_packets_stats(obj, "ifdrop_packets", st->ifdrop_packets) != 0)
         return -1;
     return 0;
 }
 
-static int pipeline_buffer_stats_json_dump(pipeline_buffer_stats_t *stats, cJSON *obj)
+static int add_output_stats(cJSON *parent, const char *name, const output_stats_t *st)
 {
-    if (!cJSON_AddNumberToObject(obj, "mem_total", stats->mem_total) ||
-        !cJSON_AddNumberToObject(obj, "mem_used", stats->mem_used) ||
-        !cJSON_AddNumberToObject(obj, "ring_total", stats->ring_total) ||
-        !cJSON_AddNumberToObject(obj, "ring_used", stats->ring_used))
+    cJSON *obj = cJSON_AddObjectToObject(parent, name);
+    if (!obj || add_bytes_stats(obj, "fwd_bytes", st->fwd_bytes) != 0 ||
+        add_packets_stats(obj, "fwd_packets", st->fwd_packets) != 0 ||
+        add_bytes_stats(obj, "direction_drop_bytes", st->direction_drop_bytes) != 0 ||
+        add_packets_stats(obj, "direction_drop_packets", st->direction_drop_packets) != 0 ||
+        add_bytes_stats(obj, "error_drop_bytes", st->error_drop_bytes) != 0 ||
+        add_packets_stats(obj, "error_drop_packets", st->error_drop_packets) != 0 ||
+        add_bytes_stats(obj, "ratelimit_drop_bytes", st->ratelimit_drop_bytes) != 0 ||
+        add_packets_stats(obj, "ratelimit_drop_packets", st->ratelimit_drop_packets) != 0 ||
+        add_packets_stats(obj, "heartbeat_packets", st->heartbeat_packets) != 0)
         return -1;
     return 0;
 }
 
-static int output_stats_json_dump(output_stats_t *output_stats, cJSON *output)
+static int add_pipeline_buffer_stats(cJSON *parent, const char *name, const pipeline_buffer_stats_t *st)
 {
-    if (add_bytes_stats(output, "fwd_bytes", output_stats->fwd_bytes) != 0 ||
-        add_packets_stats(output, "fwd_packets", output_stats->fwd_packets) != 0 ||
-        add_bytes_stats(output, "direction_drop_bytes", output_stats->direction_drop_bytes) != 0 ||
-        add_packets_stats(output, "direction_drop_packets", output_stats->direction_drop_packets) != 0 ||
-        add_bytes_stats(output, "error_drop_bytes", output_stats->error_drop_bytes) != 0 ||
-        add_packets_stats(output, "error_drop_packets", output_stats->error_drop_packets) != 0 ||
-        add_bytes_stats(output, "ratelimit_drop_bytes", output_stats->ratelimit_drop_bytes) != 0 ||
-        add_packets_stats(output, "ratelimit_drop_packets", output_stats->ratelimit_drop_packets) != 0 ||
-        add_packets_stats(output, "heartbeat_packets", output_stats->heartbeat_packets) != 0)
+    cJSON *obj = cJSON_AddObjectToObject(parent, name);
+    if (!obj || !cJSON_AddNumberToObject(obj, "mem_total", st->mem_total) ||
+        !cJSON_AddNumberToObject(obj, "mem_used", st->mem_used) ||
+        !cJSON_AddNumberToObject(obj, "ring_total", st->ring_total) ||
+        !cJSON_AddNumberToObject(obj, "ring_used", st->ring_used))
         return -1;
     return 0;
 }
@@ -728,16 +731,9 @@ int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg
         !cJSON_AddNumberToObject(time, "nsec", stats.tm.tv_nsec))
         return -1;
 
-    cJSON *capture = cJSON_AddObjectToObject(server_msg, "capture");
-    if (!capture || capture_stats_json_dump(&stats.capture, capture) != 0)
-        return -1;
-
-    cJSON *output = cJSON_AddObjectToObject(server_msg, "output");
-    if (!output || output_stats_json_dump(&stats.output, output) != 0)
-        return -1;
-
-    cJSON *pipeline_buffer = cJSON_AddObjectToObject(server_msg, "pipeline_buffer");
-    if (!pipeline_buffer || pipeline_buffer_stats_json_dump(&stats.pipeline_buffer, pipeline_buffer) != 0)
+    if (add_capture_stats(server_msg, "capture", &stats.capture) != 0 ||
+        add_output_stats(server_msg, "output", &stats.output) != 0 ||
+        add_pipeline_buffer_stats(server_msg, "pipeline_buffer", &stats.pipeline_buffer) != 0)
         return -1;
 
     return 0;

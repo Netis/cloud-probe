@@ -79,6 +79,20 @@ void test_duplicate_fingerprint_rejected_without_leak(void)
 /* ---------- #268: a failed netns restore does not return into the wrong namespace ---------- */
 
 #define CHILD_SKIP 77
+#define CHILD_EXITED_ON_ERROR_PATH 3
+
+/* errbuf stays empty until the constructor fails. An exit() with a non-empty errbuf came from
+ * the restore on the error path, not the one on the success path this test is about. */
+static char child_errbuf[ERROR_BUFFER_SIZE];
+
+static void check_exit_came_from_success_path(void)
+{
+    if (child_errbuf[0] != '\0')
+    {
+        fprintf(stderr, "exited after an earlier failure: %s\n", child_errbuf);
+        _exit(CHILD_EXITED_ON_ERROR_PATH);
+    }
+}
 
 static bool can_capture_on_lo(void)
 {
@@ -116,8 +130,9 @@ void test_libpcap_netns_restore_failure_exits(void)
         };
         capture_stats_t stats;
         memset(&stats, 0, sizeof(stats));
-        char errbuf[ERROR_BUFFER_SIZE];
-        libpcap_capturer_new(opts, &stats, errbuf);
+        child_errbuf[0] = '\0';
+        atexit(check_exit_came_from_success_path);
+        libpcap_capturer_new(opts, &stats, child_errbuf);
         _exit(0);
     }
 
@@ -127,6 +142,8 @@ void test_libpcap_netns_restore_failure_exits(void)
         TEST_IGNORE_MESSAGE("needs CAP_NET_RAW to open lo");
 
     TEST_ASSERT_TRUE_MESSAGE(WIFEXITED(status), "child was killed by a signal");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(CHILD_EXITED_ON_ERROR_PATH, WEXITSTATUS(status),
+                                  "the constructor failed before the success-path restore");
     TEST_ASSERT_EQUAL_INT(EXIT_FAILURE, WEXITSTATUS(status));
 }
 
