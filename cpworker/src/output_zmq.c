@@ -223,7 +223,9 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     struct ether_header eth_hdr_copy;
     memcpy(&eth_hdr_copy, pkt_data, sizeof(struct ether_header));
 
-    // Calculate total VLAN header size by looping through stacked VLANs
+    // Calculate total VLAN header size by looping through stacked VLANs.
+    // `length` includes the MPLS header; only `data_len` bytes of pkt_data were captured.
+    const size_t data_len = length - sizeof(mpls_header);
     uint16_t ether_type = ntohs(eth_hdr_copy.ether_type);
     size_t vlan_total_size = 0;
 
@@ -231,7 +233,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
            ether_type == ETHERTYPE_VLAN_9200)
     {
         size_t vlan_offset = sizeof(struct ether_header) + vlan_total_size;
-        if (vlan_offset + sizeof(struct vlan_header) > length)
+        if (vlan_offset + sizeof(struct vlan_header) > data_len)
             break;
         struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + vlan_offset);
         ether_type = ntohs(vlan_hdr->ether_type);
@@ -265,7 +267,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     // Copy payload (everything after Ethernet + all VLANs)
     const size_t payload_offset = sizeof(struct ether_header) + vlan_total_size;
-    const size_t payload_copy_len = length - sizeof(struct ether_header) - sizeof(mpls_header) - vlan_total_size;
+    const size_t payload_copy_len = data_len - payload_offset;
     memcpy(&(pkts_buf->buf[buff_pos]), pkt_data + payload_offset, payload_copy_len);
     buff_pos += payload_copy_len;
 
@@ -366,7 +368,8 @@ zmq_output_t *zmq_output_new(zmq_options_t opts, output_stats_t *stats, char *er
 {
     uint8_t uuid[16];
     memset(uuid, 0, sizeof(uuid));
-    if (!uuid_to_bytes(opts.uuid, uuid))
+    // uuid is optional: when unset it stays all-zero on the wire
+    if (opts.uuid && opts.uuid[0] != '\0' && !uuid_to_bytes(opts.uuid, uuid))
     {
         error_format(errbuf, "invalid uuid: %s", opts.uuid);
         return NULL;
@@ -487,6 +490,10 @@ void zmq_output_destroy(output_base_t *self)
 
     log_info("call zmq_output_destroy");
     zmq_output_t *output = (zmq_output_t *)self;
+
+    // Send the pending batch; ZMQ_LINGER keeps zmq_ctx_destroy waiting until it is delivered
+    if (output->pusher && output->pkts_buf.batch_hdr.pkts_num > 0)
+        zmq_flush_packet(output);
 
     if (output->pusher)
         zmq_close(output->pusher);
