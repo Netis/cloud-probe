@@ -51,7 +51,7 @@ uint64_t libpcap_do_capture(capturer_base_t *self, capture_packet_handler pkt_ha
         num_pkts = 1;
         break;
     case 0:
-        // timeout
+        // no packet ready (the handle is non-blocking)
         heartbeat_handler(user);
         break;
     default:
@@ -162,8 +162,8 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
     // effectively delivered only when full -- at low/bursty rates that takes seconds
     // (measured ~0.5-0.9s at 2pps, tens of seconds near-idle), making zmq batches arrive in
     // multi-second bursts. When timeout_ms > 0 the retire timer is already bounded by the
-    // user-chosen value, so the problem does not exist and we must NOT override that intent
-    // (a non-zero timeout often means "batch up to N ms to save wakeups").
+    // user-chosen value, so the delivery latency problem does not exist and we must NOT
+    // override that intent (a non-zero timeout often means "batch up to N ms").
     if (opts.timeout_ms == 0)
     {
         // Non-blocking round-robin path (see pcap_setnonblock below). Immediate mode is the
@@ -197,8 +197,7 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
     }
     else
     {
-        // Blocking path: the user-chosen timeout bounds both the poll wait and the V3 block
-        // retire timer; respect it.
+        // Batching path: the user-chosen timeout sets the V3 block retire timer; respect it.
         pcap_set_timeout(p, opts.timeout_ms);
     }
 
@@ -208,13 +207,17 @@ libpcap_capturer_t *libpcap_capturer_new(libpcap_options_t opts, capture_stats_t
         goto error;
     }
 
-    if (opts.timeout_ms == 0)
+    // Non-blocking on both paths, so an idle interface never stalls the main loop, which
+    // round-robins every task and also drives reload, quit and stats. A blocking read is
+    // NOT bounded by timeout_ms: on TPACKET_V3, libpcap >= 1.8 polls with an infinite
+    // timeout and relies on the kernel retire timer to wake it, but the kernel never
+    // retires an empty block, so on an idle link pcap_next_ex() never returns. Even where
+    // the wait is bounded (libpcap < 1.8), it costs up to timeout_ms per round and throttles
+    // every other task. Non-blocking keeps the retire timer, and thus the batching, intact.
+    if (pcap_setnonblock(p, 1, pcap_errbuf) != 0)
     {
-        if (pcap_setnonblock(p, 1, pcap_errbuf) != 0)
-        {
-            error_format(errbuf, "pcap_setnonblock error: %s", pcap_errbuf);
-            goto error;
-        }
+        error_format(errbuf, "pcap_setnonblock error: %s", pcap_errbuf);
+        goto error;
     }
 
     if (opts.bpf_filter && strcmp(opts.bpf_filter, "") != 0)

@@ -146,6 +146,27 @@ func (r *CpworkerRunner) Reload() error {
 	return r.cmd.Process.Signal(syscall.SIGHUP)
 }
 
+// Signal sends sig to the cpworker process.
+func (r *CpworkerRunner) Signal(sig os.Signal) error {
+	if r.cmd == nil || r.cmd.Process == nil {
+		return fmt.Errorf("cpworker not started")
+	}
+	return r.cmd.Process.Signal(sig)
+}
+
+// WaitExit reports whether the process exits within d. It polls Running rather
+// than reaping, so a later Stop still reaps (or kills) the process on timeout.
+func (r *CpworkerRunner) WaitExit(d time.Duration) bool {
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		if !r.Running() {
+			return true
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return !r.Running()
+}
+
 // Running reports whether the process is alive (not exited, not a zombie).
 // Uses /proc so it is correct even when the child has not been reaped yet.
 func (r *CpworkerRunner) Running() bool {
