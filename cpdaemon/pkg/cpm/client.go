@@ -85,9 +85,9 @@ func (c *HttpClient) Register(ctx context.Context, req RegisterRequest) (*Regist
 	}
 
 	endpoint := c.getEndpoint("/api/v1/daemons")
-	resp, err := c.client.Post(endpoint.String(), "application/json", bytes.NewBuffer(data))
+	resp, err := c.postJSON(ctx, endpoint, data)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -117,9 +117,9 @@ func (c *HttpClient) SyncStrategy(ctx context.Context, daemonId int64, version i
 	query.Add("version", fmt.Sprintf("%d", version))
 	endpoint.RawQuery = query.Encode()
 
-	resp, err := c.client.Get(endpoint.String())
+	resp, err := c.get(ctx, endpoint)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -157,9 +157,9 @@ func (c *HttpClient) SyncMetrics(ctx context.Context, daemonId int64, req SyncMe
 	}
 
 	endpoint := c.getEndpoint(fmt.Sprintf("/api/v1/daemons/%d/sync/metrics", daemonId))
-	resp, err := c.client.Post(endpoint.String(), "application/json", bytes.NewBuffer(data))
+	resp, err := c.postJSON(ctx, endpoint, data)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -168,6 +168,25 @@ func (c *HttpClient) SyncMetrics(ctx context.Context, daemonId int64, req SyncMe
 	}
 	discardHttpBody(resp)
 	return nil
+}
+
+func (c *HttpClient) get(ctx context.Context, endpoint *url.URL) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	resp, err := c.client.Do(req)
+	return resp, errors.WithStack(err)
+}
+
+func (c *HttpClient) postJSON(ctx context.Context, endpoint *url.URL, data []byte) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(data))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.client.Do(req)
+	return resp, errors.WithStack(err)
 }
 
 func (c *HttpClient) getEndpoint(endpoint string) *url.URL {
