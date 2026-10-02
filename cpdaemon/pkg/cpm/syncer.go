@@ -129,7 +129,7 @@ func killOrphanWorker(workerCfg WorkerConfig) error {
 	case err != nil:
 		return errors.WithStack(err)
 	}
-	pid, err := strconv.Atoi(string(data))
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -144,10 +144,22 @@ func killOrphanWorker(workerCfg WorkerConfig) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	if len(cmdLineSlice) == 0 {
-		return errors.Errorf("unexpected command line: %s", strings.Join(cmdLineSlice, " "))
-	}
-	if cmdLineSlice[0] != workerCfg.Executable {
+	if len(cmdLineSlice) == 0 || cmdLineSlice[0] != workerCfg.Executable {
+		// A pid is reused only after the worker it named has exited, and the worker exited after
+		// the pid file was written. A process created after the pid file is therefore not our worker.
+		reused, err := startedAfterPidFile(p, workerCfg.PidFile)
+		if err != nil {
+			return err
+		}
+		if reused {
+			slog.Default().Warn(
+				"ignore stale pid file, pid reused by another process",
+				slog.String("pid_file", workerCfg.PidFile),
+				slog.Int("pid", pid),
+				slog.String("cmdline", strings.Join(cmdLineSlice, " ")),
+			)
+			return nil
+		}
 		return errors.Errorf("unexpected command line: %s", strings.Join(cmdLineSlice, " "))
 	}
 
@@ -160,6 +172,18 @@ func killOrphanWorker(workerCfg WorkerConfig) error {
 		return errors.WithStack(err)
 	}
 	return nil
+}
+
+func startedAfterPidFile(p *process.Process, pidFile string) (bool, error) {
+	info, err := os.Stat(pidFile)
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+	createMs, err := p.CreateTime()
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+	return time.UnixMilli(createMs).After(info.ModTime()), nil
 }
 
 func NewSyncer(
