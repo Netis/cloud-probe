@@ -229,8 +229,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     uint16_t ether_type = ntohs(eth_hdr_copy.ether_type);
     size_t vlan_total_size = 0;
 
-    while (ether_type == ETHERTYPE_VLAN || ether_type == ETHERTYPE_DOT1AD || ether_type == ETHERTYPE_VLAN_9100 ||
-           ether_type == ETHERTYPE_VLAN_9200)
+    while (is_vlan_ethertype(ether_type))
     {
         size_t vlan_offset = sizeof(struct ether_header) + vlan_total_size;
         if (vlan_offset + sizeof(struct vlan_header) > data_len)

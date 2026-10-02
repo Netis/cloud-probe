@@ -350,8 +350,6 @@ static bool evaluate(Node *node, const ip_addr_t *ip, uint16_t port)
 #define IPPORT_FLAGS_IP 0x01
 #define IPPORT_FLAGS_PORT 0x02
 
-static int extract_ipport_from_vlan_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                          ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport);
 static int extract_ipport_from_ipv4_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
                                           ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport);
 static int extract_ipport_from_ipv6_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
@@ -376,33 +374,21 @@ static int extract_ipport_from_ether_layer(const struct pcap_pkthdr *header, con
     uint16_t eth_type = ntohs(eth_hdr->ether_type);
     size_t next_data_offset = data_offset + eth_hdr_len;
 
-    if (eth_type == ETHERTYPE_IP)
-        return extract_ipport_from_ipv4_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
-    else if (eth_type == ETHERTYPE_IPV6)
-        return extract_ipport_from_ipv6_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
-    else if (eth_type == ETHERTYPE_VLAN)
-        return extract_ipport_from_vlan_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
+    // Skip the whole tag stack (802.1Q, QinQ) to reach the IP layer
+    while (is_vlan_ethertype(eth_type))
+    {
+        if (header->caplen < next_data_offset + sizeof(struct vlan_header))
+            return 0;
 
-    return 0;
-}
-
-static int extract_ipport_from_vlan_layer(const struct pcap_pkthdr *header, const uint8_t *pkt_data, size_t data_offset,
-                                          ip_addr_t *sip, uint16_t *sport, ip_addr_t *dip, uint16_t *dport)
-{
-    size_t vlan_hdr_len = sizeof(struct vlan_header);
-    if (header->caplen < data_offset + vlan_hdr_len)
-        return 0;
-
-    struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + data_offset);
-    uint16_t eth_type = ntohs(vlan_hdr->ether_type);
-    size_t next_data_offset = data_offset + vlan_hdr_len;
+        struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + next_data_offset);
+        eth_type = ntohs(vlan_hdr->ether_type);
+        next_data_offset += sizeof(struct vlan_header);
+    }
 
     if (eth_type == ETHERTYPE_IP)
         return extract_ipport_from_ipv4_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
     else if (eth_type == ETHERTYPE_IPV6)
         return extract_ipport_from_ipv6_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
-    else if (eth_type == ETHERTYPE_VLAN)
-        return extract_ipport_from_vlan_layer(header, pkt_data, next_data_offset, sip, sport, dip, dport);
 
     return 0;
 }

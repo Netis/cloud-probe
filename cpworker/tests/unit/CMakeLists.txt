@@ -31,6 +31,7 @@ set(unity_tests
     output_rotating_file
     output_zmq
     packet_split
+    req_pattern
     unix_control
 )
 
