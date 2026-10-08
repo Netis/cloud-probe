@@ -25,6 +25,10 @@
  * unix_command_execute tears the client down. */
 #define CLIENT_SEND_TIMEOUT_SEC 5
 
+/* Bound how long accept waits for a new client's handshake. Clients send it right
+ * after connecting, so a short bound only cuts off a client that never sends it. */
+#define CLIENT_HANDSHAKE_TIMEOUT_SEC 1
+
 typedef struct Command
 {
     char *name;
@@ -60,6 +64,16 @@ int unix_manager_set_send_timeout(int fd, int seconds)
     tv.tv_sec = seconds;
     tv.tv_usec = 0;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) != 0)
+        return -1;
+    return 0;
+}
+
+static int unix_manager_set_recv_timeout(int fd, int seconds)
+{
+    struct timeval tv;
+    tv.tv_sec = seconds;
+    tv.tv_usec = 0;
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) != 0)
         return -1;
     return 0;
 }
@@ -106,7 +120,7 @@ static int unix_manager_new(unix_manager_t *this, const char *socket_file)
     }
 
     // listen
-    if (listen(this->socket, 1) == -1)
+    if (listen(this->socket, SOMAXCONN) == -1)
     {
         log_error("command server: UNIX socket listen() error: %s", strerror(errno));
         return -1;
@@ -257,6 +271,11 @@ static int unix_manager_accept(unix_manager_t *this)
      * single-threaded manager by leaving the socket buffer full. */
     if (unix_manager_set_send_timeout(client_fd, CLIENT_SEND_TIMEOUT_SEC) != 0)
         log_warn("unix socket: set SO_SNDTIMEO failed: %s", strerror(errno));
+
+    /* The handshake is read right here, in the manager thread. Bound the wait so a
+     * client that connects and never sends it cannot stall every other client. */
+    if (unix_manager_set_recv_timeout(client_fd, CLIENT_HANDSHAKE_TIMEOUT_SEC) != 0)
+        log_warn("unix socket: set SO_RCVTIMEO failed: %s", strerror(errno));
 
     // read client version
     char buffer[UNIX_PROTO_VERSION_LENGTH + 1];
@@ -413,16 +432,20 @@ error:
     return -1;
 }
 
+/* Read one newline-terminated request and execute it. The protocol is strict
+ * request/response: a client sends one request and waits for its reply before
+ * sending the next (cpgolib/cpworker/unix_client.go does). A request may arrive
+ * in several pieces. Pipelining is not supported: when one read holds several
+ * requests, only the first is answered. */
 static void unix_client_recv(unix_manager_t *this, unix_client_t *client)
 {
     char buffer[4096];
     int try = 0;
-    int offset = 0;
-    int cmd_over = 0;
+    size_t offset = 0;
     ssize_t ret;
 
-    ret = recv(client->fd, buffer + offset, sizeof(buffer) - offset - 1, 0);
-    do
+    ret = recv(client->fd, buffer, sizeof(buffer) - 1, 0);
+    while (1)
     {
         if (ret <= 0)
         {
@@ -433,56 +456,51 @@ static void unix_client_recv(unix_manager_t *this, unix_client_t *client)
             unix_client_delete(this, client->fd);
             return;
         }
-        if (ret >= (int)(sizeof(buffer) - offset - 1))
+        offset += ret;
+        if (offset >= sizeof(buffer) - 1)
         {
             log_error("Command server: client command is too long, disconnect it.");
             unix_client_delete(this, client->fd);
             return;
         }
 
-        if (buffer[ret - 1] == '\n')
+        if (buffer[offset - 1] == '\n')
         {
-            buffer[ret - 1] = 0;
-            cmd_over = 1;
+            buffer[offset - 1] = 0;
+            break;
         }
-        else
+
+        // The request arrived in pieces: wait up to 3 x 500 ms for the rest.
+        do
         {
             struct timeval tv;
             fd_set select_set;
-            offset += ret;
-            do
+            FD_ZERO(&select_set);
+            FD_SET(client->fd, &select_set);
+            tv.tv_sec = 0;
+            tv.tv_usec = 500 * 1000;
+            try++;
+            ret = select(client->fd + 1, &select_set, NULL, NULL, &tv);
+            if (ret == -1)
             {
-                FD_ZERO(&select_set);
-                FD_SET(client->fd, &select_set);
-                tv.tv_sec = 0;
-                tv.tv_usec = 500 * 1000;
-                try++;
-                ret = select(client->fd, &select_set, NULL, NULL, &tv);
-                /* catch select() error */
-                if (ret == -1)
+                /* Signal was caught: just ignore it */
+                if (errno != EINTR)
                 {
-                    /* Signal was caught: just ignore it */
-                    if (errno != EINTR)
-                    {
-                        log_info("Unix socket: lost connection with client");
-                        unix_client_delete(this, client->fd);
-                        return;
-                    }
+                    log_info("Unix socket: lost connection with client");
+                    unix_client_delete(this, client->fd);
+                    return;
                 }
-            } while (ret == 0 && try < 3);
-
-            if (ret > 0)
-            {
-                ret = recv(client->fd, buffer + offset, sizeof(buffer) - offset - 1, 0);
+                ret = 0;
             }
-        }
-    } while (try < 3 && cmd_over == 0);
+        } while (ret == 0 && try < 3);
 
-    if (try == 3 && cmd_over == 0)
-    {
-        log_info("Unix socket: incomplete client message, closing connection");
-        unix_client_delete(this, client->fd);
-        return;
+        if (ret == 0)
+        {
+            log_info("Unix socket: incomplete client message, closing connection");
+            unix_client_delete(this, client->fd);
+            return;
+        }
+        ret = recv(client->fd, buffer + offset, sizeof(buffer) - offset - 1, 0);
     }
 
     unix_command_execute(this, buffer, client);
