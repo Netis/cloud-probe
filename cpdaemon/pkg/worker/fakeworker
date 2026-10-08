@@ -1,6 +1,5 @@
 #!/bin/sh
 
-while true
-do
-    sleep 10
-done
+# Exit on SIGINT like cpworker does. exec hands the signal straight to sleep:
+# a shell (dash) waiting on a foreground sleep defers SIGINT until sleep ends.
+exec sleep 3600

@@ -3,7 +3,9 @@ package worker
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -85,5 +87,33 @@ func TestWorker(t *testing.T) {
 
 		pid := w.Pid()
 		require.Zero(t, pid)
+	}
+}
+
+// Stop must not return before the exit cleanup has run: a restart reuses the
+// same pid file and cgroup right after Stop returns.
+func TestWorker_StopReturnsAfterCleanup(t *testing.T) {
+	dir := t.TempDir()
+	pidFile := filepath.Join(dir, "worker.pid")
+	w, err := NewWorker("test", ExecConfig{
+		Executable: "./fakeworker",
+		ConfigFile: filepath.Join(dir, "tasks.json"),
+		PidFile:    pidFile,
+	})
+	require.NoError(t, err)
+
+	wCfg := &Config{LogLevel: "info", Control: ControlConfig{Type: "unix"}}
+	for i := 0; i < 100; i++ {
+		require.NoError(t, w.Start(context.Background(), wCfg))
+		require.Eventually(t, func() bool {
+			_, err := os.Stat(pidFile)
+			return err == nil
+		}, 5*time.Second, time.Millisecond, "round %d: pid file not created", i)
+
+		require.NoError(t, w.Stop())
+
+		require.Zero(t, w.Pid(), "round %d: pid still set after Stop", i)
+		_, err := os.Stat(pidFile)
+		require.True(t, os.IsNotExist(err), "round %d: pid file still present after Stop", i)
 	}
 }
