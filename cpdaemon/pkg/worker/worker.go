@@ -110,23 +110,32 @@ func (w *Worker) Start(ctx context.Context, wCfg *Config) error {
 		return err
 	}
 
+	w.mu.Lock()
+	cmd, waitDone := w.cmd, w.waitDone
+	w.mu.Unlock()
+
 	go func() {
+		var err error
 		defer func() {
 			if r := recover(); r != nil {
 				w.lg.Error("recovered", slog.Any("err", r))
 			}
 		}()
+		// Stop() waits on waitDone, so signal it only after the cleanup below:
+		// a restart reuses the same pid file and cgroup right after Stop returns.
+		defer func() {
+			waitDone <- err
+			close(waitDone)
+		}()
 
 		pidCleanup := w.createPidFile()
 
-		err = w.cmd.Wait()
+		err = cmd.Wait()
 		if err != nil {
 			w.lg.Error("process exited with error", slogx.Error(err))
 		} else {
 			w.lg.Info("process exited")
 		}
-		w.waitDone <- err
-		close(w.waitDone)
 
 		w.mu.Lock()
 		w.cmd = nil

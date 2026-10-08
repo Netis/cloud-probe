@@ -53,14 +53,25 @@ func (h *SyncLogHandler) convert(record *slog.Record) string {
 	return strings.Join(parts, " ")
 }
 
+// formatSyncLogAttrs follows slog's text handler rules: values are resolved,
+// empty attrs are dropped, groups with an empty key are inlined and named
+// groups qualify their members' keys.
 func formatSyncLogAttrs(base string, attrs []slog.Attr) []string {
 	result := make([]string, 0, len(attrs))
 	for i := range attrs {
 		attr := attrs[i]
+		attr.Value = attr.Value.Resolve()
+		if attr.Equal(slog.Attr{}) {
+			continue
+		}
 		if attr.Value.Kind() == slog.KindGroup {
-			result = append(result, formatSyncLogAttrs(base+attr.Key+".", attr.Value.Group())...)
+			prefix := base
+			if attr.Key != "" {
+				prefix = base + attr.Key + "."
+			}
+			result = append(result, formatSyncLogAttrs(prefix, attr.Value.Group())...)
 		} else {
-			result = append(result, attr.Key+"="+slogx.ValueToString(attr.Value))
+			result = append(result, base+attr.Key+"="+slogx.ValueToString(attr.Value))
 		}
 	}
 	return result
