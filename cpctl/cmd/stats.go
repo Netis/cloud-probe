@@ -26,7 +26,7 @@ func init() {
 	f.IntVarP(&statsCfg.count, "count", "n", 0,
 		"number of samples (0 = run forever)")
 	f.DurationVarP(&statsCfg.interval, "interval", "i", 2*time.Second,
-		"interval between samples")
+		"poll interval; cpworker refreshes stats every 5s, so samples are at least 5s apart")
 }
 
 var statsCmd = &cobra.Command{
@@ -109,7 +109,7 @@ func emitStatsRaw(out io.Writer, s cpworker.StatsSummary, format string) error {
 	switch format {
 	case FormatJSONL:
 		rec := statsRecord{
-			Ts:       time.Unix(s.Time.Sec, s.Time.Nsec).UTC().Format(time.RFC3339Nano),
+			Ts:       wallTime(s),
 			Kind:     "raw",
 			Counters: countersMap(s),
 		}
@@ -128,7 +128,7 @@ func emitStatsDiff(out io.Writer, s, last cpworker.StatsSummary, format string) 
 	switch format {
 	case FormatJSONL:
 		rec := statsRecord{
-			Ts:        t1.UTC().Format(time.RFC3339Nano),
+			Ts:        wallTime(s),
 			Kind:      "rate",
 			IntervalS: &secs,
 			Counters:  countersMap(s),
@@ -140,6 +140,11 @@ func emitStatsDiff(out io.Writer, s, last cpworker.StatsSummary, format string) 
 		printSummaryStats(out, s, last)
 		return nil
 	}
+}
+
+// wallTime formats when cpworker took the snapshot.
+func wallTime(s cpworker.StatsSummary) string {
+	return time.Unix(s.WallTime.Sec, s.WallTime.Nsec).UTC().Format(time.RFC3339Nano)
 }
 
 func writeJSONL(out io.Writer, v any) error {
@@ -171,6 +176,7 @@ func countersMap(s cpworker.StatsSummary) map[string]any {
 		"error_drop_packets":     packetsAsJSON(s.Output.ErrorDropPackets),
 		"ratelimit_drop_bytes":   bytesAsJSON(s.Output.RatelimitDropBytes),
 		"ratelimit_drop_packets": packetsAsJSON(s.Output.RatelimitDropPackets),
+		"heartbeat_packets":      packetsAsJSON(s.Output.HeartbeatPackets),
 	}
 }
 
@@ -205,6 +211,7 @@ func ratesMap(s, last cpworker.StatsSummary, secs float64) map[string]any {
 	addPacketsRate("error_drop_packets_per_sec", s.Output.ErrorDropPackets, last.Output.ErrorDropPackets)
 	addBytesRate("ratelimit_drop_bytes_per_sec", s.Output.RatelimitDropBytes, last.Output.RatelimitDropBytes)
 	addPacketsRate("ratelimit_drop_packets_per_sec", s.Output.RatelimitDropPackets, last.Output.RatelimitDropPackets)
+	addPacketsRate("heartbeat_packets_per_sec", s.Output.HeartbeatPackets, last.Output.HeartbeatPackets)
 	return rates
 }
 
@@ -233,6 +240,7 @@ func printRawText(out io.Writer, s cpworker.StatsSummary) {
 		{"Error Drop Packets", formatPacketsStats(s.Output.ErrorDropPackets)},
 		{"Ratelimit Drop Bytes", formatBytesStats(s.Output.RatelimitDropBytes)},
 		{"Ratelimit Drop Packets", formatPacketsStats(s.Output.RatelimitDropPackets)},
+		{"Heartbeat Packets", formatPacketsStats(s.Output.HeartbeatPackets)},
 	}
 	maxLen := 0
 	for _, r := range rows {
@@ -246,8 +254,8 @@ func printRawText(out io.Writer, s cpworker.StatsSummary) {
 }
 
 func printSummaryStats(out io.Writer, stats cpworker.StatsSummary, lastStats cpworker.StatsSummary) {
-	headers := make([]string, 0, 12)
-	row := make([]string, 0, 12)
+	headers := make([]string, 0, 13)
+	row := make([]string, 0, 13)
 
 	t1 := time.Unix(stats.Time.Sec, stats.Time.Nsec)
 	t2 := time.Unix(lastStats.Time.Sec, lastStats.Time.Nsec)
@@ -284,6 +292,7 @@ func printSummaryStats(out io.Writer, stats cpworker.StatsSummary, lastStats cpw
 	addPackets("Error Drop Packets", stats.Output.ErrorDropPackets, lastStats.Output.ErrorDropPackets)
 	addBytes("Ratelimit Drop Bytes", stats.Output.RatelimitDropBytes, lastStats.Output.RatelimitDropBytes)
 	addPackets("Ratelimit Drop Packets", stats.Output.RatelimitDropPackets, lastStats.Output.RatelimitDropPackets)
+	addPackets("Heartbeat Packets", stats.Output.HeartbeatPackets, lastStats.Output.HeartbeatPackets)
 
 	maxHeaderLen := 0
 	for _, h := range headers {

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <zmq.h>
 
@@ -13,6 +14,7 @@
 #include "pkt_dir.h"
 
 extern int zmq_flush_packet(zmq_output_t *output);
+extern void zmq_heartbeat(output_base_t *self, time_t now);
 
 #define BATCH_HDR_SIZE sizeof(zmq_pkt_batch_hdr_t)
 #define RECORD_HDR_SIZE (ZMQ_PKT_DATA_LEN_SIZE + sizeof(zmq_pkt_hdr_t))
@@ -330,6 +332,137 @@ void test_runt_and_normal_frame_both_accounted(void)
     TEST_ASSERT_EQUAL_UINT64(1, stats.error_drop_packets.packets);
 }
 
+/* ---- #299: heartbeats are not forwarded packets ---- */
+
+#define HEARTBEAT_RECORD_SIZE (RECORD_HDR_SIZE + 14)
+
+static zmq_output_t *new_heartbeat_output(uint16_t port, int hwm, char *errbuf)
+{
+    zmq_options_t opts = {
+        .host = "127.0.0.1",
+        .port = port,
+        .hwm = hwm,
+        .service_tag = 1,
+        .uuid = (char *)VALID_UUID,
+        .rate_limit_mbps = 0,
+        .slice = 0,
+        .heartbeat_ms = 1000,
+    };
+    return zmq_output_new(opts, &stats, errbuf);
+}
+
+// Makes the last packet one second old, so the next zmq_heartbeat() sends a heartbeat
+// without flushing a batch whose first packet is from that same second.
+static time_t make_heartbeat_due(zmq_output_t *output)
+{
+    time_t now = time(NULL);
+    output->last_pkt_tv.tv_sec = now - 1;
+    output->last_pkt_tv.tv_usec = 0;
+    return now;
+}
+
+static void send_frame_at(zmq_output_t *output, time_t sec)
+{
+    uint8_t frame[64];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x08;
+    frame[13] = 0x00;
+
+    struct pcap_pkthdr hdr;
+    memset(&hdr, 0, sizeof(hdr));
+    hdr.ts.tv_sec = sec;
+    hdr.caplen = sizeof(frame);
+    hdr.len = sizeof(frame);
+    TEST_ASSERT_EQUAL_INT(0, output_send_packet(&output->base, &hdr, frame, PKT_DIR_INCOMING));
+}
+
+static void destroy_without_linger(zmq_output_t *output)
+{
+    int linger = 0;
+    zmq_setsockopt(output->pusher, ZMQ_LINGER, &linger, sizeof(linger));
+    zmq_output_destroy(&output->base);
+}
+
+void test_heartbeat_on_idle_output_is_not_forwarded(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_heartbeat_output(receiver_port, 100, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    zmq_heartbeat(&output->base, make_heartbeat_due(output));
+
+    TEST_ASSERT_EQUAL_INT(BATCH_HDR_SIZE + HEARTBEAT_RECORD_SIZE, recv_batch());
+    TEST_ASSERT_EQUAL_UINT16(1, batch_pkts_num());
+    TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.fwd_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.fwd_bytes.bytes);
+
+    zmq_output_destroy(&output->base);
+}
+
+void test_heartbeat_in_batch_with_data_counts_only_the_data(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_heartbeat_output(receiver_port, 100, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    time_t now = time(NULL);
+    send_frame_at(output, now - 1);
+    zmq_heartbeat(&output->base, make_heartbeat_due(output));
+
+    int n = recv_batch();
+    TEST_ASSERT_GREATER_THAN_INT(0, n);
+    TEST_ASSERT_EQUAL_UINT16(2, batch_pkts_num());
+    TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(1, stats.fwd_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64((uint64_t)n - HEARTBEAT_RECORD_SIZE, stats.fwd_bytes.bytes);
+
+    zmq_output_destroy(&output->base);
+}
+
+void test_failed_heartbeat_is_not_counted(void)
+{
+    // Nothing listens on port 1. With hwm 1 the unconnected pipe holds one batch, so the
+    // first heartbeat is queued and the second send fails.
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_heartbeat_output(1, 1, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    zmq_heartbeat(&output->base, make_heartbeat_due(output));
+    TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
+
+    zmq_heartbeat(&output->base, make_heartbeat_due(output));
+    TEST_ASSERT_EQUAL_UINT64(1, output->error_info.nb_drop_batches);
+    TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.error_drop_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.error_drop_bytes.bytes);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.fwd_packets.packets);
+
+    destroy_without_linger(output);
+}
+
+void test_failed_batch_with_heartbeat_drops_only_the_data(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_heartbeat_output(1, 1, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    zmq_heartbeat(&output->base, make_heartbeat_due(output)); // fills the pipe
+
+    time_t now = time(NULL);
+    send_frame_at(output, now - 1);
+    uint32_t batch_size = output->pkts_buf.batch_bufpos + HEARTBEAT_RECORD_SIZE;
+    zmq_heartbeat(&output->base, make_heartbeat_due(output));
+
+    TEST_ASSERT_EQUAL_UINT64(1, output->error_info.nb_drop_batches);
+    TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(1, stats.error_drop_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(batch_size - HEARTBEAT_RECORD_SIZE, stats.error_drop_bytes.bytes);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.fwd_packets.packets);
+
+    destroy_without_linger(output);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -349,6 +482,11 @@ int main(void)
     RUN_TEST(test_frame_with_cut_vlan_tag_is_error_drop);
     RUN_TEST(test_vlan_stack_running_past_caplen_is_error_drop);
     RUN_TEST(test_runt_and_normal_frame_both_accounted);
+
+    RUN_TEST(test_heartbeat_on_idle_output_is_not_forwarded);
+    RUN_TEST(test_heartbeat_in_batch_with_data_counts_only_the_data);
+    RUN_TEST(test_failed_heartbeat_is_not_counted);
+    RUN_TEST(test_failed_batch_with_heartbeat_drops_only_the_data);
 
     return UNITY_END();
 }

@@ -10,10 +10,17 @@ const (
 )
 
 type StatsSummary struct {
+	// Time is the snapshot's CLOCK_MONOTONIC time. Use it for the interval
+	// between two snapshots; it is not a date.
 	Time struct {
 		Sec  int64 `mapstructure:"sec"`
 		Nsec int64 `mapstructure:"nsec"`
 	} `mapstructure:"time"`
+	// WallTime is the snapshot's CLOCK_REALTIME time: when it was taken.
+	WallTime struct {
+		Sec  int64 `mapstructure:"sec"`
+		Nsec int64 `mapstructure:"nsec"`
+	} `mapstructure:"wall_time"`
 	Capture        CaptureStats        `mapstructure:"capture"`
 	Output         OutputStats         `mapstructure:"output"`
 	PipelineBuffer PipelineBufferStats `mapstructure:"pipeline_buffer"`

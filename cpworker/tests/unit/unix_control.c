@@ -2,6 +2,7 @@
  *   - unix_rpc_basic: ping / info command handlers
  *   - unix-manager:   SO_SNDTIMEO hardening against a slow reader stalling
  *                     the manager thread in send()
+ *   - task:           collect_stats_summary snapshot timestamps
  *
  * Merged into one test binary so the cpworker sources only get compiled once
  * per test run instead of per-file. */
@@ -18,6 +19,7 @@
 #include "unity/src/unity.h"
 
 #include "cJSON/cJSON.h"
+#include "task.h"
 #include "unix-manager.h"
 #include "unix_rpc_basic.h"
 
@@ -199,6 +201,43 @@ void test_send_timeout_fires_on_unread_peer(void)
     close(fds[1]);
 }
 
+/* ---------- #297: stats snapshot carries a wall-clock time ---------- */
+
+static int64_t json_time_sec(cJSON *resp, const char *key)
+{
+    cJSON *obj = cJSON_GetObjectItemCaseSensitive(resp, key);
+    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsObject(obj), key);
+    cJSON *sec = cJSON_GetObjectItemCaseSensitive(obj, "sec");
+    cJSON *nsec = cJSON_GetObjectItemCaseSensitive(obj, "nsec");
+    TEST_ASSERT_TRUE(cJSON_IsNumber(sec));
+    TEST_ASSERT_TRUE(cJSON_IsNumber(nsec));
+    return (int64_t)sec->valuedouble;
+}
+
+void test_stats_summary_has_wall_time_and_monotonic_time(void)
+{
+    struct timespec mono_before, mono_after;
+    clock_gettime(CLOCK_MONOTONIC, &mono_before);
+    time_t wall_before = time(NULL);
+    task_manager_update_stats();
+    time_t wall_after = time(NULL);
+    clock_gettime(CLOCK_MONOTONIC, &mono_after);
+
+    cJSON *resp = cJSON_CreateObject();
+    TEST_ASSERT_NOT_NULL(resp);
+    TEST_ASSERT_EQUAL(0, task_manager_collect_stats_summary_command(NULL, resp, NULL));
+
+    int64_t wall = json_time_sec(resp, "wall_time");
+    TEST_ASSERT_GREATER_OR_EQUAL_INT64((int64_t)wall_before, wall);
+    TEST_ASSERT_LESS_OR_EQUAL_INT64((int64_t)wall_after, wall);
+
+    int64_t mono = json_time_sec(resp, "time");
+    TEST_ASSERT_GREATER_OR_EQUAL_INT64((int64_t)mono_before.tv_sec, mono);
+    TEST_ASSERT_LESS_OR_EQUAL_INT64((int64_t)mono_after.tv_sec, mono);
+
+    cJSON_Delete(resp);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -208,5 +247,6 @@ int main(void)
     RUN_TEST(test_info_command_working_dir_updates_on_reset);
     RUN_TEST(test_set_send_timeout_readable_via_getsockopt);
     RUN_TEST(test_send_timeout_fires_on_unread_peer);
+    RUN_TEST(test_stats_summary_has_wall_time_and_monotonic_time);
     return UNITY_END();
 }

@@ -138,9 +138,9 @@ Notes:
 |---|---|---|---|
 | `--unix` | `-u` | unix socket path | raw path, no `unix://` prefix |
 | `--count` | `-n` | sample count, 0 = forever | matches `top -n`, `head -n` |
-| `--interval` | `-i` | poll interval | matches `ping -i` |
+| `--interval` | `-i` | poll interval | name from `ping -i`; value is a Go duration with a unit (`5s`, `500ms`) |
 | `--format` | `-f` | `text\|jsonl` | default `text` |
-| `--timeout` | `-W` | per-RPC timeout | matches `ping -W` |
+| `--timeout` | `-W` | per-RPC timeout | name from `ping -W`; value is a Go duration with a unit (`3s`) |
 | `--quiet` | `-q` | (ping only) suppress per-tick output, only summary | matches `ping -q` |
 
 ### Why `-n` for count, not `-c`
@@ -324,13 +324,26 @@ available:
 
 ```json
 {"ts":"...","kind":"raw","interval_sec":null,"counters":{...},"rates":null}
-{"ts":"...","kind":"rate","interval_sec":2,"counters":{...},"rates":{"cap_bytes_per_sec":{...},...}}
+{"ts":"...","kind":"rate","interval_sec":5,"counters":{...},"rates":{"cap_bytes_per_sec":{...},...}}
 ```
 
 `-n 1` emits one `raw` line. `-n >= 2` and `-n 0` emit only `rate` lines; the
 first poll is the baseline and is not printed. A single rate is `null` when
 its counter went backwards between two samples (e.g. across a cpworker
 restart).
+
+Sampling and timestamps:
+
+- cpworker refreshes the counters that `collect_stats_summary` returns once
+  every 5 s. A poll that returns a snapshot cpctl already has emits no record.
+- `interval_sec` is the time between the two snapshots, taken from their
+  `CLOCK_MONOTONIC` times (`time` in the RPC reply), and the rates are
+  computed over it. It can be longer than `--interval`.
+- `ts` is the wall-clock time at which cpworker took the snapshot
+  (`wall_time` in the RPC reply). With `-n 1` the counters can be up to 5 s
+  old.
+- `counters.heartbeat_packets` counts the zmq heartbeats sent. Heartbeats are
+  not captured packets and are not part of `fwd_packets` / `fwd_bytes`.
 
 ### 6.3 info
 
@@ -437,7 +450,7 @@ service manager handles aggregation. `cpctl info` will surface
   `ping -i`.** No single tool uses both letters with these meanings —
   `top` uses `-d` (delay) for interval, `ping` uses `-c` for count — so we
   borrow each from the closer analog: `top` for iterative dashboards,
-  `ping` for latency. `cpctl stats -n 5 -i 0.5` reads cleanly under either
+  `ping` for latency. `cpctl stats -n 5 -i 10s` reads cleanly under either
   mental model.
 - **`info` is the discovery anchor.** An agent calling `cpctl info -f jsonl`
   gets enough to bootstrap: which config is loaded, where logs go, how long
