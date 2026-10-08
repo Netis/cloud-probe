@@ -1,8 +1,10 @@
+#include <errno.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "cJSON/cJSON.h"
 
@@ -19,6 +21,9 @@
 #define MAX_SNAPLEN 262144
 // pcap_set_buffer_size() takes an int byte count; this is the largest whole-MB value that fits.
 #define MAX_LIBPCAP_BUFFER_SIZE_MB (INT_MAX / 1024 / 1024)
+
+// A config file is a few KiB; the cap only keeps a wrong path from being read into memory whole.
+#define CONFIG_FILE_MAX_SIZE (64 * 1024 * 1024)
 
 // Parses a capturer's snaplen. Values above MAX_SNAPLEN become MAX_SNAPLEN. Values <= 0 also become MAX_SNAPLEN
 // ("no truncation") when `non_positive_means_max`, and are rejected otherwise.
@@ -1218,16 +1223,35 @@ static char *read_file_contents(const char *filename, cJSONParseError *error)
         return NULL;
     }
 
-    fseek(fp, 0, SEEK_END);
-    long length = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-
-    if (length <= 0)
+    // fopen succeeds on a directory, and seeking one does not yield a usable size, so the type and size come from
+    // fstat instead.
+    struct stat st;
+    if (fstat(fileno(fp), &st) != 0)
+    {
+        cjson_set_parse_error(error, "failed to stat file: %s: %s", filename, strerror(errno));
+        fclose(fp);
+        return NULL;
+    }
+    if (!S_ISREG(st.st_mode))
+    {
+        cjson_set_parse_error(error, "not a regular file: %s", filename);
+        fclose(fp);
+        return NULL;
+    }
+    if (st.st_size == 0)
     {
         cjson_set_parse_error(error, "empty file: %s", filename);
         fclose(fp);
         return NULL;
     }
+    if (st.st_size > CONFIG_FILE_MAX_SIZE)
+    {
+        cjson_set_parse_error(error, "file too large: %s (%lld bytes, limit %d)", filename, (long long)st.st_size,
+                              CONFIG_FILE_MAX_SIZE);
+        fclose(fp);
+        return NULL;
+    }
+    size_t length = (size_t)st.st_size;
 
     char *buffer = (char *)malloc(length + 1);
     if (!buffer)
@@ -1237,7 +1261,7 @@ static char *read_file_contents(const char *filename, cJSONParseError *error)
         return NULL;
     }
 
-    if (fread(buffer, 1, length, fp) != (size_t)length)
+    if (fread(buffer, 1, length, fp) != length)
     {
         cjson_set_parse_error(error, "partial read of file: %s", filename);
         free(buffer);
@@ -1256,10 +1280,9 @@ TasksAllConfig *parse_tasks_file(const char *filename, cJSONParseError *err)
     if (!json_str)
         return NULL;
 
-    cJSON *json = cJSON_Parse(json_str);
+    cJSON *json = cjson_parse(json_str, err);
     if (!json)
     {
-        cjson_set_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
         free(json_str);
         return NULL;
     }
@@ -1473,10 +1496,9 @@ error:
 
 Config *parse_config_data(const char *json_str, cJSONParseError *err)
 {
-    cJSON *json = cJSON_Parse(json_str);
+    cJSON *json = cjson_parse(json_str, err);
     if (!json)
     {
-        cjson_set_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
         return NULL;
     }
 
@@ -1491,10 +1513,9 @@ Config *parse_config_file(const char *filename, cJSONParseError *err)
     if (!json_str)
         return NULL;
 
-    cJSON *json = cJSON_Parse(json_str);
+    cJSON *json = cjson_parse(json_str, err);
     if (!json)
     {
-        cjson_set_parse_error(err, "JSON parse error before: %s", cJSON_GetErrorPtr());
         free(json_str);
         return NULL;
     }
