@@ -57,12 +57,19 @@
             "executable": "cpworker",
             "log_level": "INFO",
             "config_file": "cpm-worker.json",
-            "unix_socket": "cpm-worker.sock",
+            "pid_file": "cpm-worker.pid",
+            "control": {
+                "type": "unix",
+                "unix": {
+                    "path": "cpm-worker.sock"
+                }
+            },
             "cpu_affinity": "",
             "update_policy": "reload",
             "execution_model": "pipeline",
             "memory": {
                 "policy": "fixed_nic_buffer",
+                "default_limit_mb": 512,
                 "libpcap": {
                     "fixed_buffer_size_mb": 8
                 },

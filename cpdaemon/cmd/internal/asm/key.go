@@ -102,7 +102,7 @@ var VKey = struct {
 				Pipeline struct {
 					MinBufferSizeMb string `json:"min_buffer_size_mb"`
 				} `json:"pipeline"`
-			} `json:"memory_policy"`
+			} `json:"memory"`
 		} `json:"worker"`
 	} `json:"cpm"`
 }{}

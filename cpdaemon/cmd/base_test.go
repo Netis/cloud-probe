@@ -61,4 +61,10 @@ func Test_Viper(t *testing.T) {
 	assert.Equal(t, "unix", vp.GetString(asm.VKey.Cpm.Worker.Control.Type))
 	assert.Equal(t, "cpm-worker.sock", vp.GetString(asm.VKey.Cpm.Worker.Control.Unix.Path))
 	assert.Equal(t, "", vp.GetString(asm.VKey.Cpm.Worker.CpuAffinity))
+
+	// The sizes differ from the defaults, so a memory key that is not read fails here
+	assert.Equal(t, "fixed_nic_buffer", vp.GetString(asm.VKey.Cpm.Worker.Memory.Policy))
+	assert.Equal(t, uint64(1024), vp.GetUint64(asm.VKey.Cpm.Worker.Memory.DefaultLimitMb))
+	assert.Equal(t, uint64(16), vp.GetUint64(asm.VKey.Cpm.Worker.Memory.Libpcap.FixedBufferSizeMb))
+	assert.Equal(t, uint64(256), vp.GetUint64(asm.VKey.Cpm.Worker.Memory.Pipeline.MinBufferSizeMb))
 }
