@@ -229,8 +229,17 @@ happens:
 | A heartbeat is generated | — |
 | `zmq_send()` would block and is skipped | `ZMQ_DONTWAIT` — the batch is counted as dropped |
 
-The send uses `ZMQ_DONTWAIT`; on failure the batch is dropped and counted in
-`error_drop_batches` / `error_drop_packets`.
+The send uses `ZMQ_DONTWAIT`; on failure the whole batch is dropped.
+
+Heartbeat records are not captured packets, so the output counters leave them out:
+
+| Batch | Sent | Dropped |
+| --- | --- | --- |
+| Captured packets (and heartbeats, if any) | data records and batch header → `fwd_packets` / `fwd_bytes`; heartbeats → `heartbeat_packets` | data records and batch header → `error_drop_packets` / `error_drop_bytes` |
+| Heartbeats only | `heartbeat_packets` | not counted |
+
+Bytes are the batch bytes minus the heartbeat records. The worker's periodic error log reports
+the number of dropped batches (`nb_drop_batches`); no stats counter carries it.
 
 ---
 

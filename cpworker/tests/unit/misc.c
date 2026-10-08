@@ -315,13 +315,13 @@ void test_zmq_heartbeat_packet_generation(void)
     // Call heartbeat - should generate a heartbeat packet
     output_heartbeat((output_base_t *)output, now_tv.tv_sec);
 
-    // Verify heartbeat stats were incremented
+    // The heartbeat is queued on the not-yet-connected pipe, so the send succeeds
     TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
 
-    // The ZMQ send may fail (no receiver) but the packet was still generated
-    // Either forwarded or error-dropped (depends on ZMQ connection state)
-    uint64_t total = stats.fwd_packets.packets + stats.error_drop_packets.packets;
-    TEST_ASSERT_EQUAL_UINT64(1, total);
+    // A heartbeat is not a captured packet: it is neither forwarded nor dropped
+    TEST_ASSERT_EQUAL_UINT64(0, stats.fwd_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.fwd_bytes.bytes);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.error_drop_packets.packets);
 
     zmq_output_destroy((output_base_t *)output);
 }

@@ -113,11 +113,17 @@ int zmq_flush_packet(zmq_output_t *output)
         output->error_info.first_pktsec = pkts_buf->first_pktsec;
     }
 
+    // Only captured packets are counted as forwarded or dropped. A batch that carries
+    // nothing but heartbeats contributes no bytes, not even its batch header.
+    uint16_t data_num = send_num - pkts_buf->heartbeat_num;
+    uint32_t data_bytes = data_num > 0 ? pkts_buf->batch_bufpos - pkts_buf->heartbeat_bytes : 0;
+
     int rc = zmq_send(output->pusher, &(pkts_buf->buf[0]), pkts_buf->batch_bufpos, ZMQ_DONTWAIT);
     if (rc != -1)
     {
-        bytes_stats_add(&output->base.stats->fwd_bytes, pkts_buf->batch_bufpos);
-        packets_stats_add(&output->base.stats->fwd_packets, send_num);
+        bytes_stats_add(&output->base.stats->fwd_bytes, data_bytes);
+        packets_stats_add(&output->base.stats->fwd_packets, data_num);
+        packets_stats_add(&output->base.stats->heartbeat_packets, pkts_buf->heartbeat_num);
     }
     else
     {
@@ -125,15 +131,17 @@ int zmq_flush_packet(zmq_output_t *output)
             snprintf(output->error_info.send_error, ERROR_BUFFER_SIZE, "zmq_send failed: %s", zmq_strerror(errno));
 
         output->error_info.nb_drop_batches++;
-        output->error_info.nb_drop_packets += send_num;
+        output->error_info.nb_drop_packets += data_num;
 
-        bytes_stats_add(&output->base.stats->error_drop_bytes, pkts_buf->batch_bufpos);
-        packets_stats_add(&output->base.stats->error_drop_packets, send_num);
+        bytes_stats_add(&output->base.stats->error_drop_bytes, data_bytes);
+        packets_stats_add(&output->base.stats->error_drop_packets, data_num);
     }
 
     pkts_buf->first_pktsec = 0;
     pkts_buf->batch_bufpos = sizeof(zmq_pkt_batch_hdr_t);
     pkts_buf->batch_hdr.pkts_num = 0;
+    pkts_buf->heartbeat_num = 0;
+    pkts_buf->heartbeat_bytes = 0;
     return 0;
 }
 
@@ -336,14 +344,15 @@ static void zmq_send_heartbeat_packet(zmq_output_t *output, struct timeval *tv)
     memcpy(&pkts_buf->buf[pos + offsetof(struct ether_header, ether_type)], &hb_etype, sizeof(hb_etype));
     pos += sizeof(eth);
 
+    pkts_buf->heartbeat_bytes += pos - pkts_buf->batch_bufpos;
+    pkts_buf->heartbeat_num++;
     pkts_buf->batch_bufpos = pos;
     pkts_buf->batch_hdr.pkts_num++;
 
-    // Flush immediately - heartbeat triggers batch flush
+    // Flush immediately - heartbeat triggers batch flush. The flush counts the heartbeat
+    // in heartbeat_packets once it is sent.
     zmq_flush_packet(output);
 
-    // Update heartbeat stats and last packet time
-    packets_stats_add(&output->base.stats->heartbeat_packets, 1);
     output->last_pkt_tv = *tv;
 }
 

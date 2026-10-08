@@ -157,7 +157,8 @@ static task_error_t *task_error_new(int index, const char *fingerprint, const ch
 
 typedef struct TaskStatsSummarySnapshot
 {
-    struct timespec tm;
+    struct timespec tm;      // CLOCK_MONOTONIC: interval between two snapshots
+    struct timespec wall_tm; // CLOCK_REALTIME: when the snapshot was taken
     capture_stats_t capture;
     output_stats_t output;
     pipeline_buffer_stats_t pipeline_buffer;
@@ -644,6 +645,7 @@ static void task_manager_update_stats_summary()
     memset(&stats, 0, sizeof(task_stats_summary_snapshot_t));
 
     clock_gettime(CLOCK_MONOTONIC, &stats.tm);
+    clock_gettime(CLOCK_REALTIME, &stats.wall_tm);
     stats.capture = this->stats_summary.capture;
     stats.output = this->stats_summary.output;
     if (this->execution_model == EXECUTION_MODEL_PIPELINE)
@@ -729,6 +731,11 @@ int task_manager_collect_stats_summary_command(cJSON *cmd_msg, cJSON *server_msg
     cJSON *time = cJSON_AddObjectToObject(server_msg, "time");
     if (!time || !cJSON_AddNumberToObject(time, "sec", stats.tm.tv_sec) ||
         !cJSON_AddNumberToObject(time, "nsec", stats.tm.tv_nsec))
+        return -1;
+
+    cJSON *wall_time = cJSON_AddObjectToObject(server_msg, "wall_time");
+    if (!wall_time || !cJSON_AddNumberToObject(wall_time, "sec", stats.wall_tm.tv_sec) ||
+        !cJSON_AddNumberToObject(wall_time, "nsec", stats.wall_tm.tv_nsec))
         return -1;
 
     if (add_capture_stats(server_msg, "capture", &stats.capture) != 0 ||

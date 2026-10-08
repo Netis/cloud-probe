@@ -43,6 +43,10 @@ typedef struct
     char buf[ZMQ_MAX_BATCH_BUF_SIZE];
     uint32_t batch_bufpos;
     long int first_pktsec;
+    // Heartbeat records in the batch. They are not captured packets, so a flush keeps
+    // them out of the fwd/error_drop counters and counts them in heartbeat_packets.
+    uint16_t heartbeat_num;
+    uint32_t heartbeat_bytes;
 } zmq_pkts_buf_t;
 
 typedef struct ZmqOptions

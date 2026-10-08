@@ -210,7 +210,16 @@ EtherType 为 **`0xFFFF`**（`ZMQ_HEARTBEAT_ETHER_TYPE`）。没有 MPLS 标签�
 | 生成 heartbeat | — |
 | `zmq_send()` 会被阻塞时跳过 | `ZMQ_DONTWAIT` — 该 batch 记为丢弃 |
 
-发送使用 `ZMQ_DONTWAIT`；失败时整批丢弃，计入 `error_drop_batches` / `error_drop_packets`。
+发送使用 `ZMQ_DONTWAIT`；失败时整批丢弃。
+
+heartbeat 记录不是抓到的报文，输出计数器不计入它：
+
+| batch 内容 | 发送成功 | 发送失败 |
+| --- | --- | --- |
+| 有抓到的报文（可能夹带 heartbeat） | 数据记录和 batch header → `fwd_packets` / `fwd_bytes`；heartbeat → `heartbeat_packets` | 数据记录和 batch header → `error_drop_packets` / `error_drop_bytes` |
+| 只有 heartbeat | `heartbeat_packets` | 不计数 |
+
+字节数为 batch 字节数减去 heartbeat 记录。丢弃的 batch 个数只出现在 worker 的周期性错误日志里（`nb_drop_batches`），没有对应的统计计数器。
 
 ---
 

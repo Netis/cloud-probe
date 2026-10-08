@@ -209,6 +209,35 @@ func TestUnixClient_Info(t *testing.T) {
 	}
 }
 
+func TestUnixClient_CollectStatsSummaryTimes(t *testing.T) {
+	srv := newFakeServer(t)
+	defer srv.Close()
+
+	srv.handlers["collect_stats_summary"] = func(args map[string]any) (map[string]any, error) {
+		return map[string]any{
+			"time":      map[string]any{"sec": 632655, "nsec": 154030865},
+			"wall_time": map[string]any{"sec": 1759900000, "nsec": 250000000},
+		}, nil
+	}
+
+	client, err := NewClient(srv.connStr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	stats, err := client.CollectStatsSummary(context.Background())
+	if err != nil {
+		t.Fatalf("collect_stats_summary: %v", err)
+	}
+	if stats.Time.Sec != 632655 || stats.Time.Nsec != 154030865 {
+		t.Errorf("time: got %+v", stats.Time)
+	}
+	if stats.WallTime.Sec != 1759900000 || stats.WallTime.Nsec != 250000000 {
+		t.Errorf("wall_time: got %+v", stats.WallTime)
+	}
+}
+
 func TestUnixClient_UnknownCommand(t *testing.T) {
 	srv := newFakeServer(t)
 	defer srv.Close()

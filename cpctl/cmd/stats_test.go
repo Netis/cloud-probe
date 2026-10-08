@@ -164,3 +164,82 @@ func TestPacketsStatsPerSec_ZeroSecs(t *testing.T) {
 		t.Errorf("zero seconds should return input unchanged, got %+v", got)
 	}
 }
+
+// #297: ts is the snapshot's wall-clock time, not its CLOCK_MONOTONIC time.
+func TestRunStats_TsIsSnapshotWallTime(t *testing.T) {
+	withWall := func(s cpworker.StatsSummary, sec int64) cpworker.StatsSummary {
+		s.WallTime.Sec = sec
+		s.WallTime.Nsec = 250000000
+		return s
+	}
+	cases := []struct {
+		name      string
+		count     int
+		snapshots []cpworker.StatsSummary
+		wantTs    string
+	}{
+		{"raw", 1, []cpworker.StatsSummary{withWall(makeStats(632655, 0, 0, 0, 0), 1759900000)}, "2025-10-08T05:06:40.25Z"},
+		{"rate", 2, []cpworker.StatsSummary{
+			withWall(makeStats(632655, 0, 0, 0, 0), 1759900000),
+			withWall(makeStats(632660, 0, 0, 0, 0), 1759900005),
+		}, "2025-10-08T05:06:45.25Z"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &fakeStatsClient{snapshots: tc.snapshots}
+			var buf bytes.Buffer
+			if err := runStats(context.Background(), client, &buf, tc.count, time.Microsecond, FormatJSONL); err != nil {
+				t.Fatal(err)
+			}
+			var rec statsRecord
+			if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &rec); err != nil {
+				t.Fatalf("decode: %v\n%s", err, buf.String())
+			}
+			if rec.Ts != tc.wantTs {
+				t.Errorf("ts = %q, want %q", rec.Ts, tc.wantTs)
+			}
+		})
+	}
+}
+
+// #299: heartbeats are reported in their own counter.
+func TestRunStats_ReportsHeartbeatPackets(t *testing.T) {
+	s0 := makeStats(1000, 0, 0, 0, 0)
+	s1 := makeStats(1005, 0, 0, 0, 0)
+	s1.Output.HeartbeatPackets = cpworker.PacketsStats{Packets: 5}
+
+	t.Run("jsonl", func(t *testing.T) {
+		client := &fakeStatsClient{snapshots: []cpworker.StatsSummary{s0, s1}}
+		var buf bytes.Buffer
+		if err := runStats(context.Background(), client, &buf, 2, time.Microsecond, FormatJSONL); err != nil {
+			t.Fatal(err)
+		}
+		var rec statsRecord
+		if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &rec); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		hb, ok := rec.Counters["heartbeat_packets"].(map[string]any)
+		if !ok || hb["packets"] != float64(5) {
+			t.Errorf("counters.heartbeat_packets = %v, want packets 5", rec.Counters["heartbeat_packets"])
+		}
+		rate, ok := rec.Rates["heartbeat_packets_per_sec"].(map[string]any)
+		if !ok || rate["packets"] != float64(1) {
+			t.Errorf("rates.heartbeat_packets_per_sec = %v, want packets 1", rec.Rates["heartbeat_packets_per_sec"])
+		}
+	})
+	t.Run("text", func(t *testing.T) {
+		for _, count := range []int{1, 2} {
+			client := &fakeStatsClient{snapshots: []cpworker.StatsSummary{s1, s1}}
+			if count == 2 {
+				client.snapshots = []cpworker.StatsSummary{s0, s1}
+			}
+			var buf bytes.Buffer
+			if err := runStats(context.Background(), client, &buf, count, time.Microsecond, FormatText); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(buf.String(), "Heartbeat Packets") {
+				t.Errorf("-n %d text output has no Heartbeat Packets row:\n%s", count, buf.String())
+			}
+		}
+	})
+}
