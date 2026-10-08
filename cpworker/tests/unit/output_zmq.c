@@ -145,17 +145,18 @@ void test_destroy_empty_batch_sends_nothing(void)
     TEST_ASSERT_EQUAL_INT(-1, recv_batch());
 }
 
-/* ---- #231: VLAN walk must stay within the captured data ---- */
+/* ---- #231/#271: VLAN walk and slice keep the whole L2 header stack ---- */
 
 // Sends one frame, flushes, and checks the record: Ethernet + VLAN tags (innermost
-// EtherType rewritten to MPLS) + MPLS header + remaining payload, all within caplen.
-static void assert_vlan_record(const uint8_t *frame, uint32_t caplen, int slice, size_t expected_vlan_size)
+// EtherType rewritten to MPLS) + MPLS header + remaining payload. `data_len` is the
+// number of captured bytes the record must carry.
+static void assert_vlan_record(const uint8_t *frame, uint32_t caplen, int slice, uint32_t data_len,
+                               size_t expected_vlan_size)
 {
     char errbuf[ERROR_BUFFER_SIZE] = {0};
     zmq_output_t *output = new_output(slice, (char *)VALID_UUID, errbuf);
     TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
 
-    const uint32_t data_len = (slice > 0 && (uint32_t)slice < caplen) ? (uint32_t)slice : caplen;
     TEST_ASSERT_EQUAL_INT(0, send_frame(output, frame, caplen));
     TEST_ASSERT_EQUAL_UINT32(BATCH_HDR_SIZE + RECORD_HDR_SIZE + data_len + MPLS_HDR_SIZE,
                              output->pkts_buf.batch_bufpos);
@@ -176,31 +177,120 @@ static void assert_vlan_record(const uint8_t *frame, uint32_t caplen, int slice,
     const size_t payload_len = data_len - l2_size;
     if (payload_len > 0)
         TEST_ASSERT_EQUAL_UINT8_ARRAY(frame + l2_size, rec + l2_size + MPLS_HDR_SIZE, payload_len);
+
+    TEST_ASSERT_EQUAL_UINT64(1, stats.fwd_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(0, stats.error_drop_packets.packets);
 }
 
-void test_vlan_stack_cut_by_slice(void)
+// Sends one frame that cannot form a record and checks that it is counted as an error drop.
+static void assert_error_drop(const uint8_t *frame, uint32_t caplen, int slice)
 {
-    // Reproducer from #231: 0x9200 -> 0x8100 -> 0x9100 -> 0x9200 -> 0x86dd, slice cuts the stack
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(slice, (char *)VALID_UUID, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    TEST_ASSERT_EQUAL_INT(-1, send_frame(output, frame, caplen));
+    TEST_ASSERT_EQUAL_UINT16(0, output->pkts_buf.batch_hdr.pkts_num);
+    TEST_ASSERT_EQUAL_UINT64(1, stats.error_drop_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(caplen, stats.error_drop_bytes.bytes);
+
+    zmq_output_destroy(&output->base);
+    TEST_ASSERT_EQUAL_INT(-1, recv_batch());
+    TEST_ASSERT_EQUAL_UINT64(0, stats.fwd_packets.packets);
+}
+
+// Writes an 802.1Q tag at `offset` (TCI, then the EtherType that follows it).
+static void put_tag(uint8_t *frame, size_t offset, uint16_t vid, uint16_t next_type)
+{
+    frame[offset] = (uint8_t)(vid >> 8);
+    frame[offset + 1] = (uint8_t)vid;
+    frame[offset + 2] = (uint8_t)(next_type >> 8);
+    frame[offset + 3] = (uint8_t)next_type;
+}
+
+void test_slice_keeps_whole_vlan_stack(void)
+{
+    // Reproducer from #231: 0x9200 -> 0x8100 -> 0x9100 -> 0x9200 -> 0x86dd
     static uint8_t frame[1500];
     memset(frame, 0, sizeof(frame));
     frame[12] = 0x92;
     frame[13] = 0x00;
-    frame[16] = 0x81;
-    frame[17] = 0x00;
-    frame[20] = 0x91;
-    frame[21] = 0x00;
-    frame[24] = 0x92;
-    frame[25] = 0x00;
-    frame[28] = 0x86;
-    frame[29] = 0xdd;
+    put_tag(frame, 14, 1, 0x8100);
+    put_tag(frame, 18, 2, 0x9100);
+    put_tag(frame, 22, 3, 0x9200);
+    put_tag(frame, 26, 4, 0x86dd);
 
-    // 26 captured bytes hold the Ethernet header and 3 complete tags
-    assert_vlan_record(frame, sizeof(frame), 26, 12);
+    // slice 26 would cut the 4th tag: the record keeps Ethernet + 4 tags = 30 bytes
+    assert_vlan_record(frame, sizeof(frame), 26, 30, 16);
 }
 
-void test_vlan_only_frame_without_slice(void)
+void test_slice_below_ethernet_and_vlan_keeps_one_tag(void)
 {
-    // A minimum-size frame filled with 0x8100 tags: no slice needed to overrun the walk
+    // #271 comment: slice 10 used to drop every packet
+    uint8_t frame[100];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x81;
+    frame[13] = 0x00;
+    put_tag(frame, 14, 100, 0x0800);
+
+    assert_vlan_record(frame, sizeof(frame), 10, 18, 4);
+}
+
+void test_slice_keeps_both_qinq_tags(void)
+{
+    // 802.1ad outer + 802.1Q inner: slice 18 would cut the inner tag
+    uint8_t frame[100];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x88;
+    frame[13] = 0xa8;
+    put_tag(frame, 14, 100, 0x8100);
+    put_tag(frame, 18, 200, 0x0800);
+
+    assert_vlan_record(frame, sizeof(frame), 18, 22, 8);
+}
+
+void test_slice_below_ethernet_keeps_untagged_header(void)
+{
+    uint8_t frame[100];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x08;
+    frame[13] = 0x00;
+
+    assert_vlan_record(frame, sizeof(frame), 4, 14, 0);
+}
+
+void test_untagged_14_byte_frame_is_sent(void)
+{
+    uint8_t frame[14];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x08;
+    frame[13] = 0x00;
+
+    assert_vlan_record(frame, sizeof(frame), 0, 14, 0);
+}
+
+void test_frame_shorter_than_ethernet_is_error_drop(void)
+{
+    uint8_t frame[13];
+    memset(frame, 0x5a, sizeof(frame));
+
+    assert_error_drop(frame, sizeof(frame), 0);
+}
+
+void test_frame_with_cut_vlan_tag_is_error_drop(void)
+{
+    // 16 bytes: Ethernet header with 0x8100, then only half of the tag
+    uint8_t frame[16];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x81;
+    frame[13] = 0x00;
+
+    assert_error_drop(frame, sizeof(frame), 0);
+}
+
+void test_vlan_stack_running_past_caplen_is_error_drop(void)
+{
+    // A minimum-size frame filled with 0x8100 tags: the stack never ends within caplen
     uint8_t frame[60];
     memset(frame, 0xaa, 12);
     for (size_t i = 12; i + 1 < sizeof(frame); i += 4)
@@ -211,8 +301,33 @@ void test_vlan_only_frame_without_slice(void)
         frame[i + 3] = 0x01;
     }
 
-    // 60 captured bytes hold the Ethernet header and 11 complete tags, 2 bytes left
-    assert_vlan_record(frame, sizeof(frame), 0, 44);
+    assert_error_drop(frame, sizeof(frame), 0);
+}
+
+void test_runt_and_normal_frame_both_accounted(void)
+{
+    // #271: a runt followed by a normal frame must give fwd + error_drop == 2
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(0, (char *)VALID_UUID, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    uint8_t runt[16];
+    memset(runt, 0x5a, sizeof(runt));
+    runt[12] = 0x81;
+    runt[13] = 0x00;
+    uint8_t frame[64];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x08;
+    frame[13] = 0x00;
+
+    TEST_ASSERT_EQUAL_INT(-1, send_frame(output, runt, sizeof(runt)));
+    TEST_ASSERT_EQUAL_INT(0, send_frame(output, frame, sizeof(frame)));
+    zmq_output_destroy(&output->base);
+
+    TEST_ASSERT_GREATER_THAN_INT(0, recv_batch());
+    TEST_ASSERT_EQUAL_UINT16(1, batch_pkts_num());
+    TEST_ASSERT_EQUAL_UINT64(1, stats.fwd_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(1, stats.error_drop_packets.packets);
 }
 
 int main(void)
@@ -225,8 +340,15 @@ int main(void)
     RUN_TEST(test_destroy_flushes_pending_batch);
     RUN_TEST(test_destroy_empty_batch_sends_nothing);
 
-    RUN_TEST(test_vlan_stack_cut_by_slice);
-    RUN_TEST(test_vlan_only_frame_without_slice);
+    RUN_TEST(test_slice_keeps_whole_vlan_stack);
+    RUN_TEST(test_slice_below_ethernet_and_vlan_keeps_one_tag);
+    RUN_TEST(test_slice_keeps_both_qinq_tags);
+    RUN_TEST(test_slice_below_ethernet_keeps_untagged_header);
+    RUN_TEST(test_untagged_14_byte_frame_is_sent);
+    RUN_TEST(test_frame_shorter_than_ethernet_is_error_drop);
+    RUN_TEST(test_frame_with_cut_vlan_tag_is_error_drop);
+    RUN_TEST(test_vlan_stack_running_past_caplen_is_error_drop);
+    RUN_TEST(test_runt_and_normal_frame_both_accounted);
 
     return UNITY_END();
 }
