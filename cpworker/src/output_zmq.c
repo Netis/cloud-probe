@@ -79,7 +79,8 @@ static void flush_error_info(zmq_output_t *output)
 
     if (output->error_info.nb_too_small_packets > 0)
     {
-        log_warn("zmq output: nb_too_small_packets=%lu (dropped)", output->error_info.nb_too_small_packets);
+        log_warn("zmq output: nb_too_small_packets=%lu (dropped: Ethernet header or VLAN tags not fully captured)",
+                 output->error_info.nb_too_small_packets);
         output->error_info.nb_too_small_packets = 0;
     }
 
@@ -146,23 +147,51 @@ static inline void zmq_flush_if_stale(zmq_output_t *output, time_t now)
     }
 }
 
+// Length of the Ethernet header plus the whole VLAN tag stack, or 0 when the captured
+// data ends before that stack does.
+static size_t l2_header_len(const uint8_t *pkt_data, uint32_t caplen)
+{
+    if (caplen < sizeof(struct ether_header))
+        return 0;
+
+    size_t offset = sizeof(struct ether_header);
+    uint16_t ether_type = ntohs(((const struct ether_header *)pkt_data)->ether_type);
+    while (is_vlan_ethertype(ether_type))
+    {
+        if (offset + sizeof(struct vlan_header) > caplen)
+            return 0;
+        const struct vlan_header *vlan_hdr = (const struct vlan_header *)(pkt_data + offset);
+        ether_type = ntohs(vlan_hdr->ether_type);
+        offset += sizeof(struct vlan_header);
+    }
+    return offset;
+}
+
 int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
 {
     zmq_output_t *output = (zmq_output_t *)self;
 
-    int32_t caplen = header->caplen;
-    if (output->slice > 0 && output->slice < caplen)
-        caplen = output->slice;
+    // The record length is a uint16 that also covers the MPLS header
+    uint32_t caplen = header->caplen <= 65531 ? header->caplen : 65531;
 
-    // Minimum caplen: ethernet header (14) + optional VLAN tag (4) must fit
-    // to avoid underflow in payload_copy_len calculation
-    if (caplen < (int32_t)(sizeof(struct ether_header) + sizeof(struct vlan_header)))
+    // The MPLS header goes after the innermost VLAN tag, so a frame whose Ethernet header
+    // and tag stack were not fully captured cannot form a record
+    const size_t l2_len = l2_header_len(pkt_data, caplen);
+    if (l2_len == 0)
     {
         output->error_info.nb_too_small_packets++;
+        bytes_stats_add(&output->base.stats->error_drop_bytes, header->caplen);
+        packets_stats_add(&output->base.stats->error_drop_packets, 1);
+
+        zmq_flush_if_stale(output, header->ts.tv_sec);
         return -1;
     }
 
-    uint16_t length = (uint16_t)(caplen <= 65531 ? caplen : 65531) + sizeof(mpls_header);
+    // slice truncates the payload only: the Ethernet header and VLAN tags are always kept
+    if (output->slice > 0 && (uint32_t)output->slice < caplen)
+        caplen = (uint32_t)output->slice > l2_len ? (uint32_t)output->slice : l2_len;
+
+    uint16_t length = (uint16_t)caplen + sizeof(mpls_header);
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
 
     if (direct == PKT_DIR_UNKNOWN)
@@ -223,22 +252,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     struct ether_header eth_hdr_copy;
     memcpy(&eth_hdr_copy, pkt_data, sizeof(struct ether_header));
 
-    // Calculate total VLAN header size by looping through stacked VLANs.
-    // `length` includes the MPLS header; only `data_len` bytes of pkt_data were captured.
-    const size_t data_len = length - sizeof(mpls_header);
-    uint16_t ether_type = ntohs(eth_hdr_copy.ether_type);
-    size_t vlan_total_size = 0;
-
-    while (is_vlan_ethertype(ether_type))
-    {
-        size_t vlan_offset = sizeof(struct ether_header) + vlan_total_size;
-        if (vlan_offset + sizeof(struct vlan_header) > data_len)
-            break;
-        struct vlan_header *vlan_hdr = (struct vlan_header *)(pkt_data + vlan_offset);
-        ether_type = ntohs(vlan_hdr->ether_type);
-        vlan_total_size += sizeof(struct vlan_header);
-    }
-
+    const size_t vlan_total_size = l2_len - sizeof(struct ether_header);
     const bool has_vlan = (vlan_total_size > 0);
 
     // Write Ethernet header (keep original EtherType if has VLAN, else set MPLS)
@@ -266,7 +280,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     // Copy payload (everything after Ethernet + all VLANs)
     const size_t payload_offset = sizeof(struct ether_header) + vlan_total_size;
-    const size_t payload_copy_len = data_len - payload_offset;
+    const size_t payload_copy_len = caplen - payload_offset;
     memcpy(&(pkts_buf->buf[buff_pos]), pkt_data + payload_offset, payload_copy_len);
     buff_pos += payload_copy_len;
 

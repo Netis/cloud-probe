@@ -42,9 +42,10 @@ Configuration (`cpworker/examples/libpcap_zmq.json`):
 }
 ```
 
-> `slice` (output-level, not shown above) truncates each packet to at most `slice` bytes.
-> Set it to `0`/unset when the full payload is needed. Note that `slice` still leaves at
-> least an Ethernet + one VLAN header so the record framing stays valid.
+> `slice` (output-level, not shown above) truncates the payload of each packet to at most
+> `slice` bytes. Set it to `0`/unset when the full payload is needed. `slice` never cuts into
+> the Ethernet header or the VLAN tag stack: a `slice` smaller than those headers keeps
+> exactly the headers (§4.1).
 
 ---
 
@@ -95,11 +96,20 @@ a heartbeat by inspecting the EtherType of the frame (§7).
 
 In `zmq_send_packet()`:
 
-```c
-uint16_t length = (uint16_t)(caplen <= 65531 ? caplen : 65531) + sizeof(mpls_header);
+```
+caplen = min(captured_length, 65531)
+l2_len = 14 + 4 * (number of VLAN tags)          // Ethernet header + whole tag stack
+if slice > 0 and slice < caplen:
+    caplen = max(slice, l2_len)
+length = caplen + 4                              // + MPLS-like tag
 ```
 
-i.e. `length = min(captured_length, 65531) + 4`, and `pkt_data_len == length`.
+and `pkt_data_len == length`. VLAN tags are recognised by the EtherTypes `0x8100`, `0x88a8`,
+`0x9100` and `0x9200`.
+
+A frame whose Ethernet header or tag stack is not fully captured (fewer than 14 bytes, or a
+tag EtherType with no complete tag after it) produces no record. It is counted in the
+output's `error_drop_packets` / `error_drop_bytes` statistics.
 
 ---
 
