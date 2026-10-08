@@ -7,6 +7,43 @@
 
 #include "cjson_utils.h"
 
+#define CJSON_ERROR_SNIPPET_LEN 32
+
+cJSON *cjson_parse(const char *json, cJSONParseError *err)
+{
+    const char *end = NULL;
+    cJSON *item = cJSON_ParseWithOpts(json, &end, false);
+    if (item)
+        return item;
+
+    if (!json || !end)
+    {
+        cjson_set_parse_error(err, "JSON parse error");
+        return NULL;
+    }
+
+    int line = 1, column = 1;
+    for (const char *p = json; p < end; p++)
+    {
+        if (*p == '\n')
+        {
+            line++;
+            column = 1;
+        }
+        else
+            column++;
+    }
+
+    // The snippet stays on the error's line, so the message remains a single log line.
+    int snippet_len = 0;
+    while (snippet_len < CJSON_ERROR_SNIPPET_LEN && end[snippet_len] != '\0' && end[snippet_len] != '\n' &&
+           end[snippet_len] != '\r')
+        snippet_len++;
+
+    cjson_set_parse_error(err, "JSON parse error at line %d, column %d near '%.*s'", line, column, snippet_len, end);
+    return NULL;
+}
+
 void cjson_set_parse_error(cJSONParseError *err, const char *format, ...)
 {
     if (!err)

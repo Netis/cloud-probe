@@ -22,6 +22,11 @@ typedef struct
     char message[CJSON_ERRBUF_SIZE];
 } cJSONParseError;
 
+// Parses the NUL-terminated `json`. On a syntax error, returns NULL and sets err to
+// "JSON parse error at line L, column C near '<snippet>'". The position comes from this call's own parse end, not from
+// cJSON_GetErrorPtr(), whose process-wide state another thread's parse can overwrite.
+cJSON *cjson_parse(const char *json, cJSONParseError *err);
+
 void cjson_set_parse_error(cJSONParseError *err, const char *format, ...);
 void cjson_wrap_parse_error(cJSONParseError *err, const char *format, ...);
 
