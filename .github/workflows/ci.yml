@@ -18,10 +18,15 @@ jobs:
       - name: Install C build deps
         run: |
           sudo apt-get update
+          # libzmq3-dev is only for the integration tests' zmq_receiver helper
+          # (cgo, pebbe/zmq4); cpworker links the pinned static libzmq below.
           sudo apt-get install -y cmake build-essential pkg-config \
-            libpcap-dev autoconf automake libtool
+            libpcap-dev autoconf automake libtool libzmq3-dev
 
       - name: Assemble CPWORKER_LIBRARY_ROOT shim
+        env:
+          LIBZMQ_TAG: v4.3.3
+          LIBZMQ_COMMIT: 04f5bbedee58c538934374dc45182d8fc5926fa3
         run: |
           set -euxo pipefail
           SDK="$RUNNER_TEMP/cpworker-sdk"
@@ -35,11 +40,17 @@ jobs:
           # libzmq — build a MINIMAL static lib from source. apt's libzmq.a is a
           # "fat" build (OpenPGM + GSSAPI) whose pgm_*/gss_* symbols cpworker's
           # static link can't resolve; disable them for a self-contained archive.
-          git clone --depth 1 https://github.com/zeromq/libzmq /tmp/libzmq
+          # Pinned to the version in cpworker/docs/install_zmq.md. v4.3.3 does
+          # not compile with GCC 13: CURVE (unused by cpworker) trips a
+          # libstdc++ allocator assertion, and its tests fail -Werror=address.
+          # So disable CURVE and build only the library.
+          git clone --depth 1 --branch "$LIBZMQ_TAG" https://github.com/zeromq/libzmq /tmp/libzmq
+          test "$(git -C /tmp/libzmq rev-parse HEAD)" = "$LIBZMQ_COMMIT"
           ( cd /tmp/libzmq && ./autogen.sh && \
             ./configure --enable-static --disable-shared \
-              --without-pgm --without-libgssapi_krb5 --disable-libunwind --disable-perf && \
-            make -j"$(nproc)" )
+              --without-pgm --without-libgssapi_krb5 --disable-libunwind --disable-perf \
+              --disable-curve && \
+            make -j"$(nproc)" src/libzmq.la )
           cp -av /tmp/libzmq/src/.libs/libzmq.a "$SDK/lib/"
           cp -av /tmp/libzmq/include/*.h "$SDK/include/"
           ls -l "$SDK/lib" "$SDK/include"
@@ -60,12 +71,22 @@ jobs:
           GOTOOLCHAIN: auto
         run: go run mage.go -v build:linux
 
+      - name: cpworker unit tests
+        working-directory: build/tmp/cpworker-linux-amd64
+        run: ctest --output-on-failure
+
+      - name: cpworker integration tests
+        # run_test.sh points CPWORKER_BIN at the Mage build and runs go test
+        # under sudo, since packet capture needs CAP_NET_RAW.
+        working-directory: cpworker/tests/integration
+        run: ./run_test.sh all
+
       - name: Go unit tests
         env:
           GOTOOLCHAIN: auto
         run: |
           set -e
-          for m in cpdaemon cpctl cpgolib; do
+          for m in cpdaemon cpctl cpgolib cptools/cripid; do
             echo "== go test ./... ($m) =="
             ( cd "$m" && go test ./... )
           done
