@@ -109,6 +109,47 @@ void test_syntax_error_in_config_file_names_the_position(void)
     unlink(path);
 }
 
+// Content after the top-level value
+
+#define VALID_CONFIG                                                                                                   \
+    "{\"tasks\": [{\"capturer\": {\"type\": \"libpcap\", \"libpcap\": {\"interface\": \"eth0\"}}, \"outputs\": "       \
+    "[{\"type\": \"null\"}]}]}"
+
+void test_trailing_garbage_is_rejected(void)
+{
+    cJSONParseError err = {0};
+    TEST_ASSERT_NULL(parse_config_data("{\"tasks\": []},", &err));
+    TEST_ASSERT_EQUAL_STRING("JSON parse error at line 1, column 14 near ','", err.message);
+}
+
+void test_second_top_level_value_is_rejected(void)
+{
+    cJSONParseError err = {0};
+    TEST_ASSERT_NULL(parse_config_data(VALID_CONFIG "\n" VALID_CONFIG "\n", &err));
+    assert_message_contains(&err, "JSON parse error at line 2, column 1 near '{\"tasks\"");
+}
+
+void test_trailing_garbage_in_config_file_is_rejected(void)
+{
+    const char *path = write_tmp_file(VALID_CONFIG "\n}\n");
+    cJSONParseError err = {0};
+    TEST_ASSERT_NULL(parse_config_file(path, &err));
+    TEST_ASSERT_EQUAL_STRING("JSON parse error at line 2, column 1 near '}'", err.message);
+
+    err = (cJSONParseError){0};
+    TEST_ASSERT_NULL(parse_tasks_file(path, &err));
+    TEST_ASSERT_EQUAL_STRING("JSON parse error at line 2, column 1 near '}'", err.message);
+    unlink(path);
+}
+
+void test_trailing_whitespace_is_accepted(void)
+{
+    cJSONParseError err = {0};
+    Config *config = parse_config_data(VALID_CONFIG " \t\r\n\r\n", &err);
+    TEST_ASSERT_NOT_NULL_MESSAGE(config, err.message);
+    free_config(config);
+}
+
 // The control thread parses handshakes and commands while the reload thread parses the config. cJSON records the
 // last error position in a process-wide variable; the config error must not depend on it.
 static bool stop_parsing;
@@ -161,6 +202,11 @@ int main(void)
     RUN_TEST(test_syntax_error_snippet_stops_at_end_of_line);
     RUN_TEST(test_syntax_error_in_config_file_names_the_position);
     RUN_TEST(test_syntax_error_is_not_affected_by_concurrent_parsing);
+
+    RUN_TEST(test_trailing_garbage_is_rejected);
+    RUN_TEST(test_second_top_level_value_is_rejected);
+    RUN_TEST(test_trailing_garbage_in_config_file_is_rejected);
+    RUN_TEST(test_trailing_whitespace_is_accepted);
 
     return UNITY_END();
 }
