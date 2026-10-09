@@ -46,7 +46,9 @@ typedef struct
     // Heartbeat records in the batch. They are not captured packets, so a flush keeps
     // them out of the fwd/error_drop counters and counts them in heartbeat_packets.
     uint16_t heartbeat_num;
-    uint32_t heartbeat_bytes;
+    // Counted length of the captured packets in the batch: their sliced frame bytes,
+    // without the record header and MPLS label. A flush adds it to fwd/error_drop bytes.
+    uint32_t data_bytes;
 } zmq_pkts_buf_t;
 
 typedef struct ZmqOptions

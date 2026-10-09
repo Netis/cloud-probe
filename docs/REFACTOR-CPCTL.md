@@ -345,6 +345,39 @@ Sampling and timestamps:
 - `counters.heartbeat_packets` counts the zmq heartbeats sent. Heartbeats are
   not captured packets and are not part of `fwd_packets` / `fwd_bytes`.
 
+Output counters (`fwd_*`, `direction_drop_*`, `ratelimit_drop_*`,
+`error_drop_*`) mean the same for every output type:
+
+- Each packet the capturer hands to an output is counted once, as 1 packet
+  and `L` bytes, in exactly one of the four buckets, once its outcome is known.
+- `L` is the packet's `caplen` after the output's `slice`, without any
+  encapsulation: GRE/VXLAN headers, the VXLAN `capture_time` trailer, ZMQ
+  batch and record headers, the ZMQ MPLS label and outer IP/UDP headers are
+  not counted. For zmq, `slice` keeps the Ethernet header and VLAN tag stack
+  (ZMQ-WIRE-FORMAT.md §4.1), so `L` is the record's frame bytes.
+
+| Bucket | The packet |
+| --- | --- |
+| `direction_drop` | has an unknown direction and is dropped |
+| `ratelimit_drop` | is rejected by `rate_limit_mbps` |
+| `error_drop` | is not delivered in full: send error, partial send, a failed split fragment, a failed zmq batch, a file write error, or a frame too short to send |
+| `fwd` | is delivered in full: every split fragment sent, its zmq batch sent, or written to the file |
+
+So, for packets and for bytes:
+
+```
+fwd + direction_drop + ratelimit_drop + error_drop = packets handed to outputs
+```
+
+- A packet split into several VXLAN fragments counts once.
+- A packet in a zmq batch that has not been sent yet is in no bucket.
+- `rate_limit_mbps` charges the same `L` per packet, once per packet, so while
+  the limit is active `fwd_bytes` grows by at most `rate_limit_mbps`.
+- The counters are summed over every output of every task. With two outputs
+  per task, the right-hand side above is about twice `cap_packets`.
+- `cap_bytes` is the unsliced `caplen`, so with `slice` set `fwd_bytes` is
+  lower than `cap_bytes`.
+
 ### 6.3 info
 
 Minimum useful set, all derivable from data cpworker already has:

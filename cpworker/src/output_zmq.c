@@ -113,10 +113,9 @@ int zmq_flush_packet(zmq_output_t *output)
         output->error_info.first_pktsec = pkts_buf->first_pktsec;
     }
 
-    // Only captured packets are counted as forwarded or dropped. A batch that carries
-    // nothing but heartbeats contributes no bytes, not even its batch header.
+    // Only captured packets are counted as forwarded or dropped, each with its counted length
     uint16_t data_num = send_num - pkts_buf->heartbeat_num;
-    uint32_t data_bytes = data_num > 0 ? pkts_buf->batch_bufpos - pkts_buf->heartbeat_bytes : 0;
+    uint32_t data_bytes = pkts_buf->data_bytes;
 
     int rc = zmq_send(output->pusher, &(pkts_buf->buf[0]), pkts_buf->batch_bufpos, ZMQ_DONTWAIT);
     if (rc != -1)
@@ -141,7 +140,7 @@ int zmq_flush_packet(zmq_output_t *output)
     pkts_buf->batch_bufpos = sizeof(zmq_pkt_batch_hdr_t);
     pkts_buf->batch_hdr.pkts_num = 0;
     pkts_buf->heartbeat_num = 0;
-    pkts_buf->heartbeat_bytes = 0;
+    pkts_buf->data_bytes = 0;
     return 0;
 }
 
@@ -188,7 +187,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     if (l2_len == 0)
     {
         output->error_info.nb_too_small_packets++;
-        bytes_stats_add(&output->base.stats->error_drop_bytes, header->caplen);
+        bytes_stats_add(&output->base.stats->error_drop_bytes, caplen);
         packets_stats_add(&output->base.stats->error_drop_packets, 1);
 
         zmq_flush_if_stale(output, header->ts.tv_sec);
@@ -204,16 +203,16 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, caplen);
         packets_stats_add(&output->base.stats->direction_drop_packets, 1);
 
         zmq_flush_if_stale(output, header->ts.tv_sec);
         return -1;
     }
 
-    if (output->rate_limit_mbps > 0 && !token_bucket_consume(&output->throttle, length, header->ts))
+    if (output->rate_limit_mbps > 0 && !token_bucket_consume(&output->throttle, caplen, header->ts))
     {
-        bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, length);
+        bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, caplen);
         packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
 
         zmq_flush_if_stale(output, header->ts.tv_sec);
@@ -294,6 +293,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     pkts_buf->batch_bufpos = buff_pos;
     pkts_buf->batch_hdr.pkts_num++;
+    pkts_buf->data_bytes += caplen;
 
     output->last_pkt_tv.tv_sec = header->ts.tv_sec;
     output->last_pkt_tv.tv_usec = header->ts.tv_usec;
@@ -344,7 +344,6 @@ static void zmq_send_heartbeat_packet(zmq_output_t *output, struct timeval *tv)
     memcpy(&pkts_buf->buf[pos + offsetof(struct ether_header, ether_type)], &hb_etype, sizeof(hb_etype));
     pos += sizeof(eth);
 
-    pkts_buf->heartbeat_bytes += pos - pkts_buf->batch_bufpos;
     pkts_buf->heartbeat_num++;
     pkts_buf->batch_bufpos = pos;
     pkts_buf->batch_hdr.pkts_num++;

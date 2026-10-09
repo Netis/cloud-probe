@@ -410,12 +410,11 @@ void test_heartbeat_in_batch_with_data_counts_only_the_data(void)
     send_frame_at(output, now - 1);
     zmq_heartbeat(&output->base, make_heartbeat_due(output));
 
-    int n = recv_batch();
-    TEST_ASSERT_GREATER_THAN_INT(0, n);
+    TEST_ASSERT_GREATER_THAN_INT(0, recv_batch());
     TEST_ASSERT_EQUAL_UINT16(2, batch_pkts_num());
     TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
     TEST_ASSERT_EQUAL_UINT64(1, stats.fwd_packets.packets);
-    TEST_ASSERT_EQUAL_UINT64((uint64_t)n - HEARTBEAT_RECORD_SIZE, stats.fwd_bytes.bytes);
+    TEST_ASSERT_EQUAL_UINT64(64, stats.fwd_bytes.bytes);
 
     zmq_output_destroy(&output->base);
 }
@@ -451,16 +450,99 @@ void test_failed_batch_with_heartbeat_drops_only_the_data(void)
 
     time_t now = time(NULL);
     send_frame_at(output, now - 1);
-    uint32_t batch_size = output->pkts_buf.batch_bufpos + HEARTBEAT_RECORD_SIZE;
     zmq_heartbeat(&output->base, make_heartbeat_due(output));
 
     TEST_ASSERT_EQUAL_UINT64(1, output->error_info.nb_drop_batches);
     TEST_ASSERT_EQUAL_UINT64(1, stats.heartbeat_packets.packets);
     TEST_ASSERT_EQUAL_UINT64(1, stats.error_drop_packets.packets);
-    TEST_ASSERT_EQUAL_UINT64(batch_size - HEARTBEAT_RECORD_SIZE, stats.error_drop_bytes.bytes);
+    TEST_ASSERT_EQUAL_UINT64(64, stats.error_drop_bytes.bytes);
     TEST_ASSERT_EQUAL_UINT64(0, stats.fwd_packets.packets);
 
     destroy_without_linger(output);
+}
+
+/* ---- #308: counters count each packet once, with its sliced frame length ---- */
+
+static uint64_t bucket_packets(void)
+{
+    return stats.fwd_packets.packets + stats.direction_drop_packets.packets + stats.ratelimit_drop_packets.packets +
+           stats.error_drop_packets.packets;
+}
+
+static uint64_t bucket_bytes(void)
+{
+    return stats.fwd_bytes.bytes + stats.direction_drop_bytes.bytes + stats.ratelimit_drop_bytes.bytes +
+           stats.error_drop_bytes.bytes;
+}
+
+static int send_frame_dir(zmq_output_t *output, const uint8_t *frame, uint32_t caplen, int direct)
+{
+    struct pcap_pkthdr hdr;
+    memset(&hdr, 0, sizeof(hdr));
+    hdr.ts.tv_sec = 1;
+    hdr.caplen = caplen;
+    hdr.len = caplen;
+    return output_send_packet(&output->base, &hdr, frame, direct);
+}
+
+void test_counters_use_sliced_frame_length_without_headers(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(40, (char *)VALID_UUID, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    uint8_t frame[100];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x08;
+    frame[13] = 0x00;
+
+    TEST_ASSERT_EQUAL_INT(0, send_frame_dir(output, frame, sizeof(frame), PKT_DIR_INCOMING));
+    TEST_ASSERT_EQUAL_INT(0, send_frame_dir(output, frame, 30, PKT_DIR_OUTGOING));
+    TEST_ASSERT_EQUAL_INT(-1, send_frame_dir(output, frame, sizeof(frame), PKT_DIR_UNKNOWN));
+    zmq_output_destroy(&output->base);
+
+    TEST_ASSERT_GREATER_THAN_INT(0, recv_batch());
+    TEST_ASSERT_EQUAL_UINT64(2, stats.fwd_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(40 + 30, stats.fwd_bytes.bytes);
+    TEST_ASSERT_EQUAL_UINT64(1, stats.direction_drop_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(40, stats.direction_drop_bytes.bytes);
+    TEST_ASSERT_EQUAL_UINT64(3, bucket_packets());
+    TEST_ASSERT_EQUAL_UINT64(40 + 30 + 40, bucket_bytes());
+}
+
+void test_rate_limit_charges_and_counts_sliced_frame_length(void)
+{
+    // 1 Mbit/s gives a 125000-byte bucket. 125 frames sliced to 1000 bytes fit exactly; one
+    // more is rejected. Charging the 4-byte MPLS label as well would reject the 125th.
+    zmq_options_t opts = {
+        .host = "127.0.0.1",
+        .port = receiver_port,
+        .hwm = 100,
+        .service_tag = 1,
+        .uuid = (char *)VALID_UUID,
+        .rate_limit_mbps = 1,
+        .slice = 1000,
+        .heartbeat_ms = 0,
+    };
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = zmq_output_new(opts, &stats, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    static uint8_t frame[1500];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x08;
+    frame[13] = 0x00;
+
+    for (int i = 0; i < 125; i++)
+        TEST_ASSERT_EQUAL_INT(0, send_frame_dir(output, frame, sizeof(frame), PKT_DIR_INCOMING));
+    TEST_ASSERT_EQUAL_INT(-1, send_frame_dir(output, frame, sizeof(frame), PKT_DIR_INCOMING));
+    zmq_output_destroy(&output->base);
+
+    TEST_ASSERT_GREATER_THAN_INT(0, recv_batch());
+    TEST_ASSERT_EQUAL_UINT64(125, stats.fwd_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(125000, stats.fwd_bytes.bytes);
+    TEST_ASSERT_EQUAL_UINT64(1, stats.ratelimit_drop_packets.packets);
+    TEST_ASSERT_EQUAL_UINT64(1000, stats.ratelimit_drop_bytes.bytes);
 }
 
 int main(void)
@@ -487,6 +569,9 @@ int main(void)
     RUN_TEST(test_heartbeat_in_batch_with_data_counts_only_the_data);
     RUN_TEST(test_failed_heartbeat_is_not_counted);
     RUN_TEST(test_failed_batch_with_heartbeat_drops_only_the_data);
+
+    RUN_TEST(test_counters_use_sliced_frame_length_without_headers);
+    RUN_TEST(test_rate_limit_charges_and_counts_sliced_frame_length);
 
     return UNITY_END();
 }

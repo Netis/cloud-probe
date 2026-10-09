@@ -59,9 +59,9 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     if (output->rate_limit_mbps > 0)
     {
-        if (!token_bucket_consume(&output->throttle, GRE_HEADER_LEN + length, header->ts))
+        if (!token_bucket_consume(&output->throttle, length, header->ts))
         {
-            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, GRE_HEADER_LEN + length);
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, length);
             packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
             return -1;
         }
@@ -112,7 +112,7 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
                 output->error_info.nb_other_send_error_drops++;
             }
 
-            bytes_stats_add(&output->base.stats->error_drop_bytes, GRE_HEADER_LEN + length);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, length);
             packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
@@ -121,13 +121,12 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         {
             output->error_info.nb_partial_sends++;
 
-            bytes_stats_add(&output->base.stats->error_drop_bytes, GRE_HEADER_LEN + length - send_bytes);
-            bytes_stats_add(&output->base.stats->fwd_bytes, send_bytes);
-            packets_stats_add(&output->base.stats->fwd_packets, 1);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, length);
+            packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
 
-        bytes_stats_add(&output->base.stats->fwd_bytes, GRE_HEADER_LEN + length);
+        bytes_stats_add(&output->base.stats->fwd_bytes, length);
         packets_stats_add(&output->base.stats->fwd_packets, 1);
         return 0;
     } while (true);

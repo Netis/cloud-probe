@@ -31,6 +31,7 @@ set(unity_tests
     misc
     output_file
     output_rotating_file
+    output_vxlan
     output_zmq
     packet_split
     req_pattern

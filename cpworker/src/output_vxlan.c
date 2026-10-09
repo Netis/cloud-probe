@@ -93,6 +93,7 @@ static void flush_error_info(vxlan_output_t *output)
     }
 }
 
+// Sends one VXLAN datagram. Returns 0 when it was sent in full, -1 otherwise. The caller does the counting.
 static int do_send_packet(vxlan_output_t *output, const struct timeval ts, const uint8_t *pkt_data, size_t length,
                           int direct)
 {
@@ -159,26 +160,46 @@ static int do_send_packet(vxlan_output_t *output, const struct timeval ts, const
 
                 output->error_info.nb_other_send_error_drops++;
             }
-
-            bytes_stats_add(&output->base.stats->error_drop_bytes, VXLAN_HEADER_LEN + length);
-            packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
 
         if (send_bytes < VXLAN_HEADER_LEN + length)
         {
             output->error_info.nb_partial_sends++;
-
-            bytes_stats_add(&output->base.stats->error_drop_bytes, VXLAN_HEADER_LEN + length - send_bytes);
-            bytes_stats_add(&output->base.stats->fwd_bytes, send_bytes);
-            packets_stats_add(&output->base.stats->fwd_packets, 1);
             return -1;
         }
 
-        bytes_stats_add(&output->base.stats->fwd_bytes, VXLAN_HEADER_LEN + length);
-        packets_stats_add(&output->base.stats->fwd_packets, 1);
         return 0;
     } while (true);
+}
+
+// Sends the packet, split into fragments when configured. Returns 0 only when every datagram was sent in full.
+static int send_whole_or_split(vxlan_output_t *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
+                               int32_t caplen, size_t length, int direct)
+{
+    // Fast path
+    if (output->split.max_payload_size <= 0 || length <= (size_t)output->split.max_payload_size)
+        return do_send_packet(output, header->ts, pkt_data, length, direct);
+
+    packet_parse_result_t parse_result;
+    if (!parse_packet(pkt_data, caplen, &parse_result))
+        return do_send_packet(output, header->ts, pkt_data, length, direct);
+
+    int fragment_count = calculate_fragment_count(&parse_result, output->split.max_payload_size);
+    if (fragment_count == 1)
+        return do_send_packet(output, header->ts, pkt_data, length, direct);
+
+    for (int i = 0; i < fragment_count; i++)
+    {
+        int frag_len = build_fragment(&parse_result, pkt_data, i, output->split.max_payload_size,
+                                      output->split.recalculate_checksum, output->split.fragment_buf);
+        if (frag_len <= 0)
+            return -1;
+
+        if (do_send_packet(output, header->ts, output->split.fragment_buf, frag_len, direct) != 0)
+            return -1;
+    }
+    return 0;
 }
 
 int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const uint8_t *pkt_data, int direct)
@@ -202,9 +223,9 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
 
     if (output->rate_limit_mbps > 0)
     {
-        if (!token_bucket_consume(&output->throttle, VXLAN_HEADER_LEN + length, header->ts))
+        if (!token_bucket_consume(&output->throttle, length, header->ts))
         {
-            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, VXLAN_HEADER_LEN + length);
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, length);
             packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
             return -1;
         }
@@ -219,35 +240,16 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
         output->error_info.first_pktsec = header->ts.tv_sec;
     }
 
-    // Fast path
-    if (output->split.max_payload_size <= 0 || length <= (size_t)output->split.max_payload_size)
+    // A packet counts once, with its sliced length, whether or not it was split
+    if (send_whole_or_split(output, header, pkt_data, caplen, length, direct) != 0)
     {
-        return do_send_packet(output, header->ts, pkt_data, length, direct);
+        bytes_stats_add(&output->base.stats->error_drop_bytes, length);
+        packets_stats_add(&output->base.stats->error_drop_packets, 1);
+        return -1;
     }
 
-    packet_parse_result_t parse_result;
-    if (!parse_packet(pkt_data, caplen, &parse_result))
-    {
-        return do_send_packet(output, header->ts, pkt_data, length, direct);
-    }
-
-    int fragment_count = calculate_fragment_count(&parse_result, output->split.max_payload_size);
-    if (fragment_count == 1)
-    {
-        return do_send_packet(output, header->ts, pkt_data, length, direct);
-    }
-
-    for (int i = 0; i < fragment_count; i++)
-    {
-        int frag_len = build_fragment(&parse_result, pkt_data, i, output->split.max_payload_size,
-                                      output->split.recalculate_checksum, output->split.fragment_buf);
-        if (frag_len <= 0)
-            return 0;
-
-        int ret = do_send_packet(output, header->ts, output->split.fragment_buf, frag_len, direct);
-        if (ret != 0)
-            return ret;
-    }
+    bytes_stats_add(&output->base.stats->fwd_bytes, length);
+    packets_stats_add(&output->base.stats->fwd_packets, 1);
     return 0;
 }
 

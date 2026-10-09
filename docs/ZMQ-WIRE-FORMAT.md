@@ -235,10 +235,12 @@ Heartbeat records are not captured packets, so the output counters leave them ou
 
 | Batch | Sent | Dropped |
 | --- | --- | --- |
-| Captured packets (and heartbeats, if any) | data records and batch header → `fwd_packets` / `fwd_bytes`; heartbeats → `heartbeat_packets` | data records and batch header → `error_drop_packets` / `error_drop_bytes` |
+| Captured packets (and heartbeats, if any) | captured packets → `fwd_packets` / `fwd_bytes`; heartbeats → `heartbeat_packets` | captured packets → `error_drop_packets` / `error_drop_bytes` |
 | Heartbeats only | `heartbeat_packets` | not counted |
 
-Bytes are the batch bytes minus the heartbeat records. The worker's periodic error log reports
+Each captured packet adds its frame bytes after `slice` (the record's `caplen` minus the 4-byte
+MPLS label). The batch header and record headers are not counted. docs/REFACTOR-CPCTL.md §6.2
+defines the output counters for every output type. The worker's periodic error log reports
 the number of dropped batches (`nb_drop_batches`); no stats counter carries it.
 
 ---
