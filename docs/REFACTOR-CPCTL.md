@@ -244,6 +244,9 @@ For any command emitting `jsonl`:
   extra keys.
 - An error that ends the command is logged with `msg` `"command failed"`,
   and cpctl exits 1.
+- A usage error found before flags are parsed (an unknown subcommand) is
+  reported in text format, since `--format` has not been read yet. cpctl
+  still exits 1.
 
 ---
 
@@ -253,7 +256,6 @@ For any command emitting `jsonl`:
 cpctl ping           # liveness + RTT, ping-style UX
 cpctl stats          # counter stream (current behavior, made one-shot capable)
 cpctl info           # config_path, version, pid, uptime, log_destination
-cpctl config         # convenience: dump the loaded config file (reads file from info's config_path)
 cpctl version        # cpctl's own version
 cpctl completion     # cobra builtin
 ```
@@ -410,20 +412,7 @@ C-side cost is trivial:
 One new RPC: `unix_manager_register_command("info", ...)`.
 **No per-task fields** — that road is closed by the team's earlier decision.
 
-### 6.4 config
-
-Convenience wrapper, **no new C-side RPC needed**:
-
-1. Call `info` to get `config_path`.
-2. Read and dump the file from disk.
-
-In `text` mode just stream the raw file. In `jsonl` mode emit a single line:
-`{"path":"...","content":<parsed-json>}`.
-
-This sidesteps the need for cpworker to ever serve config content over the
-wire — fits "minimize cpworker changes."
-
-### 6.5 reload — TBD
+### 6.4 reload — TBD
 
 Out of scope for this refactor. Will need a C-side RPC plus careful
 task-restart logic. Tracked as a separate task.
@@ -468,6 +457,14 @@ Dropped — cpworker has no log-file management (`main.c:49` only knows about
 `-c <config>`; no `log_file` field in the schema). Logs go to stderr; the
 service manager handles aggregation. `cpctl info` will surface
 `log_destination: "stderr"` so callers know not to look elsewhere.
+
+### 7.4 `cpctl config`
+
+Dropped — it needs no RPC, only a file read: `cpctl info` already returns
+`config_path` and `working_dir`, so callers read the file themselves
+(`jq . "$(cpctl info -f jsonl | jq -r '.config_path')"`, resolving a
+relative path against `working_dir`). A wrapper would add a second code
+path for reading the file with no consumer asking for it.
 
 ---
 
@@ -517,7 +514,7 @@ The smallest possible surface that supports this refactor:
 | Change | File | Size | Purpose |
 |---|---|---|---|
 | Register `ping` RPC | `cpworker/src/main.c` (+ small new file or inline) | ~15 LOC | enables `cpctl ping` |
-| Register `info` RPC | `cpworker/src/main.c` (+ small new file or inline) | ~30 LOC | enables `cpctl info` and (transitively) `cpctl config` |
+| Register `info` RPC | `cpworker/src/main.c` (+ small new file or inline) | ~30 LOC | enables `cpctl info` |
 | Capture startup timestamp | `cpworker/src/main.c` | 1 LOC | needed by `info.uptime_sec` |
 
 That's it. No changes to capturer, output, task, or stats subsystems.
