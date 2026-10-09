@@ -9,7 +9,8 @@
 #include "output.h"
 #include "ratelimit.h"
 
-#define GRE_OUTPUT_BUFSIZE 65551 // 8(GRE_HEADER_LEN) + 65535
+#define GRE_MAX_FRAME_LEN 65535
+#define GRE_OUTPUT_BUFSIZE 65551 // 8(GRE_HEADER_LEN) + 65535(GRE_MAX_FRAME_LEN)
 
 typedef struct GreOptions
 {

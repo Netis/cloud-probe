@@ -11,7 +11,8 @@
 #include "output.h"
 #include "ratelimit.h"
 
-#define VXLAN_OUTPUT_BUFSIZE 65551 // 8(VXLAN_HEADER_LEN) + 65535 + 8(capture_time)
+#define VXLAN_MAX_FRAME_LEN 65535
+#define VXLAN_OUTPUT_BUFSIZE 65551 // 8(VXLAN_HEADER_LEN) + 65535(VXLAN_MAX_FRAME_LEN) + 8(capture_time)
 
 typedef struct VxlanOptions
 {
@@ -29,7 +30,7 @@ typedef struct VxlanOptions
     struct
     {
         uint16_t max_payload_size;
-        bool recalculate_checksum;  // Whether to recalculate checksums after splitting (default: false)
+        bool recalculate_checksum; // Whether to recalculate checksums after splitting (default: false)
     } split;
 } vxlan_options_t;
 

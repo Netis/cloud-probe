@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "errorf.h"
@@ -10,29 +11,25 @@ int null_send_packet(output_base_t *self, const struct pcap_pkthdr *header, cons
 {
     null_output_t *output = (null_output_t *)self;
 
-    int32_t length = header->caplen;
-    if (output->slice > 0 && output->slice < length)
-    {
-        length = output->slice;
-    }
+    const size_t frame_len = output_frame_len(header->caplen, output->slice, SIZE_MAX);
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, frame_len);
         packets_stats_add(&output->base.stats->direction_drop_packets, 1);
         return -1;
     }
 
     if (output->rate_limit_mbps > 0)
     {
-        if (!token_bucket_consume(&output->throttle, length, header->ts))
+        if (!token_bucket_consume(&output->throttle, frame_len, header->ts))
         {
-            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, length);
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, frame_len);
             packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
             return -1;
         }
     }
-    bytes_stats_add(&output->base.stats->fwd_bytes, length);
+    bytes_stats_add(&output->base.stats->fwd_bytes, frame_len);
     packets_stats_add(&output->base.stats->fwd_packets, 1);
     return 0;
 }

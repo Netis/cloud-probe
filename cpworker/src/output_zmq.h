@@ -11,6 +11,8 @@
 #include "output.h"
 #include "ratelimit.h"
 
+// Largest frame in a record: the uint16 record length also covers the 4-byte MPLS header
+#define ZMQ_MAX_FRAME_LEN 65531
 #define ZMQ_MAX_BATCH_BUF_SIZE 1048576 // 1 * 1024 * 1024;
 #define ZMQ_PKTS_FLUSH_MAX_DUR_SEC 1
 #define ZMQ_PKTS_FLUSH_MAX_NUM 65535

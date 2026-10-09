@@ -94,21 +94,24 @@ static void flush_error_info(vxlan_output_t *output)
 }
 
 // Sends one VXLAN datagram. Returns 0 when it was sent in full, -1 otherwise. The caller does the counting.
-static int do_send_packet(vxlan_output_t *output, const struct timeval ts, const uint8_t *pkt_data, size_t length,
+static int do_send_packet(vxlan_output_t *output, const struct timeval ts, const uint8_t *pkt_data, size_t frame_len,
                           int direct)
 {
     struct vxlan_header *vxlan_hdr = (struct vxlan_header *)output->buf;
-    memcpy(&(output->buf[VXLAN_HEADER_LEN]), pkt_data, length);
+    memcpy(&(output->buf[VXLAN_HEADER_LEN]), pkt_data, frame_len);
+
+    // VXLAN payload: the frame, followed by the capture time when enabled
+    size_t payload_len = frame_len;
 
     if (output->capture_time)
     {
         uint32_t tv_sec = htonl(ts.tv_sec);
         // 注意：通过libpcap获取的捕获时间精度为微秒，而数据包中附加的时间为纳秒，所以需要*1000
         uint32_t tv_nsec = htonl(ts.tv_usec * 1000);
-        memcpy(&(output->buf[VXLAN_HEADER_LEN + length]), &tv_sec, 4);
-        length += 4;
-        memcpy(&(output->buf[VXLAN_HEADER_LEN + length]), &tv_nsec, 4);
-        length += 4;
+        memcpy(&(output->buf[VXLAN_HEADER_LEN + payload_len]), &tv_sec, 4);
+        payload_len += 4;
+        memcpy(&(output->buf[VXLAN_HEADER_LEN + payload_len]), &tv_nsec, 4);
+        payload_len += 4;
     }
     if (output->vni_version == 1)
     {
@@ -133,7 +136,7 @@ static int do_send_packet(vxlan_output_t *output, const struct timeval ts, const
     const int max_retries = 10;
     do
     {
-        ssize_t send_bytes = sendto(output->socket_fd, output->buf, VXLAN_HEADER_LEN + length, 0,
+        ssize_t send_bytes = sendto(output->socket_fd, output->buf, VXLAN_HEADER_LEN + payload_len, 0,
                                     (struct sockaddr *)&output->remote_addr, sizeof(struct sockaddr_in));
 
         if (send_bytes == -1)
@@ -163,7 +166,7 @@ static int do_send_packet(vxlan_output_t *output, const struct timeval ts, const
             return -1;
         }
 
-        if (send_bytes < VXLAN_HEADER_LEN + length)
+        if (send_bytes < VXLAN_HEADER_LEN + payload_len)
         {
             output->error_info.nb_partial_sends++;
             return -1;
@@ -175,19 +178,19 @@ static int do_send_packet(vxlan_output_t *output, const struct timeval ts, const
 
 // Sends the packet, split into fragments when configured. Returns 0 only when every datagram was sent in full.
 static int send_whole_or_split(vxlan_output_t *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
-                               int32_t caplen, size_t length, int direct)
+                               size_t frame_len, int direct)
 {
     // Fast path
-    if (output->split.max_payload_size <= 0 || length <= (size_t)output->split.max_payload_size)
-        return do_send_packet(output, header->ts, pkt_data, length, direct);
+    if (output->split.max_payload_size <= 0 || frame_len <= (size_t)output->split.max_payload_size)
+        return do_send_packet(output, header->ts, pkt_data, frame_len, direct);
 
     packet_parse_result_t parse_result;
-    if (!parse_packet(pkt_data, caplen, &parse_result))
-        return do_send_packet(output, header->ts, pkt_data, length, direct);
+    if (!parse_packet(pkt_data, frame_len, &parse_result))
+        return do_send_packet(output, header->ts, pkt_data, frame_len, direct);
 
     int fragment_count = calculate_fragment_count(&parse_result, output->split.max_payload_size);
     if (fragment_count == 1)
-        return do_send_packet(output, header->ts, pkt_data, length, direct);
+        return do_send_packet(output, header->ts, pkt_data, frame_len, direct);
 
     for (int i = 0; i < fragment_count; i++)
     {
@@ -206,26 +209,20 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
 {
     vxlan_output_t *output = (vxlan_output_t *)self;
 
-    int32_t caplen = header->caplen;
-    if (output->slice > 0 && output->slice < caplen)
-    {
-        caplen = output->slice;
-    }
-
-    size_t length = (size_t)(caplen <= 65535 ? caplen : 65535);
+    const size_t frame_len = output_frame_len(header->caplen, output->slice, VXLAN_MAX_FRAME_LEN);
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, frame_len);
         packets_stats_add(&output->base.stats->direction_drop_packets, 1);
         return -1;
     }
 
     if (output->rate_limit_mbps > 0)
     {
-        if (!token_bucket_consume(&output->throttle, length, header->ts))
+        if (!token_bucket_consume(&output->throttle, frame_len, header->ts))
         {
-            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, length);
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, frame_len);
             packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
             return -1;
         }
@@ -240,15 +237,15 @@ int vxlan_send_packet(output_base_t *self, const struct pcap_pkthdr *header, con
         output->error_info.first_pktsec = header->ts.tv_sec;
     }
 
-    // A packet counts once, with its sliced length, whether or not it was split
-    if (send_whole_or_split(output, header, pkt_data, caplen, length, direct) != 0)
+    // A packet counts once, with its frame_len, whether or not it was split
+    if (send_whole_or_split(output, header, pkt_data, frame_len, direct) != 0)
     {
-        bytes_stats_add(&output->base.stats->error_drop_bytes, length);
+        bytes_stats_add(&output->base.stats->error_drop_bytes, frame_len);
         packets_stats_add(&output->base.stats->error_drop_packets, 1);
         return -1;
     }
 
-    bytes_stats_add(&output->base.stats->fwd_bytes, length);
+    bytes_stats_add(&output->base.stats->fwd_bytes, frame_len);
     packets_stats_add(&output->base.stats->fwd_packets, 1);
     return 0;
 }

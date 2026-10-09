@@ -178,16 +178,14 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 {
     zmq_output_t *output = (zmq_output_t *)self;
 
-    // The record length is a uint16 that also covers the MPLS header
-    uint32_t caplen = header->caplen <= 65531 ? header->caplen : 65531;
-
     // The MPLS header goes after the innermost VLAN tag, so a frame whose Ethernet header
-    // and tag stack were not fully captured cannot form a record
-    const size_t l2_len = l2_header_len(pkt_data, caplen);
+    // and tag stack were not fully captured cannot form a record. Only the first
+    // ZMQ_MAX_FRAME_LEN bytes fit in a record.
+    const size_t l2_len = l2_header_len(pkt_data, output_frame_len(header->caplen, 0, ZMQ_MAX_FRAME_LEN));
     if (l2_len == 0)
     {
         output->error_info.nb_too_small_packets++;
-        bytes_stats_add(&output->base.stats->error_drop_bytes, caplen);
+        bytes_stats_add(&output->base.stats->error_drop_bytes, header->caplen);
         packets_stats_add(&output->base.stats->error_drop_packets, 1);
 
         zmq_flush_if_stale(output, header->ts.tv_sec);
@@ -195,24 +193,26 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     }
 
     // slice truncates the payload only: the Ethernet header and VLAN tags are always kept
-    if (output->slice > 0 && (uint32_t)output->slice < caplen)
-        caplen = (uint32_t)output->slice > l2_len ? (uint32_t)output->slice : l2_len;
+    size_t frame_len = output_frame_len(header->caplen, output->slice, ZMQ_MAX_FRAME_LEN);
+    if (frame_len < l2_len)
+        frame_len = l2_len;
 
-    uint16_t length = (uint16_t)caplen + sizeof(mpls_header);
+    // The record length is a uint16 that also covers the MPLS header
+    const uint16_t record_len = (uint16_t)(frame_len + sizeof(mpls_header));
     zmq_pkts_buf_t *pkts_buf = &output->pkts_buf;
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats->direction_drop_bytes, caplen);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, frame_len);
         packets_stats_add(&output->base.stats->direction_drop_packets, 1);
 
         zmq_flush_if_stale(output, header->ts.tv_sec);
         return -1;
     }
 
-    if (output->rate_limit_mbps > 0 && !token_bucket_consume(&output->throttle, caplen, header->ts))
+    if (output->rate_limit_mbps > 0 && !token_bucket_consume(&output->throttle, frame_len, header->ts))
     {
-        bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, caplen);
+        bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, frame_len);
         packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
 
         zmq_flush_if_stale(output, header->ts.tv_sec);
@@ -225,7 +225,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     zmq_pkt_hdr_t pkt_hdr = {
         .tv_sec = htonl((uint32_t)header->ts.tv_sec),
         .tv_usec = htonl((uint32_t)header->ts.tv_usec),
-        .caplen = htonl((uint32_t)length),
+        .caplen = htonl((uint32_t)record_len),
         .len = htonl((uint32_t)header->len + sizeof(mpls_header)),
     };
 
@@ -235,7 +235,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
         (pkts_buf->first_pktsec != 0 && header->ts.tv_sec > pkts_buf->first_pktsec + ZMQ_PKTS_FLUSH_MAX_DUR_SEC);
 
     const bool is_buffer_full =
-        (pkts_buf->batch_bufpos + sizeof(length) + sizeof(pkt_hdr) + length > ZMQ_MAX_BATCH_BUF_SIZE);
+        (pkts_buf->batch_bufpos + sizeof(record_len) + sizeof(pkt_hdr) + record_len > ZMQ_MAX_BATCH_BUF_SIZE);
 
     if (is_pkt_num_exceeded || is_time_diff_exceeded || is_buffer_full)
     {
@@ -246,7 +246,7 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     if (pkts_buf->first_pktsec == 0)
         pkts_buf->first_pktsec = header->ts.tv_sec;
 
-    uint16_t hlen = htons(length);
+    uint16_t hlen = htons(record_len);
     uint32_t buff_pos = pkts_buf->batch_bufpos;
 
     memcpy(&(pkts_buf->buf[buff_pos]), &hlen, ZMQ_PKT_DATA_LEN_SIZE);
@@ -287,13 +287,13 @@ int zmq_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     // Copy payload (everything after Ethernet + all VLANs)
     const size_t payload_offset = sizeof(struct ether_header) + vlan_total_size;
-    const size_t payload_copy_len = caplen - payload_offset;
+    const size_t payload_copy_len = frame_len - payload_offset;
     memcpy(&(pkts_buf->buf[buff_pos]), pkt_data + payload_offset, payload_copy_len);
     buff_pos += payload_copy_len;
 
     pkts_buf->batch_bufpos = buff_pos;
     pkts_buf->batch_hdr.pkts_num++;
-    pkts_buf->data_bytes += caplen;
+    pkts_buf->data_bytes += frame_len;
 
     output->last_pkt_tv.tv_sec = header->ts.tv_sec;
     output->last_pkt_tv.tv_usec = header->ts.tv_usec;

@@ -27,6 +27,16 @@ typedef struct OutputEntry
     OutputFactory factory;
 } output_entry_t;
 
+// Length of the frame an output carries and counts: the captured length after slice, capped at
+// the largest frame the output can carry. Every output counter and rate limiter uses this length.
+static inline size_t output_frame_len(uint32_t caplen, int slice, size_t max_len)
+{
+    size_t frame_len = caplen;
+    if (slice > 0 && (uint32_t)slice < caplen)
+        frame_len = (size_t)slice;
+    return frame_len < max_len ? frame_len : max_len;
+}
+
 static inline int output_send_packet(output_base_t *output, const struct pcap_pkthdr *header, const uint8_t *pkt_data,
                                      int direct)
 {
