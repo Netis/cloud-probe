@@ -117,7 +117,7 @@ Values shown in hexadecimal (e.g. `0xFFF`) must be written in decimal in the JSO
 | Parameter         | Type     | Default | Description |
 |-------------------|----------|---------|-------------|
 | type              | string   | -       | Output type |
-| rate_limit_mbps   | int      | 0       | Max output rate in Mbps (>= 0); 0 means unlimited |
+| rate_limit_mbps   | int      | 0       | Max output rate in Mbps (>= 0); 0 means unlimited. Each packet is charged its length after `slice`, without encapsulation headers, the same bytes `fwd_bytes` counts |
 | slice             | int      | 0       | Packet truncation size in bytes (>= 0); 0 means no truncation |
 
 ## output.gre Parameters

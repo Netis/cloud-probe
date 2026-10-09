@@ -11,6 +11,8 @@
 #include "output.h"
 #include "ratelimit.h"
 
+// Largest frame in a record: the uint16 record length also covers the 4-byte MPLS header
+#define ZMQ_MAX_FRAME_LEN 65531
 #define ZMQ_MAX_BATCH_BUF_SIZE 1048576 // 1 * 1024 * 1024;
 #define ZMQ_PKTS_FLUSH_MAX_DUR_SEC 1
 #define ZMQ_PKTS_FLUSH_MAX_NUM 65535
@@ -46,7 +48,9 @@ typedef struct
     // Heartbeat records in the batch. They are not captured packets, so a flush keeps
     // them out of the fwd/error_drop counters and counts them in heartbeat_packets.
     uint16_t heartbeat_num;
-    uint32_t heartbeat_bytes;
+    // Counted length of the captured packets in the batch: their sliced frame bytes,
+    // without the record header and MPLS label. A flush adds it to fwd/error_drop bytes.
+    uint32_t data_bytes;
 } zmq_pkts_buf_t;
 
 typedef struct ZmqOptions

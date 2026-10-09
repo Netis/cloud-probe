@@ -216,10 +216,10 @@ heartbeat 记录不是抓到的报文，输出计数器不计入它：
 
 | batch 内容 | 发送成功 | 发送失败 |
 | --- | --- | --- |
-| 有抓到的报文（可能夹带 heartbeat） | 数据记录和 batch header → `fwd_packets` / `fwd_bytes`；heartbeat → `heartbeat_packets` | 数据记录和 batch header → `error_drop_packets` / `error_drop_bytes` |
+| 有抓到的报文（可能夹带 heartbeat） | 抓到的报文 → `fwd_packets` / `fwd_bytes`；heartbeat → `heartbeat_packets` | 抓到的报文 → `error_drop_packets` / `error_drop_bytes` |
 | 只有 heartbeat | `heartbeat_packets` | 不计数 |
 
-字节数为 batch 字节数减去 heartbeat 记录。丢弃的 batch 个数只出现在 worker 的周期性错误日志里（`nb_drop_batches`），没有对应的统计计数器。
+每个抓到的报文按 `slice` 之后的帧字节数计入（即记录的 `caplen` 减去 4 字节 MPLS 标签），batch header 和记录头不计入。各类输出计数器的统一定义见 docs/REFACTOR-CPCTL.md §6.2。丢弃的 batch 个数只出现在 worker 的周期性错误日志里（`nb_drop_batches`），没有对应的统计计数器。
 
 ---
 

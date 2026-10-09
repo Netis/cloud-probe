@@ -42,26 +42,20 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 {
     gre_output_t *output = (gre_output_t *)self;
 
-    int32_t caplen = header->caplen;
-    if (output->slice > 0 && output->slice < caplen)
-    {
-        caplen = output->slice;
-    }
-
-    size_t length = (size_t)(caplen <= 65535 ? caplen : 65535);
+    const size_t frame_len = output_frame_len(header->caplen, output->slice, GRE_MAX_FRAME_LEN);
 
     if (direct == PKT_DIR_UNKNOWN)
     {
-        bytes_stats_add(&output->base.stats->direction_drop_bytes, length);
+        bytes_stats_add(&output->base.stats->direction_drop_bytes, frame_len);
         packets_stats_add(&output->base.stats->direction_drop_packets, 1);
         return -1;
     }
 
     if (output->rate_limit_mbps > 0)
     {
-        if (!token_bucket_consume(&output->throttle, GRE_HEADER_LEN + length, header->ts))
+        if (!token_bucket_consume(&output->throttle, frame_len, header->ts))
         {
-            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, GRE_HEADER_LEN + length);
+            bytes_stats_add(&output->base.stats->ratelimit_drop_bytes, frame_len);
             packets_stats_add(&output->base.stats->ratelimit_drop_packets, 1);
             return -1;
         }
@@ -69,7 +63,7 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
 
     struct gre_header *gre_hdr = (struct gre_header *)output->buf;
     gre_hdr->keybit = htonl(output->service_tag | (direct << 28));
-    memcpy(&(output->buf[GRE_HEADER_LEN]), pkt_data, length);
+    memcpy(&(output->buf[GRE_HEADER_LEN]), pkt_data, frame_len);
 
     // check error_info
     if (output->error_info.first_pktsec == 0)
@@ -84,7 +78,7 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     const int max_retries = 10;
     do
     {
-        ssize_t send_bytes = sendto(output->socket_fd, output->buf, GRE_HEADER_LEN + length, 0,
+        ssize_t send_bytes = sendto(output->socket_fd, output->buf, GRE_HEADER_LEN + frame_len, 0,
                                     (struct sockaddr *)&output->remote_addr, sizeof(struct sockaddr_in));
 
         if (send_bytes == -1)
@@ -112,22 +106,21 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
                 output->error_info.nb_other_send_error_drops++;
             }
 
-            bytes_stats_add(&output->base.stats->error_drop_bytes, GRE_HEADER_LEN + length);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, frame_len);
             packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
 
-        if (send_bytes < GRE_HEADER_LEN + length)
+        if (send_bytes < GRE_HEADER_LEN + frame_len)
         {
             output->error_info.nb_partial_sends++;
 
-            bytes_stats_add(&output->base.stats->error_drop_bytes, GRE_HEADER_LEN + length - send_bytes);
-            bytes_stats_add(&output->base.stats->fwd_bytes, send_bytes);
-            packets_stats_add(&output->base.stats->fwd_packets, 1);
+            bytes_stats_add(&output->base.stats->error_drop_bytes, frame_len);
+            packets_stats_add(&output->base.stats->error_drop_packets, 1);
             return -1;
         }
 
-        bytes_stats_add(&output->base.stats->fwd_bytes, GRE_HEADER_LEN + length);
+        bytes_stats_add(&output->base.stats->fwd_bytes, frame_len);
         packets_stats_add(&output->base.stats->fwd_packets, 1);
         return 0;
     } while (true);
