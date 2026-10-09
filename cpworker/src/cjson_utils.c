@@ -12,7 +12,9 @@
 cJSON *cjson_parse(const char *json, cJSONParseError *err)
 {
     const char *end = NULL;
-    cJSON *item = cJSON_ParseWithOpts(json, &end, false);
+    // Anything but whitespace after the top-level value is an error, so a truncated or concatenated file is not
+    // silently read up to its first complete value.
+    cJSON *item = cJSON_ParseWithOpts(json, &end, true);
     if (item)
         return item;
 
