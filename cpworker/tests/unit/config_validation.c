@@ -501,7 +501,7 @@ void test_zmq_service_tag_invalid_rejected(void)
         assert_rejected(config_with_output(zmq_output_with_service_tag(bad[i])), "invalid zmq.service_tag");
 }
 
-// The high 4 bits of the GRE key carry the direction; larger tags are kept (with a warning) as cpdaemon may send them.
+// Larger tags are kept (with a warning) as cpdaemon may send them; the GRE output masks them to 28 bits.
 void test_gre_service_tag_uint32_kept(void)
 {
     const char *values[] = {"0", "268435455", "268435456", "4294967295"};
@@ -510,9 +510,10 @@ void test_gre_service_tag_uint32_kept(void)
         assert_gre_service_tag(gre_output_with_service_tag(values[i]), expected[i]);
 }
 
+// The default must fit in 28 bits so that the direction in the high 4 bits of the GRE key survives.
 void test_gre_service_tag_default(void)
 {
-    assert_gre_service_tag("{\"type\": \"gre\", \"gre\": {\"host\": \"10.0.0.1\"}}", 0xFFFFFFFF);
+    assert_gre_service_tag("{\"type\": \"gre\", \"gre\": {\"host\": \"10.0.0.1\"}}", 0x0FFFFFFF);
 }
 
 void test_gre_service_tag_invalid_rejected(void)
