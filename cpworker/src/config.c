@@ -728,16 +728,16 @@ static int parse_output_config(cJSON *output_obj, OutputConfig *output, cJSONPar
         // Service Tag
         cJSON *service_tag = cJSON_GetObjectItemCaseSensitive(gre_obj, "service_tag");
         if (!service_tag)
-            output->config.gre.service_tag = 0xffffffff;
+            output->config.gre.service_tag = 0x0fffffff;
         else
         {
             int64_t value;
             if (!cjson_get_int64_range(service_tag, "gre.service_tag", 0, UINT32_MAX, &value, err))
                 return PARSE_ERROR;
-            // The GRE key is service_tag | (direction << 28): the high 4 bits belong to the direction.
+            // The GRE key is (service_tag & 0x0FFFFFFF) | (direction << 28): the high 4 bits belong to the direction.
             if (value > 0x0FFFFFFF)
-                log_warn("gre.service_tag %lld exceeds 28 bits and overlaps the direction bits of the GRE key",
-                         (long long)value);
+                log_warn("gre.service_tag %lld exceeds 28 bits: the GRE key carries %lld", (long long)value,
+                         (long long)(value & 0x0FFFFFFF));
             output->config.gre.service_tag = (uint32_t)value;
         }
 

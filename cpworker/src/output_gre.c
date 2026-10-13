@@ -62,7 +62,8 @@ int gre_send_packet(output_base_t *self, const struct pcap_pkthdr *header, const
     }
 
     struct gre_header *gre_hdr = (struct gre_header *)output->buf;
-    gre_hdr->keybit = htonl(output->service_tag | (direct << 28));
+    // The high 4 bits of the key carry the direction, the low 28 bits the service tag.
+    gre_hdr->keybit = htonl((output->service_tag & 0x0FFFFFFF) | (direct << 28));
     memcpy(&(output->buf[GRE_HEADER_LEN]), pkt_data, frame_len);
 
     // check error_info

@@ -126,7 +126,17 @@ Values shown in hexadecimal (e.g. `0xFFF`) must be written in decimal in the JSO
 | host              | string   | -       | Destination IP |
 | bind_device       | string   | -       | Bind interface (default: any) |
 | pmtudisc          | string   | -       | MTU discovery mode (do/dont/want) |
-| service_tag       | int      | 0xFFFFFFFF | Service tag carried in the GRE key, 28 bits (0x0-0xFFFFFFF); the high 4 bits of the key carry the direction |
+| service_tag       | int      | 0xFFFFFFF | Service tag carried in the GRE key, 28 bits (0x0-0xFFFFFFF); larger values keep the low 28 bits. The high 4 bits of the key carry the direction |
+
+Each datagram is an IPv4 packet (protocol 47) whose payload is an 8-byte GRE header (RFC 2890) followed by the captured Ethernet frame:
+
+| Offset | Size | Field | Value |
+| --- | --- | --- | --- |
+| 0 | 2 | flags, version | `0x2000`: key present, version 0 |
+| 2 | 2 | protocol type | `0x6558`: transparent Ethernet bridging |
+| 4 | 4 | key (network byte order) | bits 28-31: direction (0 no `req_pattern`, 1 request, 2 response); bits 0-27: `service_tag & 0xFFFFFFF` |
+
+Without a `service_tag`, the low 28 bits are `0xFFFFFFF`: the key is `0x0FFFFFFF`, `0x1FFFFFFF` or `0x2FFFFFFF`. Packets of unknown direction are dropped.
 
 ## output.vxlan Parameters
 | Parameter         | Type     | Default | Description |

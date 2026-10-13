@@ -127,7 +127,17 @@ cpworker 是基于 libpcap 的网络抓包工具，支持多种输出方式和�
 | host              | string  | -       | 目的ip |
 | bind_device       | string  | -       | 绑定数据包发送接口，默认不指定|
 | pmtudisc          | string  | -       | 指定MTU发现模式，可选值: do, dont, want |
-| service_tag       | int     | 0xFFFFFFFF | 业务标签，放在 GRE key 中，28 位（0x0-0xFFFFFFF）；key 的高 4 位携带方向 |
+| service_tag       | int     | 0xFFFFFFF | 业务标签，放在 GRE key 中，28 位（0x0-0xFFFFFFF）；更大的值保留低 28 位。key 的高 4 位携带方向 |
+
+每个报文是一个 IPv4 包（协议号 47），载荷为 8 字节 GRE 头（RFC 2890）加上采集到的以太网帧：
+
+| 偏移 | 长度 | 字段 | 值 |
+| --- | --- | --- | --- |
+| 0 | 2 | flags、version | `0x2000`：带 key，version 0 |
+| 2 | 2 | protocol type | `0x6558`：透明以太网桥接 |
+| 4 | 4 | key（网络字节序） | 第 28–31 位：方向（0 未配置 `req_pattern`，1 请求，2 响应）；第 0–27 位：`service_tag & 0xFFFFFFF` |
+
+未配置 `service_tag` 时低 28 位为 `0xFFFFFFF`，key 为 `0x0FFFFFFF`、`0x1FFFFFFF` 或 `0x2FFFFFFF`。方向未知的包被丢弃。
 
 ## output.vxlan 参数列表
 | 参数	             | 类型	   | 默认值	  | 说明  |

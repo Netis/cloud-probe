@@ -262,18 +262,27 @@ func TestWireFormat(t *testing.T) {
 		gre := func(serviceTag int) map[string]any {
 			return map[string]any{"type": "gre", "gre": map[string]any{"host": "127.0.0.1", "service_tag": serviceTag}}
 		}
+		noTag := map[string]any{"type": "gre", "gre": map[string]any{"host": "127.0.0.1"}}
 		runWireTasks(t, out, []wireTask{
 			{input: []wirePacket{req, rsp}, output: gre(0x111)},
 			{input: []wirePacket{req, rsp}, reqPattern: true, output: gre(0x123)},
+			{input: []wirePacket{req}, output: noTag},
+			{input: []wirePacket{req, rsp}, reqPattern: true, output: noTag},
+			{input: []wirePacket{req, rsp}, reqPattern: true, output: gre(0xF0000123)},
 		})
 		capturer.Stop()
 
 		// Flags 0x2000: only the key bit (RFC 2890), version 0. Protocol type 0x6558:
-		// transparent Ethernet bridging. The key carries the direction in its high 4 bits
-		// (USAGE-CPWORKER.md, output.gre). The key without a configured service_tag is #296's.
+		// transparent Ethernet bridging. The key is the direction in its high 4 bits and the
+		// low 28 bits of service_tag, 0xFFFFFFF when none is configured (USAGE-CPWORKER.md, output.gre).
 		want := [][]byte{
 			cat(unhex("2000 6558 0000 0111"), req.data),
 			cat(unhex("2000 6558 0000 0111"), rsp.data),
+			cat(unhex("2000 6558 1000 0123"), req.data),
+			cat(unhex("2000 6558 2000 0123"), rsp.data),
+			cat(unhex("2000 6558 0FFF FFFF"), req.data),
+			cat(unhex("2000 6558 1FFF FFFF"), req.data),
+			cat(unhex("2000 6558 2FFF FFFF"), rsp.data),
 			cat(unhex("2000 6558 1000 0123"), req.data),
 			cat(unhex("2000 6558 2000 0123"), rsp.data),
 		}
