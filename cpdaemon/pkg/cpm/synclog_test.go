@@ -1,9 +1,11 @@
 package cpm
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,4 +77,23 @@ func TestSyncLog_GroupedAttributesAreQualified(t *testing.T) {
 		lg.Info("started", slog.Group("worker"))
 		assert.Equal(t, "msg=started", syncLogDetails(t, buf))
 	})
+}
+
+// A record at exactly the handler's level is kept; a lower one is not.
+func TestSyncLog_LevelThreshold(t *testing.T) {
+	h := &SyncLogHandler{w: &SyncLogBuffer{}, level: slog.LevelInfo}
+	assert.True(t, h.Enabled(context.Background(), slog.LevelInfo))
+	assert.True(t, h.Enabled(context.Background(), slog.LevelWarn))
+	assert.False(t, h.Enabled(context.Background(), slog.LevelDebug))
+}
+
+// CPM receives log times as whole seconds plus the microseconds within that second.
+func TestSyncLog_EntryTimestamp(t *testing.T) {
+	buf := &SyncLogBuffer{}
+	ts := time.Unix(1700000000, 123456789)
+	require.NoError(t, buf.Write(context.Background(), ts, slog.LevelInfo, "msg"))
+	entries := buf.Clear()
+	require.Len(t, entries, 1)
+	assert.Equal(t, int64(1700000000), entries[0].Timestamp)
+	assert.Equal(t, int64(123456), entries[0].MicroTimestamp)
 }

@@ -34,8 +34,10 @@ type fakeServer struct {
 	t        *testing.T
 	socket   string
 	handlers map[string]func(args map[string]any) (map[string]any, error)
-	wg       sync.WaitGroup
-	listener net.Listener
+	// handshakeReply replaces the {"status":"OK"} handshake reply when set.
+	handshakeReply string
+	wg             sync.WaitGroup
+	listener       net.Listener
 }
 
 func newFakeServer(t *testing.T) *fakeServer {
@@ -97,6 +99,9 @@ func (s *fakeServer) serve(conn net.Conn) {
 		return
 	}
 	resp, _ := json.Marshal(map[string]string{"status": "OK"})
+	if s.handshakeReply != "" {
+		resp = []byte(s.handshakeReply)
+	}
 	resp = append(resp, '\n')
 	if _, err := conn.Write(resp); err != nil {
 		return
@@ -330,5 +335,46 @@ func TestUnixClient_DefaultTimeoutApplies(t *testing.T) {
 	}
 	if elapsed > 2*time.Second {
 		t.Errorf("defaultTimeout did not apply: elapsed=%v", elapsed)
+	}
+}
+
+// A client must not use a connection whose handshake cpworker did not accept.
+func TestUnixClient_HandshakeRejected(t *testing.T) {
+	for name, reply := range map[string]string{
+		"error_status": `{"status":"ERROR","message":"unsupported version"}`,
+		"invalid_json": `not json`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := newFakeServer(t)
+			srv.handshakeReply = reply
+			defer srv.Close()
+
+			client, err := NewClient(srv.connStr())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer client.Close()
+
+			if err := client.Dial(context.Background()); err == nil {
+				t.Fatal("expected Dial to fail on a rejected handshake")
+			}
+		})
+	}
+}
+
+// A timeout of 0 falls back to DefaultTimeout instead of failing every request at once.
+func TestUnixClient_ZeroTimeoutUsesDefault(t *testing.T) {
+	srv := newFakeServer(t)
+	defer srv.Close()
+	srv.handlers["ping"] = func(args map[string]any) (map[string]any, error) { return nil, nil }
+
+	client, err := NewClientWithTimeout(srv.connStr(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	if _, err := client.Ping(context.Background()); err != nil {
+		t.Fatalf("ping: %v", err)
 	}
 }
