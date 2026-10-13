@@ -216,11 +216,13 @@ static int64_t json_time_sec(cJSON *resp, const char *key)
 
 void test_stats_summary_has_wall_time_and_monotonic_time(void)
 {
-    struct timespec mono_before, mono_after;
+    // Bracket the snapshot with the clocks it reads: time() may use the coarse realtime clock,
+    // which lags CLOCK_REALTIME by up to a tick and so can still show the previous second.
+    struct timespec mono_before, mono_after, wall_before, wall_after;
     clock_gettime(CLOCK_MONOTONIC, &mono_before);
-    time_t wall_before = time(NULL);
+    clock_gettime(CLOCK_REALTIME, &wall_before);
     task_manager_update_stats();
-    time_t wall_after = time(NULL);
+    clock_gettime(CLOCK_REALTIME, &wall_after);
     clock_gettime(CLOCK_MONOTONIC, &mono_after);
 
     cJSON *resp = cJSON_CreateObject();
@@ -228,8 +230,8 @@ void test_stats_summary_has_wall_time_and_monotonic_time(void)
     TEST_ASSERT_EQUAL(0, task_manager_collect_stats_summary_command(NULL, resp, NULL));
 
     int64_t wall = json_time_sec(resp, "wall_time");
-    TEST_ASSERT_GREATER_OR_EQUAL_INT64((int64_t)wall_before, wall);
-    TEST_ASSERT_LESS_OR_EQUAL_INT64((int64_t)wall_after, wall);
+    TEST_ASSERT_GREATER_OR_EQUAL_INT64((int64_t)wall_before.tv_sec, wall);
+    TEST_ASSERT_LESS_OR_EQUAL_INT64((int64_t)wall_after.tv_sec, wall);
 
     int64_t mono = json_time_sec(resp, "time");
     TEST_ASSERT_GREATER_OR_EQUAL_INT64((int64_t)mono_before.tv_sec, mono);

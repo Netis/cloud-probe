@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -87,36 +88,69 @@ func (c *controlConn) send(gap time.Duration, parts ...string) error {
 	return nil
 }
 
-// expectOK reads one reply line and checks that its status is OK.
-func (c *controlConn) expectOK() error {
+// readReply reads one reply line and decodes it.
+func (c *controlConn) readReply() (map[string]any, error) {
 	c.conn.SetReadDeadline(time.Now().Add(controlIOTimeout))
 	line, err := c.r.ReadBytes('\n')
 	if err != nil {
-		return fmt.Errorf("read reply: %w", err)
+		return nil, fmt.Errorf("read reply: %w", err)
 	}
 	var resp map[string]any
 	if err := json.Unmarshal(line, &resp); err != nil {
-		return fmt.Errorf("decode reply %q: %w", line, err)
+		return nil, fmt.Errorf("decode reply %q: %w", line, err)
+	}
+	return resp, nil
+}
+
+// expectOK reads one reply line and checks that its status is OK.
+func (c *controlConn) expectOK() error {
+	resp, err := c.readReply()
+	if err != nil {
+		return err
 	}
 	if resp["status"] != "OK" {
-		return fmt.Errorf("reply status is not OK: %s", line)
+		return fmt.Errorf("reply status is not OK: %v", resp)
 	}
 	return nil
 }
 
-// handshakeAndPing runs the v1 handshake and one ping on a new connection.
-func handshakeAndPing(sock string) error {
+// expectClosed checks that the manager closes the connection without replying.
+func (c *controlConn) expectClosed() error {
+	c.conn.SetReadDeadline(time.Now().Add(controlIOTimeout))
+	line, err := c.r.ReadBytes('\n')
+	if err == io.EOF && len(line) == 0 {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("want the connection closed, got: %w", err)
+	}
+	return fmt.Errorf("want the connection closed, got reply %q", line)
+}
+
+// dialHandshaken opens a connection and runs the v1 handshake on it.
+func dialHandshaken(sock string) (*controlConn, error) {
 	c, err := dialControl(sock)
 	if err != nil {
-		return fmt.Errorf("dial: %w", err)
+		return nil, fmt.Errorf("dial: %w", err)
 	}
-	defer c.conn.Close()
 	if err := c.send(0, `{"version":"v1"}`+"\n"); err != nil {
-		return fmt.Errorf("send handshake: %w", err)
+		c.conn.Close()
+		return nil, fmt.Errorf("send handshake: %w", err)
 	}
 	if err := c.expectOK(); err != nil {
-		return fmt.Errorf("handshake: %w", err)
+		c.conn.Close()
+		return nil, fmt.Errorf("handshake: %w", err)
 	}
+	return c, nil
+}
+
+// handshakeAndPing runs the v1 handshake and one ping on a new connection.
+func handshakeAndPing(sock string) error {
+	c, err := dialHandshaken(sock)
+	if err != nil {
+		return err
+	}
+	defer c.conn.Close()
 	if err := c.send(0, `{"command":"ping"}`+"\n"); err != nil {
 		return fmt.Errorf("send ping: %w", err)
 	}
@@ -134,6 +168,8 @@ func handshakeAndPing(sock string) error {
 //   - request_split_across_writes: a request that arrives in several writes is answered (#261)
 //   - silent_client_does_not_block_others: a client that connects and never sends the
 //     handshake does not stop the manager from serving other clients
+//   - rejected_requests: a bad handshake, a request that is not JSON or has no string
+//     "command" closes that connection; an unknown command is answered with ERROR
 func TestControlSocket(t *testing.T) {
 	if os.Getenv("CPWORKER_BIN") == "" {
 		t.Skip("CPWORKER_BIN not set")
@@ -206,6 +242,65 @@ func TestControlSocket(t *testing.T) {
 		// The silent client stays connected for the whole check.
 		if err := handshakeAndPing(sock); err != nil {
 			t.Errorf("client behind a silent connection: %v", err)
+		}
+	})
+
+	t.Run("rejected_requests", func(t *testing.T) {
+		sock := startControlWorker(t, "rejected_requests")
+
+		for _, hs := range []string{`not json`, `{"version":"v2"}`, `{"version":1}`, `{}`} {
+			c, err := dialControl(sock)
+			if err != nil {
+				t.Fatalf("dial: %v", err)
+			}
+			if err := c.send(0, hs+"\n"); err != nil {
+				t.Fatalf("send handshake %s: %v", hs, err)
+			}
+			if err := c.expectClosed(); err != nil {
+				t.Errorf("handshake %s: %v", hs, err)
+			}
+			c.conn.Close()
+		}
+
+		// An unknown command is answered, and the connection stays usable.
+		c, err := dialHandshaken(sock)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := c.send(0, `{"command":"no_such_command"}`+"\n"); err != nil {
+			t.Fatalf("send unknown command: %v", err)
+		}
+		resp, err := c.readReply()
+		if err != nil {
+			t.Fatalf("unknown command: %v", err)
+		}
+		if resp["status"] != "ERROR" || resp["message"] != "unknown command" {
+			t.Errorf("unknown command: got %v, want status ERROR, message \"unknown command\"", resp)
+		}
+		if err := c.send(0, `{"command":"ping"}`+"\n"); err != nil {
+			t.Fatalf("send ping: %v", err)
+		}
+		if err := c.expectOK(); err != nil {
+			t.Errorf("ping after unknown command: %v", err)
+		}
+		c.conn.Close()
+
+		for _, req := range []string{`not json`, `{"command":42}`, `{}`} {
+			c, err := dialHandshaken(sock)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := c.send(0, req+"\n"); err != nil {
+				t.Fatalf("send request %s: %v", req, err)
+			}
+			if err := c.expectClosed(); err != nil {
+				t.Errorf("request %s: %v", req, err)
+			}
+			c.conn.Close()
+		}
+
+		if err := handshakeAndPing(sock); err != nil {
+			t.Errorf("client after the rejected requests: %v", err)
 		}
 	})
 }

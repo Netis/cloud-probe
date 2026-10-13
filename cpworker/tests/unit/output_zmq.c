@@ -545,6 +545,75 @@ void test_rate_limit_charges_and_counts_sliced_frame_length(void)
     TEST_ASSERT_EQUAL_UINT64(1000, stats.ratelimit_drop_bytes.bytes);
 }
 
+/* ---- docs/ZMQ-WIRE-FORMAT.md §8: batch flush rules ---- */
+
+// A batch is flushed only when the next record would take it past ZMQ_MAX_BATCH_BUF_SIZE. A
+// 2451-byte frame makes a 2473-byte record (length, packet header, frame, MPLS label), and 424
+// of them after the batch header fill the buffer exactly.
+void test_batch_flushed_when_next_record_exceeds_buffer(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(0, (char *)VALID_UUID, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    static uint8_t frame[2451];
+    memset(frame, 0x5a, sizeof(frame));
+    frame[12] = 0x08;
+    frame[13] = 0x00;
+
+    for (int i = 0; i < 424; i++)
+        TEST_ASSERT_EQUAL_INT(0, send_frame(output, frame, sizeof(frame)));
+    TEST_ASSERT_EQUAL_UINT32(ZMQ_MAX_BATCH_BUF_SIZE, output->pkts_buf.batch_bufpos);
+    TEST_ASSERT_EQUAL_UINT16(424, output->pkts_buf.batch_hdr.pkts_num);
+
+    TEST_ASSERT_EQUAL_INT(0, send_frame(output, frame, sizeof(frame)));
+    TEST_ASSERT_EQUAL_UINT16(1, output->pkts_buf.batch_hdr.pkts_num);
+    TEST_ASSERT_EQUAL_INT(ZMQ_MAX_BATCH_BUF_SIZE, recv_batch());
+    TEST_ASSERT_EQUAL_UINT16(424, batch_pkts_num());
+
+    zmq_output_destroy(&output->base);
+}
+
+// A batch is flushed when a packet arrives more than ZMQ_PKTS_FLUSH_MAX_DUR_SEC after its first
+// packet; that packet starts the next batch.
+void test_batch_flushed_when_packet_is_over_a_second_later(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(0, (char *)VALID_UUID, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    send_frame_at(output, 100);
+    send_frame_at(output, 101);
+    TEST_ASSERT_EQUAL_UINT16(2, output->pkts_buf.batch_hdr.pkts_num);
+
+    send_frame_at(output, 102);
+    TEST_ASSERT_EQUAL_UINT16(1, output->pkts_buf.batch_hdr.pkts_num);
+    TEST_ASSERT_GREATER_THAN_INT(0, recv_batch());
+    TEST_ASSERT_EQUAL_UINT16(2, batch_pkts_num());
+
+    zmq_output_destroy(&output->base);
+}
+
+// With no traffic, the periodic zmq_heartbeat() call flushes a batch once its first packet is
+// more than ZMQ_PKTS_FLUSH_MAX_DUR_SEC old, even when heartbeats are disabled.
+void test_idle_batch_flushed_after_a_second(void)
+{
+    char errbuf[ERROR_BUFFER_SIZE] = {0};
+    zmq_output_t *output = new_output(0, (char *)VALID_UUID, errbuf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(output, errbuf);
+
+    send_frame_at(output, 100);
+    zmq_heartbeat(&output->base, 101);
+    TEST_ASSERT_EQUAL_UINT16(1, output->pkts_buf.batch_hdr.pkts_num);
+
+    zmq_heartbeat(&output->base, 102);
+    TEST_ASSERT_EQUAL_UINT16(0, output->pkts_buf.batch_hdr.pkts_num);
+    TEST_ASSERT_GREATER_THAN_INT(0, recv_batch());
+    TEST_ASSERT_EQUAL_UINT16(1, batch_pkts_num());
+
+    zmq_output_destroy(&output->base);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -572,6 +641,10 @@ int main(void)
 
     RUN_TEST(test_counters_use_sliced_frame_length_without_headers);
     RUN_TEST(test_rate_limit_charges_and_counts_sliced_frame_length);
+
+    RUN_TEST(test_batch_flushed_when_next_record_exceeds_buffer);
+    RUN_TEST(test_batch_flushed_when_packet_is_over_a_second_later);
+    RUN_TEST(test_idle_batch_flushed_after_a_second);
 
     return UNITY_END();
 }
