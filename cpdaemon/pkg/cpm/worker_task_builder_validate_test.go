@@ -83,6 +83,9 @@ func Test_workerTaskBuilder_rejectsInvalidValues(t *testing.T) {
 		{"vxlan_address_ipv6", PacketChannelType_VXLAN, func(s *StrategyEntry) { s.Address = "2001:db8::1" }, "address"},
 		{"vxlan_address_v4_mapped", PacketChannelType_VXLAN, func(s *StrategyEntry) { s.Address = "::ffff:10.0.0.1" }, "address"},
 		{"zmq_address_empty", PacketChannelType_ZMQ, func(s *StrategyEntry) { s.Address = "" }, "address"},
+		// An interface task may skip the output-host filter only when its output leaves through
+		// another interface.
+		{"nofilter_without_bind_device", PacketChannelType_GRE, func(s *StrategyEntry) { s.Startup = lo.ToPtr("--nofilter") }, "nofilter"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -114,6 +117,10 @@ func Test_workerTaskBuilder_acceptsBoundaryValues(t *testing.T) {
 		}},
 		// A service tag that is not used (HasServiceTag false) is not checked.
 		{"gre_unused_service_tag", PacketChannelType_GRE, func(s *StrategyEntry) { s.ServiceTag = lo.ToPtr[int32](-1) }},
+		{"vxlan_split_bytes_0", PacketChannelType_VXLAN, func(s *StrategyEntry) {
+			s.HasPacketSplit = true
+			s.PacketSplitBytes = lo.ToPtr[int32](0)
+		}},
 		{"vxlan_split_bytes_65535", PacketChannelType_VXLAN, func(s *StrategyEntry) {
 			s.HasPacketSplit = true
 			s.PacketSplitBytes = lo.ToPtr[int32](65535)
