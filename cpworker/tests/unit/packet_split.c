@@ -543,6 +543,76 @@ void test_udp_checksum_ipv6_roundtrip(void)
 }
 
 /* ======================================================================
+ * Tests: calculate_tcp_checksum / calculate_udp_checksum, known-answer vectors
+ *
+ * The segment is built by the helpers above with payload byte i = i * 13 + 1. The expected
+ * values come from an independent RFC 1071 implementation in Python over the RFC 793 / RFC 768
+ * pseudo-header (RFC 8200 section 8.1 for IPv6), not from calculate_*_checksum. The two lengths
+ * per case reach the scalar loops and the SSE2 loop, and both end on an odd byte.
+ * ====================================================================== */
+static uint16_t known_answer_checksum(bool ipv6, uint8_t protocol, uint16_t payload_len)
+{
+    uint8_t pkt[2048];
+    uint8_t payload[64];
+    uint16_t i;
+    for (i = 0; i < payload_len; i++)
+        payload[i] = (uint8_t)(i * 13 + 1);
+
+    uint16_t ip_offset = sizeof(struct ether_header);
+    if (ipv6)
+    {
+        struct in6_addr saddr, daddr;
+        inet_pton(AF_INET6, "2001:db8:1:2:3:4:5:6", &saddr);
+        inet_pton(AF_INET6, "2001:db8:a:b:c:d:e:f", &daddr);
+        struct ipv6_hdr *ip6 = (struct ipv6_hdr *)(pkt + ip_offset);
+        uint8_t *l4 = pkt + ip_offset + sizeof(struct ipv6_hdr);
+        if (protocol == IPPROTO_TCP)
+        {
+            build_ipv6_tcp_packet(pkt, payload, payload_len, &saddr, &daddr, 49152, 443, 0x01020304);
+            return ntohs(calculate_tcp_checksum(NULL, ip6, (struct tcphdr *)l4, 20 + payload_len));
+        }
+        build_ipv6_udp_packet(pkt, payload, payload_len, &saddr, &daddr, 49152, 53);
+        return ntohs(calculate_udp_checksum(NULL, ip6, (struct udphdr *)l4, sizeof(struct udphdr) + payload_len));
+    }
+
+    uint32_t saddr = htonl(0xC0000201); /* 192.0.2.1 */
+    uint32_t daddr = htonl(0xC6336402); /* 198.51.100.2 */
+    struct ipv4_hdr *ip = (struct ipv4_hdr *)(pkt + ip_offset);
+    uint8_t *l4 = pkt + ip_offset + 20;
+    if (protocol == IPPROTO_TCP)
+    {
+        build_ipv4_tcp_packet(pkt, payload, payload_len, saddr, daddr, 49152, 443, 0x01020304);
+        return ntohs(calculate_tcp_checksum(ip, NULL, (struct tcphdr *)l4, 20 + payload_len));
+    }
+    build_ipv4_udp_packet(pkt, payload, payload_len, saddr, daddr, 49152, 53);
+    return ntohs(calculate_udp_checksum(ip, NULL, (struct udphdr *)l4, sizeof(struct udphdr) + payload_len));
+}
+
+void test_tcp_checksum_ipv4_known_answer(void)
+{
+    TEST_ASSERT_EQUAL_HEX16(0x5D5C, known_answer_checksum(false, IPPROTO_TCP, 7));
+    TEST_ASSERT_EQUAL_HEX16(0xA2C0, known_answer_checksum(false, IPPROTO_TCP, 59));
+}
+
+void test_tcp_checksum_ipv6_known_answer(void)
+{
+    TEST_ASSERT_EQUAL_HEX16(0xEDC1, known_answer_checksum(true, IPPROTO_TCP, 7));
+    TEST_ASSERT_EQUAL_HEX16(0x3326, known_answer_checksum(true, IPPROTO_TCP, 59));
+}
+
+void test_udp_checksum_ipv4_known_answer(void)
+{
+    TEST_ASSERT_EQUAL_HEX16(0xB320, known_answer_checksum(false, IPPROTO_UDP, 19));
+    TEST_ASSERT_EQUAL_HEX16(0xF81A, known_answer_checksum(false, IPPROTO_UDP, 59));
+}
+
+void test_udp_checksum_ipv6_known_answer(void)
+{
+    TEST_ASSERT_EQUAL_HEX16(0x4386, known_answer_checksum(true, IPPROTO_UDP, 19));
+    TEST_ASSERT_EQUAL_HEX16(0x8880, known_answer_checksum(true, IPPROTO_UDP, 59));
+}
+
+/* ======================================================================
  * Tests: parse_packet
  * ====================================================================== */
 void test_parse_packet_ipv4_tcp(void)
@@ -1160,6 +1230,60 @@ void test_parse_packet_ipv6_unsplittable_ext_rejected(void)
 }
 
 /* ======================================================================
+ * Tests: parse_packet, frames that end where the L4 header ends
+ *
+ * A pure ACK or an empty UDP datagram has no payload, so the captured frame ends at the last
+ * header byte. It parses with an empty payload; one byte less does not parse.
+ * ====================================================================== */
+static void assert_header_only_frame(const uint8_t *pkt, int header_end)
+{
+    packet_parse_result_t result;
+    TEST_ASSERT_TRUE(parse_packet(pkt, header_end, &result));
+    TEST_ASSERT_EQUAL_UINT16(header_end, result.payload_offset);
+    TEST_ASSERT_EQUAL_UINT16(0, result.payload_len);
+
+    TEST_ASSERT_FALSE(parse_packet(pkt, header_end - 1, &result));
+}
+
+void test_parse_packet_ipv4_header_only_frames(void)
+{
+    uint8_t pkt[2048];
+
+    TEST_ASSERT_EQUAL_INT(14 + 20 + 20, build_ipv4_tcp_packet(pkt, NULL, 0, 1, 2, 80, 80, 0));
+    assert_header_only_frame(pkt, 14 + 20 + 20);
+
+    TEST_ASSERT_EQUAL_INT(14 + 20 + 8, build_ipv4_udp_packet(pkt, NULL, 0, 1, 2, 53, 53));
+    assert_header_only_frame(pkt, 14 + 20 + 8);
+
+    TEST_ASSERT_EQUAL_INT(14 + 4 + 20 + 20, build_vlan_ipv4_tcp_packet(pkt, NULL, 0, 100));
+    assert_header_only_frame(pkt, 14 + 4 + 20 + 20);
+
+    /* TCP with 12 bytes of options: data offset 8 */
+    uint8_t options[12] = {0};
+    build_ipv4_tcp_packet(pkt, options, sizeof(options), 1, 2, 80, 80, 0);
+    ((struct tcphdr *)(pkt + 14 + 20))->offx2 = (8 << 4);
+    assert_header_only_frame(pkt, 14 + 20 + 32);
+}
+
+void test_parse_packet_ipv6_header_only_frames(void)
+{
+    uint8_t pkt[2048];
+    struct in6_addr saddr, daddr;
+    inet_pton(AF_INET6, "2001:db8::1", &saddr);
+    inet_pton(AF_INET6, "2001:db8::2", &daddr);
+
+    TEST_ASSERT_EQUAL_INT(14 + 40 + 20, build_ipv6_tcp_packet(pkt, NULL, 0, &saddr, &daddr, 80, 80, 0));
+    assert_header_only_frame(pkt, 14 + 40 + 20);
+
+    TEST_ASSERT_EQUAL_INT(14 + 40 + 8, build_ipv6_udp_packet(pkt, NULL, 0, &saddr, &daddr, 53, 53));
+    assert_header_only_frame(pkt, 14 + 40 + 8);
+
+    const uint8_t exts[] = {IPPROTO_DSTOPTS};
+    TEST_ASSERT_EQUAL_INT(14 + 40 + 8 + 20, build_ipv6_ext_tcp_packet(pkt, exts, 1, 0));
+    assert_header_only_frame(pkt, 14 + 40 + 8 + 20);
+}
+
+/* ======================================================================
  * Tests: build_fragment checksums, known-answer vectors
  *
  * An 80-byte payload of (i * 7 + 3) & 0xFF is split into two 40-byte pieces. Bytes 38..39 are
@@ -1262,6 +1386,12 @@ int main(void)
     RUN_TEST(test_udp_checksum_ipv4_empty_payload);
     RUN_TEST(test_udp_checksum_ipv6_roundtrip);
 
+    /* TCP / UDP checksum: known-answer vectors */
+    RUN_TEST(test_tcp_checksum_ipv4_known_answer);
+    RUN_TEST(test_tcp_checksum_ipv6_known_answer);
+    RUN_TEST(test_udp_checksum_ipv4_known_answer);
+    RUN_TEST(test_udp_checksum_ipv6_known_answer);
+
     /* parse_packet */
     RUN_TEST(test_parse_packet_ipv4_tcp);
     RUN_TEST(test_parse_packet_ipv4_udp);
@@ -1292,6 +1422,8 @@ int main(void)
     RUN_TEST(test_parse_packet_ipv4_df_is_not_a_fragment);
     RUN_TEST(test_parse_packet_ipv6_skips_hopopts_routing_dstopts);
     RUN_TEST(test_parse_packet_ipv6_unsplittable_ext_rejected);
+    RUN_TEST(test_parse_packet_ipv4_header_only_frames);
+    RUN_TEST(test_parse_packet_ipv6_header_only_frames);
 
     /* build_fragment: checksum known-answer vectors */
     RUN_TEST(test_build_fragment_ipv4_udp_zero_checksum_sent_as_ffff);
