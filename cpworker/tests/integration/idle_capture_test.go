@@ -62,6 +62,9 @@ func writeIdleCaptureConfig(t *testing.T, outputDir string, pipeline bool, timeo
 					"snaplen":    2048,
 					"bpf":        fmt.Sprintf("udp and port %d", s.port),
 					"timeout_ms": timeoutMs,
+					// The default 256 MB ring can take seconds to allocate on a host
+					// short of free memory, longer than the tests wait for startup.
+					"buffer_size_mb": 8,
 					// Test traffic and a zmq output both use 127.0.0.1; the default
 					// output-host exclusion would filter all of it out of the capture.
 					"not_filter_output_hosts": true,
