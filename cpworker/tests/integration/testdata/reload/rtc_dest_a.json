@@ -2,7 +2,7 @@
   "tasks": [
     {
       "fingerprint": "dst-a",
-      "capturer": { "type": "libpcap", "libpcap": { "interface": "lo", "snaplen": 2048, "bpf": "udp and port 54321", "timeout_ms": 10 } },
+      "capturer": { "type": "libpcap", "libpcap": { "interface": "lo", "snaplen": 2048, "bpf": "udp and port 54321", "timeout_ms": 10, "buffer_size_mb": 8 } },
       "outputs": [ { "type": "file", "file": { "name": "testdata/output/reload/switch_rtc/a.pcap" } } ]
     }
   ]
