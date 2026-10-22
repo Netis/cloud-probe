@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/memfuse"
 	"github.com/Netis/cloud-probe/cpgolib/cpworker"
 )
 
@@ -27,6 +28,32 @@ type testWorkerManagerRecoder struct {
 	isAlive   bool
 	pid       int
 	startTime time.Time
+
+	nicBufferTotalMb uint64
+	// gate is asked like WorkerManager asks it: on CreateIfDead for the whole ring, on Update for newRingCfgMb
+	// (nothing asked when 0). ringCfgMb defaults to nicBufferTotalMb.
+	gate         StartGate
+	ringCfgMb    uint64
+	newRingCfgMb uint64
+}
+
+func (r *testWorkerManagerRecoder) allowLocked(ctx context.Context, newMb uint64) bool {
+	if r.gate == nil {
+		return true
+	}
+	total := r.ringCfgMb
+	if total == 0 {
+		total = r.nicBufferTotalMb
+	}
+	pid := 0
+	if r.isAlive {
+		pid = r.pid
+	}
+	return r.gate(ctx, RingAlloc{NewCfgMb: newMb, TotalCfgMb: total, MemLimitMb: 512, Pid: pid})
+}
+
+func (r *testWorkerManagerRecoder) SetStartGate(gate StartGate) {
+	r.gate = gate
 }
 
 func (r *testWorkerManagerRecoder) Calls() []string {
@@ -43,10 +70,19 @@ func (r *testWorkerManagerRecoder) CreateIfDead(
 ) (*WorkerCreateResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.calls = append(r.calls, "CreateIfDead")
 	if r.isAlive {
+		r.calls = append(r.calls, "CreateIfDead")
 		return &WorkerCreateResult{}, nil
 	}
+	total := r.ringCfgMb
+	if total == 0 {
+		total = r.nicBufferTotalMb
+	}
+	if !r.allowLocked(ctx, total) {
+		r.calls = append(r.calls, "CreateIfDeadRefused")
+		return nil, ErrStartRefused
+	}
+	r.calls = append(r.calls, "CreateIfDead")
 	r.isAlive = true
 	r.pid = len(r.calls)
 	r.startTime = time.Now()
@@ -61,6 +97,18 @@ func (r *testWorkerManagerRecoder) Update(
 ) (*WorkerCreateResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	newMb := r.newRingCfgMb
+	if !r.isAlive {
+		newMb = r.ringCfgMb
+		if newMb == 0 {
+			newMb = r.nicBufferTotalMb
+		}
+	}
+	// Like WorkerManager, a refused apply changes nothing; only an applied one counts as "Update".
+	if newMb > 0 && !r.allowLocked(ctx, newMb) {
+		r.calls = append(r.calls, "UpdateRefused")
+		return nil, ErrStartRefused
+	}
 	r.calls = append(r.calls, "Update")
 	r.isAlive = true
 	r.pid = len(r.calls)
@@ -73,7 +121,24 @@ func (r *testWorkerManagerRecoder) Stop() error {
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "Stop")
 	r.isAlive = false
+	r.pid = 0
 	return nil
+}
+
+func (r *testWorkerManagerRecoder) Kill() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, "Kill")
+	r.isAlive = false
+	r.pid = 0
+	return nil
+}
+
+func (r *testWorkerManagerRecoder) NicBufferTotalMb(resp *SyncStrategyResponse, activeInstances []string) (uint64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, "NicBufferTotalMb")
+	return r.nicBufferTotalMb, nil
 }
 
 func (r *testWorkerManagerRecoder) CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error) {
@@ -104,10 +169,8 @@ func (r *testWorkerManagerRecoder) Pid() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "Pid")
-	if r.isAlive {
-		return r.pid
-	}
-	return 0
+	// Like WorkerManager, a worker that died keeps its pid until it is stopped.
+	return r.pid
 }
 
 func (r *testWorkerManagerRecoder) kill() {
@@ -154,6 +217,9 @@ func (c *testClient) SyncMetrics(ctx context.Context, daemonId int64, req SyncMe
 	return c.syncMetricsFn(ctx, daemonId, req)
 }
 
+// testMemFuseCfg keeps the runtime check out of tests that do not exercise it.
+var testMemFuseCfg = memfuse.Config{CheckInterval: time.Hour, FailThreshold: 3}
+
 func TestSyncer(t *testing.T) {
 	syncReqCh := make(chan struct{})
 	syncRespCh := make(chan *SyncStrategyResult)
@@ -185,7 +251,8 @@ func TestSyncer(t *testing.T) {
 		SyncStrategyInterval:    100 * time.Millisecond,
 		SyncMetricInterval:      100 * time.Millisecond,
 		NicChangeDetectInterval: 100 * time.Millisecond,
-	})
+		MemFuse:                 testMemFuseCfg,
+	}, 512)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -316,7 +383,10 @@ func newTestSyncer(t *testing.T, client Client, workerMgr IWorkerManager, cfg Sy
 	if cfg.RegCfg.UuidFile == "" {
 		cfg.RegCfg.UuidFile = filepath.Join(t.TempDir(), "uuid")
 	}
-	s, err := newSyncer(client, workerMgr, testTool{}, cfg)
+	if cfg.MemFuse == (memfuse.Config{}) {
+		cfg.MemFuse = testMemFuseCfg
+	}
+	s, err := newSyncer(client, workerMgr, testTool{}, cfg, 512)
 	require.NoError(t, err)
 	return s
 }

@@ -114,15 +114,36 @@ type TaskBuildResult struct {
 	BuffSizePerTask uint64
 }
 
+// RingAlloc is what applying a strategy is about to allocate in the kernel capture ring.
+type RingAlloc struct {
+	// NewCfgMb is the configured buffer of the tasks that open a ring now: all tasks when the worker starts, the
+	// tasks whose fingerprint changed on a reload.
+	NewCfgMb uint64
+	// TotalCfgMb is the configured buffer of all tasks after the apply.
+	TotalCfgMb uint64
+	MemLimitMb uint64
+	// Pid is the running worker, 0 when none.
+	Pid int
+}
+
+// StartGate is asked right before the capture ring is allocated; false refuses the apply. It runs under the
+// manager's lock and must not call back into the manager.
+type StartGate func(ctx context.Context, alloc RingAlloc) bool
+
+var ErrStartRefused = errors.New("worker start refused by the start gate")
+
 type WorkerManager struct {
 	workerCfg WorkerConfig
 	tool      Tool
 	baseLg    *slog.Logger
 	lg        *slog.Logger
+	gate      StartGate
 
 	mu     sync.Mutex
 	client cpworker.Client
 	worker *worker.Worker
+	// current is the task set the running worker was last given.
+	current []*worker.TaskConfig
 }
 
 func NewWorkerManager(
@@ -140,6 +161,14 @@ func NewWorkerManager(
 func (m *WorkerManager) SetLogger(lg *slog.Logger) {
 	m.baseLg = lg
 	m.lg = lg.With(slogx.LoggerName("cpm.workerMgr"))
+}
+
+func (m *WorkerManager) SetStartGate(gate StartGate) {
+	m.gate = gate
+}
+
+func (m *WorkerManager) allow(ctx context.Context, alloc RingAlloc) bool {
+	return m.gate == nil || m.gate(ctx, alloc)
 }
 
 func (m *WorkerManager) StartTime() time.Time {
@@ -183,6 +212,22 @@ func (m *WorkerManager) Stop() error {
 	return m.stopWorker(worker)
 }
 
+// Kill stops the worker with SIGKILL: a memory fuse cannot wait for cpworker to drain its pipeline buffer.
+func (m *WorkerManager) Kill() error {
+	m.mu.Lock()
+	worker := m.worker
+	m.mu.Unlock()
+
+	if worker == nil {
+		return nil
+	}
+	if err := worker.Kill(); err != nil {
+		return errors.Wrap(err, "kill worker failed")
+	}
+	m.reset()
+	return nil
+}
+
 func (m *WorkerManager) stopWorker(worker *worker.Worker) error {
 	if worker == nil {
 		return nil
@@ -196,6 +241,7 @@ func (m *WorkerManager) stopWorker(worker *worker.Worker) error {
 
 func (m *WorkerManager) reset() {
 	m.worker = nil
+	m.current = nil
 	if m.client != nil {
 		m.client.Close()
 		m.client = nil
@@ -262,6 +308,16 @@ func (m *WorkerManager) createUnlocked(
 		}, nil
 	}
 
+	// A start opens the ring of every task.
+	ringMb := ringCfgMb(buildResult.Tasks)
+	if !m.allow(ctx, RingAlloc{
+		NewCfgMb:   ringMb,
+		TotalCfgMb: ringMb,
+		MemLimitMb: res.EffectiveMemLimitMb(m.workerCfg.Memory.DefaultLimitMb),
+	}) {
+		return nil, ErrStartRefused
+	}
+
 	execCfg := worker.ExecConfig{
 		PidFile:    m.workerCfg.PidFile,
 		Executable: m.workerCfg.Executable,
@@ -300,6 +356,7 @@ func (m *WorkerManager) createUnlocked(
 	if err := m.worker.Start(ctx, wCfg); err != nil {
 		return nil, err
 	}
+	m.current = buildResult.Tasks
 	if err := m.worker.UpdateResLimit(resLimit); err != nil {
 		m.lg.Error("update resource limit failed, stopping worker", slogx.Error(err))
 		m.worker.Stop()
@@ -383,6 +440,23 @@ func (m *WorkerManager) reloadConfig(
 		}, nil
 	}
 
+	// cpworker keeps the tasks whose fingerprint it already runs and opens a ring only for the others, before it
+	// frees the rings of the tasks that went away. Nothing to allocate means nothing to ask.
+	if newMb := newRingCfgMb(m.current, buildResult.Tasks); newMb > 0 {
+		pid := 0
+		if alive, _ := m.worker.IsAlive(ctx); alive {
+			pid = m.worker.Pid()
+		}
+		if !m.allow(ctx, RingAlloc{
+			NewCfgMb:   newMb,
+			TotalCfgMb: ringCfgMb(buildResult.Tasks),
+			MemLimitMb: res.EffectiveMemLimitMb(m.workerCfg.Memory.DefaultLimitMb),
+			Pid:        pid,
+		}) {
+			return nil, ErrStartRefused
+		}
+	}
+
 	wCfg := m.newWorkerConfig(buildResult.Tasks, res)
 	if err := m.worker.UpdateConfig(wCfg); err != nil {
 		return nil, err
@@ -397,6 +471,7 @@ func (m *WorkerManager) reloadConfig(
 			return nil, err
 		}
 	}
+	m.current = buildResult.Tasks
 
 	resLimit := worker.ResLimit{
 		Cpu: res.CpuLimit,
@@ -456,24 +531,8 @@ func (m *WorkerManager) newWorkerConfig(tasks []*worker.TaskConfig, res *SyncStr
 	}
 
 	if m.workerCfg.ExecutionModel == worker.EXECUTION_MODEL_PIPELINE {
-		taskMem := lo.Sum(lo.Map(tasks, func(task *worker.TaskConfig, _ int) uint64 {
-			switch task.Capturer.Type {
-			case worker.CapturerType_Libpcap:
-				if task.Capturer.Libpcap != nil && task.Capturer.Libpcap.BufferSizeMB != nil {
-					return *task.Capturer.Libpcap.BufferSizeMB
-				}
-				// unreachable, but for safety
-				// cpworker default buffer_size_mb
-				return 256
-			default:
-				return 0
-			}
-		}))
-
-		memLimit := m.workerCfg.Memory.DefaultLimitMb
-		if res.MemLimit != nil && *res.MemLimit > 0 {
-			memLimit = uint64(*res.MemLimit)
-		}
+		taskMem := ringCfgMb(tasks)
+		memLimit := res.EffectiveMemLimitMb(m.workerCfg.Memory.DefaultLimitMb)
 		bufferSize := m.workerCfg.Pipeline.MinBufferSizeMb
 		if memLimit > taskMem && memLimit-taskMem > bufferSize {
 			bufferSize = memLimit - taskMem
@@ -488,6 +547,49 @@ func (m *WorkerManager) newWorkerConfig(tasks []*worker.TaskConfig, res *SyncStr
 	return wCfg
 }
 
+// ringCfgMb is the configured capture buffer of the tasks.
+func ringCfgMb(tasks []*worker.TaskConfig) uint64 {
+	return lo.Sum(lo.Map(tasks, func(task *worker.TaskConfig, _ int) uint64 {
+		switch task.Capturer.Type {
+		case worker.CapturerType_Libpcap:
+			if task.Capturer.Libpcap != nil && task.Capturer.Libpcap.BufferSizeMB != nil {
+				return *task.Capturer.Libpcap.BufferSizeMB
+			}
+			// unreachable, but for safety
+			// cpworker default buffer_size_mb
+			return 256
+		default:
+			return 0
+		}
+	}))
+}
+
+// newRingCfgMb is the configured capture buffer of the tasks of next that current does not run, by fingerprint.
+func newRingCfgMb(current, next []*worker.TaskConfig) uint64 {
+	running := make(map[string]struct{}, len(current))
+	for _, task := range current {
+		if task.Fingerprint != nil {
+			running[*task.Fingerprint] = struct{}{}
+		}
+	}
+	return ringCfgMb(lo.Filter(next, func(task *worker.TaskConfig, _ int) bool {
+		if task.Fingerprint == nil {
+			return true
+		}
+		_, ok := running[*task.Fingerprint]
+		return !ok
+	}))
+}
+
+// NicBufferTotalMb is the configured capture buffer of all tasks of the strategy.
+func (m *WorkerManager) NicBufferTotalMb(res *SyncStrategyResponse, activeInstances []string) (uint64, error) {
+	perTask, err := m.getTaskBufferSizeMb(res, activeInstances)
+	if err != nil {
+		return 0, err
+	}
+	return perTask * uint64(res.NumItems(activeInstances)), nil
+}
+
 func (m *WorkerManager) getTaskBufferSizeMb(res *SyncStrategyResponse, activeInstances []string) (uint64, error) {
 	switch m.workerCfg.Memory.Policy {
 	case MemoryPolicyFixedNicBuffer:
@@ -498,10 +600,7 @@ func (m *WorkerManager) getTaskBufferSizeMb(res *SyncStrategyResponse, activeIns
 			return 0, nil
 		}
 
-		memLimit := m.workerCfg.Memory.DefaultLimitMb
-		if res.MemLimit != nil && *res.MemLimit > 0 {
-			memLimit = uint64(*res.MemLimit)
-		}
+		memLimit := res.EffectiveMemLimitMb(m.workerCfg.Memory.DefaultLimitMb)
 		if memLimit < uint64(numItems) {
 			return 0, errors.Errorf("memory limit %d MB is too small for %d tasks", memLimit, numItems)
 		}

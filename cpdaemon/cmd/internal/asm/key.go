@@ -103,6 +103,11 @@ var VKey = struct {
 					MinBufferSizeMb string `json:"min_buffer_size_mb"`
 				} `json:"pipeline"`
 			} `json:"memory"`
+			MemFuse struct {
+				CheckInterval  string `json:"check_interval"`
+				FailThreshold  string `json:"fail_threshold"`
+				MinAvailableMb string `json:"min_available_mb"`
+			} `json:"mem_fuse"`
 		} `json:"worker"`
 	} `json:"cpm"`
 }{}
@@ -154,6 +159,10 @@ func SetDefaults(vp *viper.Viper) {
 	vp.SetDefault(VKey.Cpm.Worker.Memory.DefaultLimitMb, 512)
 	vp.SetDefault(VKey.Cpm.Worker.Memory.Libpcap.FixedBufferSizeMb, 8)
 	vp.SetDefault(VKey.Cpm.Worker.Memory.Pipeline.MinBufferSizeMb, 128)
+
+	vp.SetDefault(VKey.Cpm.Worker.MemFuse.CheckInterval, 1*time.Second)
+	vp.SetDefault(VKey.Cpm.Worker.MemFuse.FailThreshold, 3)
+	vp.SetDefault(VKey.Cpm.Worker.MemFuse.MinAvailableMb, 256)
 }
 
 func init() {

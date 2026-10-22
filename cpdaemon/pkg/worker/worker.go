@@ -225,15 +225,33 @@ func (w *Worker) stopProcess(cmd *exec.Cmd) {
 	case <-w.waitDone:
 	case <-time.After(killTimeout):
 		w.lg.Info("forcing kill after timeout", slog.String("timeout", killTimeout.String()))
-		if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-			w.lg.Error("force kill failed", slogx.Error(err))
-		}
+		w.killProcess(cmd)
+	}
+}
 
-		select {
-		case <-w.waitDone:
-		case <-time.After(1 * time.Second):
-			w.lg.Error("wait timeout after force kill")
-		}
+// Kill stops the worker with SIGKILL, without a graceful exit.
+func (w *Worker) Kill() error {
+	w.mu.Lock()
+	cmd := w.cmd
+	w.mu.Unlock()
+
+	if cmd == nil || cmd.Process == nil {
+		return nil
+	}
+	w.lg.Info("killing worker, send SIGKILL", slog.Int("pid", cmd.Process.Pid))
+	w.killProcess(cmd)
+	return nil
+}
+
+func (w *Worker) killProcess(cmd *exec.Cmd) {
+	if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		w.lg.Error("force kill failed", slogx.Error(err))
+	}
+
+	select {
+	case <-w.waitDone:
+	case <-time.After(1 * time.Second):
+		w.lg.Error("wait timeout after force kill")
 	}
 }
 

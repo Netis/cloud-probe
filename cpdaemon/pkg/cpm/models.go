@@ -131,6 +131,17 @@ type SyncStrategyResponse struct {
 	CpuLimit     *float64        `json:"cpuLimit"`
 	MemLimit     *int64          `json:"memLimit"`
 	Strategy     []StrategyEntry `json:"strategy"`
+
+	MemFuseEnabled bool `json:"memFuseEnabled"`
+	MemFused       bool `json:"memFused"`
+}
+
+// EffectiveMemLimitMb is the memory limit delivered by CPM, or defaultMb when CPM delivers none.
+func (r *SyncStrategyResponse) EffectiveMemLimitMb(defaultMb uint64) uint64 {
+	if r.MemLimit != nil && *r.MemLimit > 0 {
+		return uint64(*r.MemLimit)
+	}
+	return defaultMb
 }
 
 func (r *SyncStrategyResponse) HasInstances() bool {
@@ -210,6 +221,20 @@ type SyncMetricsRequest struct {
 	Logs    []LogEntry    `json:"logs"`
 	Metrics *MetricsEntry `json:"metrics"`
 	Pid     *int32        `json:"pid"`
+	MemFuse *MemFuseEntry `json:"memFuse,omitempty"`
+}
+
+// MemFuseEntry carries the memory fuse state. The pointer fields are sent only when fused, and CPM rejects a fused
+// entry missing any of them, so a zero value must still be sent.
+type MemFuseEntry struct {
+	State          string  `json:"state"`
+	Reason         *string `json:"reason,omitempty"`
+	FusedTimestamp *int64  `json:"fusedTimestamp,omitempty"`
+	NicBufferMb    uint64  `json:"nicBufferMb"`
+	MinAvailableMb uint64  `json:"minAvailableMb"`
+	MemLimitMb     *uint64 `json:"memLimitMb,omitempty"`
+	MemAvailableMb *uint64 `json:"memAvailableMb,omitempty"`
+	WorkerRssMb    *uint64 `json:"workerRssMb,omitempty"`
 }
 
 type NicEntry struct {

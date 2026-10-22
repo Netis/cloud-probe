@@ -76,6 +76,11 @@
                 "pipeline": {
                     "min_buffer_size_mb": 128
                 }
+            },
+            "mem_fuse": {
+                "check_interval": "1s",
+                "fail_threshold": 3,
+                "min_available_mb": 256
             }
         }
     }

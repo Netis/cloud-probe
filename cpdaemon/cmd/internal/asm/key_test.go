@@ -7,7 +7,9 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,6 +17,15 @@ import (
 func TestVKey(t *testing.T) {
 	assert.Equal(t, "cpm.base_url", VKey.Cpm.BaseUrl)
 	assert.Equal(t, "cpm.worker.memory.policy", VKey.Cpm.Worker.Memory.Policy)
+}
+
+func TestSetDefaults_memFuse(t *testing.T) {
+	vp := viper.New()
+	SetDefaults(vp)
+	assert.Equal(t, "cpm.worker.mem_fuse.check_interval", VKey.Cpm.Worker.MemFuse.CheckInterval)
+	assert.Equal(t, 1*time.Second, vp.GetDuration(VKey.Cpm.Worker.MemFuse.CheckInterval))
+	assert.Equal(t, 3, vp.GetInt(VKey.Cpm.Worker.MemFuse.FailThreshold))
+	assert.Equal(t, uint64(256), vp.GetUint64(VKey.Cpm.Worker.MemFuse.MinAvailableMb))
 }
 
 // Every leaf key in a shipped example config must be a key cpdaemon reads; a misspelled key is

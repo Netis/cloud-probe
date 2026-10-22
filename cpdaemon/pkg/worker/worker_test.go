@@ -117,3 +117,32 @@ func TestWorker_StopReturnsAfterCleanup(t *testing.T) {
 		require.True(t, os.IsNotExist(err), "round %d: pid file still present after Stop", i)
 	}
 }
+
+// Kill does not wait for a graceful exit: a worker that ignores SIGINT, as cpworker draining a full pipeline
+// buffer effectively does, is gone at once, and the exit cleanup has run when Kill returns.
+func TestWorker_KillSkipsGracefulExit(t *testing.T) {
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "stubborn")
+	require.NoError(t, os.WriteFile(exe, []byte("#!/bin/sh\ntrap '' INT\nexec sleep 3600\n"), 0o755))
+	pidFile := filepath.Join(dir, "worker.pid")
+	w, err := NewWorker("test", ExecConfig{
+		Executable: exe,
+		ConfigFile: filepath.Join(dir, "tasks.json"),
+		PidFile:    pidFile,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, w.Start(context.Background(), &Config{LogLevel: "info", Control: ControlConfig{Type: "unix"}}))
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(pidFile)
+		return err == nil
+	}, 5*time.Second, time.Millisecond)
+
+	start := time.Now()
+	require.NoError(t, w.Kill())
+	require.Less(t, time.Since(start), 2*time.Second)
+
+	require.Zero(t, w.Pid())
+	_, err = os.Stat(pidFile)
+	require.True(t, os.IsNotExist(err), "pid file still present after Kill")
+}

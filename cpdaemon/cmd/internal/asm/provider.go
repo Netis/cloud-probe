@@ -20,6 +20,7 @@ import (
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cgroup"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/cpm"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/httpmix"
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/memfuse"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/tool"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/worker"
 	"github.com/Netis/cloud-probe/cpgolib/slogx"
@@ -214,6 +215,11 @@ func NewCpmSyncer(ins *Instance, vp *viper.Viper, cpmClient *cpm.HttpClient) (*c
 			StopWorkerAfterRegFailMuinutes: vp.GetInt(VKey.Cpm.Syncer.StopWorkerAfterRegFailMuinutes),
 			NicChangeDetectEnable:          vp.GetBool(VKey.Cpm.Syncer.NicChangeDetectEnable),
 			NicChangeDetectInterval:        vp.GetDuration(VKey.Cpm.Syncer.NicChangeDetectInterval),
+			MemFuse: memfuse.Config{
+				CheckInterval:  vp.GetDuration(VKey.Cpm.Worker.MemFuse.CheckInterval),
+				FailThreshold:  vp.GetInt(VKey.Cpm.Worker.MemFuse.FailThreshold),
+				MinAvailableMb: vp.GetUint64(VKey.Cpm.Worker.MemFuse.MinAvailableMb),
+			},
 		})
 	if err != nil {
 		return nil, err

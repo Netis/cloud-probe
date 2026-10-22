@@ -19,6 +19,7 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/process"
 
+	"github.com/Netis/cloud-probe/cpdaemon/pkg/memfuse"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/tool"
 	"github.com/Netis/cloud-probe/cpdaemon/pkg/version"
 	"github.com/Netis/cloud-probe/cpgolib/cpworker"
@@ -65,6 +66,7 @@ type SyncerConfig struct {
 	StopWorkerAfterRegFailMuinutes int
 	NicChangeDetectEnable          bool
 	NicChangeDetectInterval        time.Duration
+	MemFuse                        memfuse.Config
 }
 
 type Tool interface {
@@ -77,11 +79,14 @@ type IWorkerManager interface {
 	CreateIfDead(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) (*WorkerCreateResult, error)
 	Update(ctx context.Context, resp *SyncStrategyResponse, daemonUUID string, activeInstances []string) (*WorkerCreateResult, error)
 	Stop() error
+	Kill() error
+	NicBufferTotalMb(resp *SyncStrategyResponse, activeInstances []string) (uint64, error)
 	IsAlive(ctx context.Context) (bool, error)
 	StartTime() time.Time
 	Pid() int
 	CollectStatsSummary(ctx context.Context) (cpworker.StatsSummary, error)
 	SetLogger(lg *slog.Logger)
+	SetStartGate(gate StartGate)
 }
 
 type Client interface {
@@ -114,8 +119,13 @@ type Syncer struct {
 
 	lastStats [2]StatsWithPid
 
+	fuse              *memfuse.Fuse
+	memReader         memfuse.MemReader
+	defaultMemLimitMb uint64
+
 	logBuf *SyncLogBuffer
 	lg     *slog.Logger
+	fuseLg *slog.Logger
 }
 
 func killOrphanWorker(workerCfg WorkerConfig) error {
@@ -198,6 +208,9 @@ func NewSyncer(
 	if err := workerCfg.Validate(); err != nil {
 		return nil, err
 	}
+	if err := cfg.MemFuse.Validate(); err != nil {
+		return nil, err
+	}
 
 	// 只有在 cpdaemon 被kill时才会出现这种情况
 	if err := killOrphanWorker(workerCfg); err != nil {
@@ -205,7 +218,7 @@ func NewSyncer(
 	}
 
 	workerMgr := NewWorkerManager(workerCfg, tool)
-	return newSyncer(client, workerMgr, tool, cfg)
+	return newSyncer(client, workerMgr, tool, cfg, workerCfg.Memory.DefaultLimitMb)
 }
 
 func newSyncer(
@@ -213,6 +226,7 @@ func newSyncer(
 	workerMgr IWorkerManager,
 	tool Tool,
 	cfg SyncerConfig,
+	defaultMemLimitMb uint64,
 ) (*Syncer, error) {
 	logBuf := &SyncLogBuffer{}
 	lg := slog.New(slogx.Multiple(
@@ -228,11 +242,17 @@ func newSyncer(
 		cfg:         cfg,
 		nicsChanged: make(chan []NicEntry),
 
+		fuse:              memfuse.New(cfg.MemFuse),
+		memReader:         memfuse.NewGopsutilReader(),
+		defaultMemLimitMb: defaultMemLimitMb,
+
 		logBuf: logBuf,
 		lg:     lg.With(slogx.LoggerName("cpm.syncer")),
+		fuseLg: lg.With(slogx.LoggerName("cpm.memfuse")),
 
 		startTime: time.Now(),
 	}
+	workerMgr.SetStartGate(s.startGate)
 	if err := s.init(); err != nil {
 		return nil, err
 	}
@@ -458,6 +478,10 @@ func (s *Syncer) doRegister(ctx context.Context) error {
 			s.lg.Error("stop worker failed", slogx.Error(err))
 		}
 		s.resetSyncState()
+		if state := s.fuse.State(); state != memfuse.Disabled {
+			s.fuseLg.Info("memory fuse reset, daemon id changed", slog.String("state_before", state.String()))
+		}
+		s.fuse.Reset()
 	}
 	return nil
 }
@@ -471,6 +495,9 @@ func (s *Syncer) syncLoop(ctx context.Context) error {
 
 	otherTimer := time.NewTimer(time.Minute)
 	defer otherTimer.Stop()
+
+	fuseTicker := time.NewTicker(s.cfg.MemFuse.CheckInterval)
+	defer fuseTicker.Stop()
 
 	syncStrategyFailCount := 0
 	for {
@@ -509,6 +536,8 @@ func (s *Syncer) syncLoop(ctx context.Context) error {
 			s.syncMetric(ctx)
 			s.logTaskStats()
 			metricTimer.Reset(s.cfg.SyncMetricInterval)
+		case <-fuseTicker.C:
+			s.onFuseTick(ctx)
 		case <-otherTimer.C:
 			for _, warning := range s.workerCreateWarnings {
 				s.lg.Warn(warning.Error())
@@ -524,6 +553,9 @@ func (s *Syncer) syncLoop(ctx context.Context) error {
 func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) error {
 	if !res.Changed {
 		s.lg.Info("strategy unchanged")
+		if state := s.fuse.State(); state == memfuse.Tripped || state == memfuse.Fused {
+			return nil
+		}
 		alive, err := s.workerMgr.IsAlive(ctx)
 		if err != nil {
 			s.lg.Info("worker check alive failed", slogx.Error(err))
@@ -546,6 +578,9 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 			)
 
 			cr, err := s.workerMgr.CreateIfDead(ctx, s.syncResp, s.daemonUUID, activeInstances)
+			if s.refusedByFuse(ctx, err) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}
@@ -556,6 +591,12 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 		}
 
 		return s.updateIfInstanceChanged(ctx)
+	}
+
+	if !s.fuseAllowsStrategy(ctx, res.Response) {
+		// Advance the version; the content waits for a clear.
+		s.syncResp = res.Response
+		return nil
 	}
 
 	activeInstances, err := s.activeInstancesIfRequired(res.Response)
@@ -575,6 +616,12 @@ func (s *Syncer) applyStrategy(ctx context.Context, res *SyncStrategyResult) err
 	}
 
 	cr, err := s.workerMgr.Update(ctx, res.Response, s.daemonUUID, activeInstances)
+	if s.refusedByFuse(ctx, err) {
+		// Advance the version; the content waits for a clear.
+		s.syncResp = res.Response
+		s.syncActiveInstances = activeInstances
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -617,6 +664,9 @@ func (s *Syncer) updateIfInstanceChanged(ctx context.Context) error {
 		slog.Int("numItems", s.syncResp.NumItems(activeInstances)),
 	)
 	cr, err := s.workerMgr.Update(ctx, s.syncResp, s.daemonUUID, activeInstances)
+	if s.refusedByFuse(ctx, err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -631,6 +681,198 @@ func (s *Syncer) activeInstancesIfRequired(resp *SyncStrategyResponse) ([]string
 		return nil, nil
 	}
 	return s.tool.GetKvmInstances()
+}
+
+// fuseAllowsStrategy hands the fuse fields of a changed strategy to the fuse and reports whether the strategy may be
+// applied.
+func (s *Syncer) fuseAllowsStrategy(ctx context.Context, resp *SyncStrategyResponse) bool {
+	before, snap := s.fuse.State(), s.fuse.Snapshot()
+	apply := s.fuse.OnStrategy(resp.MemFuseEnabled, resp.MemFused)
+	after := s.fuse.State()
+	switch {
+	case !apply && (before == memfuse.Tripped || before == memfuse.Fused):
+		s.fuseLg.Warn(
+			"strategy ignored, memory fuse active",
+			slog.String("state", after.String()),
+			slog.Int("version", int(resp.Version)),
+		)
+	case !apply:
+		s.fuseLg.Warn("memory fused per cpm, worker not started")
+		if alive, _ := s.workerMgr.IsAlive(ctx); alive {
+			if err := s.workerMgr.Kill(); err != nil {
+				s.lg.Error("kill worker failed", slogx.Error(err))
+			}
+		}
+	case before == memfuse.Fused:
+		var attrs []any
+		if snap != nil {
+			attrs = append(attrs, slog.Int64("fused_at", snap.FusedAt.Unix()))
+		}
+		s.fuseLg.Info("memory fuse cleared by cpm", attrs...)
+	case before == memfuse.Disabled && after == memfuse.Armed:
+		s.fuseLg.Info(
+			"memory fuse enabled",
+			slog.Uint64("min_available_mb", s.cfg.MemFuse.MinAvailableMb),
+			slog.Duration("check_interval", s.cfg.MemFuse.CheckInterval),
+			slog.Int("fail_threshold", s.cfg.MemFuse.FailThreshold),
+		)
+	case before == memfuse.Armed && after == memfuse.Disabled:
+		s.fuseLg.Info("memory fuse disabled")
+	}
+	return apply
+}
+
+// fuseReading measures memory for the strategy resp would run.
+func (s *Syncer) fuseReading(ctx context.Context, resp *SyncStrategyResponse, activeInstances []string) (memfuse.Reading, error) {
+	avail, err := s.memReader.Available(ctx)
+	if err != nil {
+		return memfuse.Reading{}, err
+	}
+	// An unsizable strategy fails in the worker manager on its own; the reserve still applies.
+	nicCfg, _ := s.workerMgr.NicBufferTotalMb(resp, activeInstances)
+	r := memfuse.Reading{
+		MemAvailableMb: avail,
+		NicBufferCfgMb: nicCfg,
+		MemLimitMb:     resp.EffectiveMemLimitMb(s.defaultMemLimitMb),
+	}
+	if alive, _ := s.workerMgr.IsAlive(ctx); alive {
+		// For the report only; a failed read leaves 0.
+		r.WorkerRssMb, _ = s.memReader.ProcessRSS(ctx, s.workerMgr.Pid())
+	}
+	return r, nil
+}
+
+// startGate is the startup check. The worker manager asks it right before it allocates a capture ring, under its
+// lock, so it only decides: the caller handles a refusal with refusedByFuse. It refuses while tripped or fused, and
+// when the check trips the fuse. Only an armed fuse reads memory.
+func (s *Syncer) startGate(ctx context.Context, alloc RingAlloc) bool {
+	switch s.fuse.State() {
+	case memfuse.Disabled:
+		return true
+	case memfuse.Tripped, memfuse.Fused:
+		return false
+	}
+	avail, err := s.memReader.Available(ctx)
+	if err != nil {
+		s.fuseLg.Error("startup check skipped, read mem failed", slogx.Error(err))
+		return true
+	}
+	r := memfuse.Reading{
+		MemAvailableMb:    avail,
+		NicBufferCfgMb:    alloc.TotalCfgMb,
+		NewNicBufferCfgMb: alloc.NewCfgMb,
+		MemLimitMb:        alloc.MemLimitMb,
+	}
+	if alloc.Pid != 0 {
+		// For the report only; a failed read leaves 0.
+		r.WorkerRssMb, _ = s.memReader.ProcessRSS(ctx, alloc.Pid)
+	}
+	if s.fuse.BeforeStart(r) {
+		return true
+	}
+
+	attrs := []any{
+		slog.String("reason", string(memfuse.ReasonStartup)),
+		slog.Uint64("mem_available_mb", r.MemAvailableMb),
+		slog.Uint64("new_nic_buffer_mb", r.NewNicBufferMb()),
+		slog.Uint64("min_available_mb", s.cfg.MemFuse.MinAvailableMb),
+		slog.Uint64("nic_buffer_mb", r.NicBufferMb()),
+		slog.Uint64("nic_buffer_cfg_mb", r.NicBufferCfgMb),
+		slog.Uint64("mem_limit_mb", r.MemLimitMb),
+		slog.Uint64("worker_rss_mb", r.WorkerRssMb),
+	}
+	if alloc.Pid != 0 {
+		attrs = append(attrs, slog.Int("worker_pid", alloc.Pid))
+	}
+	s.fuseLg.Error("startup check failed, memory fuse tripped", attrs...)
+	return false
+}
+
+// refusedByFuse reports whether err is the start gate's refusal and, if so, finishes the trip: the worker is stopped
+// if it was running and the fuse is reported at once.
+func (s *Syncer) refusedByFuse(ctx context.Context, err error) bool {
+	if !errors.Is(err, ErrStartRefused) {
+		return false
+	}
+	s.trip(ctx)
+	return true
+}
+
+// onFuseTick is one runtime check.
+func (s *Syncer) onFuseTick(ctx context.Context) {
+	if s.fuse.State() != memfuse.Armed || s.syncResp == nil {
+		return
+	}
+	if alive, _ := s.workerMgr.IsAlive(ctx); !alive {
+		return
+	}
+	r, err := s.fuseReading(ctx, s.syncResp, s.syncActiveInstances)
+	if err != nil {
+		s.fuseLg.Error("read mem available failed", slogx.Error(err))
+		return
+	}
+
+	c := s.fuse.OnCheck(r)
+	switch {
+	case c.Tripped:
+		s.fuseLg.Error(
+			"runtime check failed, memory fuse tripped",
+			slog.String("reason", string(memfuse.ReasonRuntime)),
+			slog.Int("hits", c.Hits),
+			slog.Int("fail_threshold", s.cfg.MemFuse.FailThreshold),
+			slog.Uint64("mem_available_mb", r.MemAvailableMb),
+			slog.Uint64("min_available_mb", s.cfg.MemFuse.MinAvailableMb),
+			slog.Uint64("worker_rss_mb", r.WorkerRssMb),
+			slog.Uint64("mem_limit_mb", r.MemLimitMb),
+			slog.Uint64("nic_buffer_mb", r.NicBufferMb()),
+			slog.Int("worker_pid", s.workerMgr.Pid()),
+		)
+		s.trip(ctx)
+	case c.Hits > 0:
+		s.fuseLg.Warn(
+			"runtime check failed",
+			slog.Int("hits", c.Hits),
+			slog.Int("fail_threshold", s.cfg.MemFuse.FailThreshold),
+			slog.Uint64("mem_available_mb", r.MemAvailableMb),
+			slog.Uint64("min_available_mb", s.cfg.MemFuse.MinAvailableMb),
+			slog.Uint64("worker_rss_mb", r.WorkerRssMb),
+		)
+	case c.HitsBefore > 0:
+		s.fuseLg.Info(
+			"runtime check recovered",
+			slog.Int("hits_before", c.HitsBefore),
+			slog.Uint64("mem_available_mb", r.MemAvailableMb),
+			slog.Uint64("min_available_mb", s.cfg.MemFuse.MinAvailableMb),
+		)
+	}
+}
+
+// trip kills the worker of a fuse that just tripped and reports at once. The fuse is already tripped, so no path
+// starts the worker again while Kill blocks.
+func (s *Syncer) trip(ctx context.Context) {
+	if err := s.workerMgr.Kill(); err != nil {
+		s.lg.Error("kill worker failed", slogx.Error(err))
+	}
+	s.syncMetric(ctx)
+}
+
+func (s *Syncer) memFuseEntry() *MemFuseEntry {
+	state, snap := s.fuse.Report()
+	e := &MemFuseEntry{State: state.String(), MinAvailableMb: s.cfg.MemFuse.MinAvailableMb}
+	if snap == nil {
+		if s.syncResp != nil {
+			nicCfg, _ := s.workerMgr.NicBufferTotalMb(s.syncResp, s.syncActiveInstances)
+			e.NicBufferMb = memfuse.NicBufferMb(nicCfg)
+		}
+		return e
+	}
+	e.Reason = lo.ToPtr(string(snap.Reason))
+	e.FusedTimestamp = lo.ToPtr(snap.FusedAt.Unix())
+	e.NicBufferMb = snap.NicBufferMb()
+	e.MemLimitMb = lo.ToPtr(snap.MemLimitMb)
+	e.MemAvailableMb = lo.ToPtr(snap.MemAvailableMb)
+	e.WorkerRssMb = lo.ToPtr(snap.WorkerRssMb)
+	return e
 }
 
 func (s *Syncer) updateTaskStats(pid int, stats cpworker.StatsSummary) {
@@ -737,11 +979,19 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 		logs = []LogEntry{}
 	}
 	req.Logs = logs
+	req.MemFuse = s.memFuseEntry()
 
 	syncBegin := time.Now()
 	err = s.client.SyncMetrics(ctx, s.regResp.Id, req)
-	if err != nil {
+	switch {
+	case err != nil:
 		s.lg.Error("send metrics to cpm error", slogx.Error(err))
+	case s.fuse.OnReportAck():
+		s.fuseLg.Info(
+			"memory fuse reported to cpm",
+			slog.String("state", memfuse.Fused.String()),
+			slog.Int64("fused_at", s.fuse.Snapshot().FusedAt.Unix()),
+		)
 	}
 	durStats.sync = time.Since(syncBegin)
 
@@ -752,6 +1002,7 @@ func (s *Syncer) syncMetric(ctx context.Context) {
 		slog.String("system_dur", durStats.system.String()),
 		slog.String("sync_dur", durStats.sync.String()),
 		slog.Int("log_count", len(req.Logs)),
+		slog.String("mem_fuse_state", s.fuse.State().String()),
 	)
 }
 
